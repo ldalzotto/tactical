@@ -1,7 +1,15 @@
+// Wasm memory is imported (not module-owned), so JS decides the budget up
+// front. 32 pages (2 MiB) comfortably covers the module's static data/stack
+// plus the framebuffer with headroom; bump it if the app grows. If it's ever
+// too small, the C-side linear allocator asserts/traps instead of silently
+// corrupting memory, and the existing trap overlay below will show it.
+const MEMORY_PAGES = 32;
+const memory = new WebAssembly.Memory({ initial: MEMORY_PAGES });
+
 let wasmInstance = null;
 
 function decodeWasmString(ptr, len) {
-    const bytes = new Uint8Array(wasmInstance.exports.memory.buffer, ptr, len);
+    const bytes = new Uint8Array(memory.buffer, ptr, len);
     return new TextDecoder().decode(bytes);
 }
 
@@ -116,13 +124,27 @@ window.addEventListener('unhandledrejection', (event) => {
     handleError(event.reason instanceof Error ? event.reason : new Error(String(event.reason)));
 });
 
+let canvas = null;
+let ctx = null;
+let imageData = null;
+let fbBytes = 0;
+
 const importObject = {
     env: {
+        memory,
         report_panic(filePtr, fileLen, line, msgPtr, msgLen) {
             const file = decodeWasmString(filePtr, fileLen);
             const message = decodeWasmString(msgPtr, msgLen);
             renderOverlay(`PANIC\n\n${file}:${line}\n\n${message}`);
             throw new Error(`panic: ${file}:${line}: ${message}`);
+        },
+        create_window(width, height) {
+            canvas = document.getElementById('screen');
+            canvas.width = width;
+            canvas.height = height;
+            ctx = canvas.getContext('2d');
+            imageData = ctx.createImageData(width, height);
+            fbBytes = width * height * 4;
         },
     },
 };
@@ -130,21 +152,10 @@ const importObject = {
 WebAssembly.instantiateStreaming(fetch('/build/app.wasm'), importObject)
     .then(({ instance }) => {
         wasmInstance = instance;
-        const { memory, get_framebuffer, get_width, get_height, init, frame } = instance.exports;
+        const { get_framebuffer, init, frame } = instance.exports;
 
-        const width = get_width();
-        const height = get_height();
-
-        const canvas = document.getElementById('screen');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        const imageData = ctx.createImageData(width, height);
-
-        const fbPtr = get_framebuffer();
-        const fbBytes = width * height * 4;
-
-        init();
+        const statePtr = init(memory.buffer.byteLength);
+        const fbPtr = get_framebuffer(statePtr);
 
         let lastTimestamp = null;
 
@@ -152,7 +163,7 @@ WebAssembly.instantiateStreaming(fetch('/build/app.wasm'), importObject)
             const dtMs = lastTimestamp === null ? 0 : timestamp - lastTimestamp;
             lastTimestamp = timestamp;
 
-            frame(dtMs);
+            frame(statePtr, dtMs);
 
             imageData.data.set(new Uint8ClampedArray(memory.buffer, fbPtr, fbBytes));
             ctx.putImageData(imageData, 0, 0);

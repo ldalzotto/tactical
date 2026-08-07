@@ -8,7 +8,7 @@ const { debounce } = require('./debounce');
 const { runBuild } = require('./build-runner');
 const { symbolicate } = require('./symbolicate');
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 8081;
 const ROOT = path.join(__dirname, '..');
 
 const RELOAD_EVENTS_PATH = '/__reload';

@@ -1,53 +1,57 @@
 #include <stdint.h>
 
-#include "assert.h"
+#include "memory.h"
 
 #define FB_WIDTH 320
 #define FB_HEIGHT 240
 
-static uint8_t framebuffer[FB_WIDTH * FB_HEIGHT * 4];
+extern unsigned char __heap_base;
 
-static float elapsed_ms = 0.0f;
+__attribute__((import_module("env"), import_name("create_window")))
+extern void create_window(int width, int height);
 
-__attribute__((export_name("get_framebuffer")))
-uint8_t *get_framebuffer(void) {
-    return framebuffer;
-}
-
-__attribute__((export_name("get_width")))
-int get_width(void) {
-    return FB_WIDTH;
-}
-
-__attribute__((export_name("get_height")))
-int get_height(void) {
-    return FB_HEIGHT;
-}
+typedef struct {
+    linear_allocator_t allocator;
+    uint8_t *framebuffer;
+    float elapsed_ms;
+} app_state_t;
 
 __attribute__((export_name("init")))
-void init(void) {
-    assert(FB_WIDTH > 0 && FB_HEIGHT > 0);
-    elapsed_ms = 0.0f;
+app_state_t *init(uint32_t memory_size) {
+    slice_t memory = { &__heap_base, (void *)(uintptr_t)memory_size };
+    linear_allocator_t bootstrap = linear_allocator_init(memory);
+
+    slice_t state_slice = linear_allocator_push(&bootstrap, sizeof(app_state_t));
+    app_state_t *state = (app_state_t *)state_slice.begin;
+
+    state->allocator = bootstrap;
+    state->elapsed_ms = 0.0f;
+
+    slice_t fb_slice = linear_allocator_push(&state->allocator, (size_t)FB_WIDTH * FB_HEIGHT * 4);
+    state->framebuffer = (uint8_t *)fb_slice.begin;
+
+    create_window(FB_WIDTH, FB_HEIGHT);
+
+    return state;
 }
 
-__attribute__((export_name("debug_trigger_trap")))
-void debug_trigger_trap(void) {
-    volatile int *p = (int *)0xfffffff0u;
-    *p = 1;
+__attribute__((export_name("get_framebuffer")))
+uint8_t *get_framebuffer(app_state_t *state) {
+    return state->framebuffer;
 }
 
 __attribute__((export_name("frame")))
-void frame(float dt_ms) {
-    elapsed_ms += dt_ms;
-    int shift = (int)(elapsed_ms * 0.05f);
+void frame(app_state_t *state, float dt_ms) {
+    state->elapsed_ms += dt_ms;
+    int shift = (int)(state->elapsed_ms * 0.05f);
 
     for (int y = 0; y < FB_HEIGHT; y++) {
         for (int x = 0; x < FB_WIDTH; x++) {
             int idx = (y * FB_WIDTH + x) * 4;
-            framebuffer[idx + 0] = (uint8_t)(x + shift);
-            framebuffer[idx + 1] = (uint8_t)(y - shift);
-            framebuffer[idx + 2] = (uint8_t)((x + y) / 2 + shift);
-            framebuffer[idx + 3] = 255;
+            state->framebuffer[idx + 0] = (uint8_t)(x + shift);
+            state->framebuffer[idx + 1] = (uint8_t)(y - shift);
+            state->framebuffer[idx + 2] = (uint8_t)((x + y) / 2 + shift);
+            state->framebuffer[idx + 3] = 255;
         }
     }
 }

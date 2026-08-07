@@ -21,10 +21,11 @@ endif()
 
 message(STATUS "CONFIG: ${CMAKE_BUILD_TYPE}")
 
-add_executable(app 
+add_executable(app
     src/assert.c
+    src/memory.c
 
-    src/main.c 
+    src/main.c
 )
 
 target_compile_options(app PRIVATE -ffreestanding -fno-builtin)
@@ -33,7 +34,7 @@ target_compile_options(app PRIVATE $<$<CONFIG:Release>:-O3>)
 target_compile_definitions(app PRIVATE $<$<CONFIG:Release>:NDEBUG>)
 
 find_program(WASM_LD wasm-ld REQUIRED)
-target_link_options(app PRIVATE -nostdlib -fuse-ld=${WASM_LD} -Wl,--no-entry)
+target_link_options(app PRIVATE -nostdlib -fuse-ld=${WASM_LD} -Wl,--no-entry -Wl,--import-memory)
 
 set_target_properties(app PROPERTIES
     SUFFIX ".wasm"
