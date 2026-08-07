@@ -8,5 +8,8 @@ int panic_strlen(const char *s);
 __attribute__((noreturn))
 void panic(const char *file, int line, const char *msg);
 
-#define PANIC(msg) panic(__FILE__, __LINE__, (msg))
-#define ASSERT(cond) do { if (!(cond)) { PANIC("assertion failed: " #cond); } } while (0)
+#ifndef NDEBUG
+#define ASSERT(cond, msg) do { if (!(cond)) { panic(__FILE__, __LINE__, (msg)); } } while (0)
+#else
+#define ASSERT(cond, msg) ((void)0)
+#endif

@@ -15,9 +15,16 @@ project(app C)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
+endif()
+
 add_executable(app src/main.c src/panic.c)
 
-target_compile_options(app PRIVATE -g -O0 -ffreestanding -fno-builtin)
+target_compile_options(app PRIVATE -ffreestanding -fno-builtin)
+target_compile_options(app PRIVATE $<$<CONFIG:Debug>:-g -O0>)
+target_compile_options(app PRIVATE $<$<CONFIG:Release>:-O3>)
+target_compile_definitions(app PRIVATE $<$<CONFIG:Release>:NDEBUG>)
 
 find_program(WASM_LD wasm-ld REQUIRED)
 target_link_options(app PRIVATE -nostdlib -fuse-ld=${WASM_LD} -Wl,--no-entry)

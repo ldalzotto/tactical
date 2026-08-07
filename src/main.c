@@ -26,18 +26,18 @@ int get_height(void) {
 
 __attribute__((export_name("init")))
 void init(void) {
-    ASSERT(FB_WIDTH > 0 && FB_HEIGHT > 0);
+    ASSERT(FB_WIDTH > 0 && FB_HEIGHT > 0, "invalid framebuffer dimensions");
     elapsed_ms = 0.0f;
 }
 
 __attribute__((export_name("debug_trigger_assert")))
 void debug_trigger_assert(void) {
-    ASSERT(1 == 2);
+    ASSERT(1 == 2, "assertion failed: 1 == 2");
 }
 
 __attribute__((export_name("debug_trigger_panic")))
 void debug_trigger_panic(void) {
-    PANIC("deliberate test panic");
+    ASSERT(0, "deliberate test panic");
 }
 
 __attribute__((export_name("frame")))
