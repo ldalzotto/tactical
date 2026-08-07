@@ -9,7 +9,7 @@ __attribute__((noreturn))
 void panic(const char *file, int line, const char *msg);
 
 #ifndef NDEBUG
-#define ASSERT(cond, msg) do { if (!(cond)) { panic(__FILE__, __LINE__, (msg)); } } while (0)
+#define assert(cond, msg) do { if (!(cond)) { panic(__FILE__, __LINE__, (msg)); } } while (0)
 #else
-#define ASSERT(cond, msg) ((void)0)
+#define assert(cond, msg) ((void)0)
 #endif
