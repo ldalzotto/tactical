@@ -2,14 +2,14 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { createSSEHub } = require('./lib/sse-hub');
-const { watchPaths } = require('./lib/watcher');
-const { debounce } = require('./lib/debounce');
-const { runBuild } = require('./lib/build-runner');
-const { symbolicate } = require('./lib/symbolicate');
+const { createSSEHub } = require('./sse-hub');
+const { watchPaths } = require('./watcher');
+const { debounce } = require('./debounce');
+const { runBuild } = require('./build-runner');
+const { symbolicate } = require('./symbolicate');
 
 const PORT = process.env.PORT || 8080;
-const ROOT = __dirname;
+const ROOT = path.join(__dirname, '..');
 
 const RELOAD_EVENTS_PATH = '/__reload';
 const SYMBOLICATE_PATH = '/__symbolicate';
