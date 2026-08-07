@@ -4,7 +4,6 @@
   "private": true,
   "scripts": {
     "build": "cmake -S . -B build && cmake --build build",
-    "serve": "node server.js",
-    "start": "npm run serve"
+    "start": "node server.js"
   }
 }
