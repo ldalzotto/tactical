@@ -68,10 +68,7 @@ function formatResolvedFrame(frame) {
         .join('\n');
 }
 
-let trapped = false;
-
 async function handleWasmTrap(error) {
-    trapped = true;
     const message = error.message || String(error);
     const rawFrames = parseTrapFrames(error.stack || '');
 
@@ -97,17 +94,27 @@ async function handleWasmTrap(error) {
     }
 }
 
-function callGuarded(fn, ...args) {
-    try {
-        return fn(...args);
-    } catch (err) {
-        if (err instanceof WebAssembly.RuntimeError) {
-            handleWasmTrap(err);
-            return undefined;
-        }
-        throw err;
+function handleError(error) {
+    if (error instanceof WebAssembly.RuntimeError) {
+        handleWasmTrap(error);
+        return;
     }
+    console.error(error);
+    if (document.getElementById('panic-overlay')) {
+        return;
+    }
+    renderOverlay(`ERROR\n\n${error.message || String(error)}\n\n${error.stack || ''}`);
 }
+
+window.addEventListener('error', (event) => {
+    event.preventDefault();
+    handleError(event.error ?? new Error(event.message));
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+    event.preventDefault();
+    handleError(event.reason instanceof Error ? event.reason : new Error(String(event.reason)));
+});
 
 const importObject = {
     env: {
@@ -137,8 +144,7 @@ WebAssembly.instantiateStreaming(fetch('/build/app.wasm'), importObject)
         const fbPtr = get_framebuffer();
         const fbBytes = width * height * 4;
 
-        callGuarded(init);
-        if (trapped) return;
+        init();
 
         let lastTimestamp = null;
 
@@ -146,8 +152,7 @@ WebAssembly.instantiateStreaming(fetch('/build/app.wasm'), importObject)
             const dtMs = lastTimestamp === null ? 0 : timestamp - lastTimestamp;
             lastTimestamp = timestamp;
 
-            callGuarded(frame, dtMs);
-            if (trapped) return;
+            frame(dtMs);
 
             imageData.data.set(new Uint8ClampedArray(memory.buffer, fbPtr, fbBytes));
             ctx.putImageData(imageData, 0, 0);
@@ -156,7 +161,4 @@ WebAssembly.instantiateStreaming(fetch('/build/app.wasm'), importObject)
         }
 
         requestAnimationFrame(tick);
-    })
-    .catch((err) => {
-        console.error('failed to load app.wasm', err);
     });
