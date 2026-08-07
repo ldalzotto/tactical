@@ -5,12 +5,10 @@ function decodeWasmString(ptr, len) {
     return new TextDecoder().decode(bytes);
 }
 
-function showPanicOverlay(file, line, message) {
+function renderOverlay(text) {
     if (document.getElementById('panic-overlay')) {
         return;
     }
-
-    const text = `PANIC\n\n${file}:${line}\n\n${message}`;
 
     const overlay = document.createElement('div');
     overlay.id = 'panic-overlay';
@@ -51,12 +49,72 @@ function showPanicOverlay(file, line, message) {
     document.body.appendChild(overlay);
 }
 
+function parseTrapFrames(stack) {
+    const re = /wasm-function\[(\d+)\]:0x([0-9a-fA-F]+)/g;
+    const frames = [];
+    let match;
+    while ((match = re.exec(stack)) !== null) {
+        frames.push({ funcIndex: Number(match[1]), offset: parseInt(match[2], 16) });
+    }
+    return frames;
+}
+
+function formatResolvedFrame(frame) {
+    if (!frame.locations || frame.locations.length === 0) {
+        return `  wasm-function[${frame.funcIndex}]:0x${frame.offset.toString(16)} (unresolved)`;
+    }
+    return frame.locations
+        .map((loc) => `  ${loc.function} at ${loc.file}:${loc.line}:${loc.column}`)
+        .join('\n');
+}
+
+let trapped = false;
+
+async function handleWasmTrap(error) {
+    trapped = true;
+    const message = error.message || String(error);
+    const rawFrames = parseTrapFrames(error.stack || '');
+
+    if (rawFrames.length === 0) {
+        renderOverlay(`TRAP\n\n${message}\n\n${error.stack || ''}`);
+        return;
+    }
+
+    try {
+        const response = await fetch('/__symbolicate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ frames: rawFrames }),
+        });
+        const data = await response.json();
+        if (!response.ok || data.error) {
+            throw new Error(data.error || `symbolicate returned ${response.status}`);
+        }
+        const stackText = data.frames.map(formatResolvedFrame).join('\n');
+        renderOverlay(`TRAP\n\n${message}\n\n${stackText}`);
+    } catch (symbolicateErr) {
+        renderOverlay(`TRAP\n\n${message}\n\n(symbolication failed: ${symbolicateErr.message})\n\n${error.stack || ''}`);
+    }
+}
+
+function callGuarded(fn, ...args) {
+    try {
+        return fn(...args);
+    } catch (err) {
+        if (err instanceof WebAssembly.RuntimeError) {
+            handleWasmTrap(err);
+            return undefined;
+        }
+        throw err;
+    }
+}
+
 const importObject = {
     env: {
         report_panic(filePtr, fileLen, line, msgPtr, msgLen) {
             const file = decodeWasmString(filePtr, fileLen);
             const message = decodeWasmString(msgPtr, msgLen);
-            showPanicOverlay(file, line, message);
+            renderOverlay(`PANIC\n\n${file}:${line}\n\n${message}`);
             throw new Error(`panic: ${file}:${line}: ${message}`);
         },
     },
@@ -79,7 +137,8 @@ WebAssembly.instantiateStreaming(fetch('/build/app.wasm'), importObject)
         const fbPtr = get_framebuffer();
         const fbBytes = width * height * 4;
 
-        init();
+        callGuarded(init);
+        if (trapped) return;
 
         let lastTimestamp = null;
 
@@ -87,7 +146,8 @@ WebAssembly.instantiateStreaming(fetch('/build/app.wasm'), importObject)
             const dtMs = lastTimestamp === null ? 0 : timestamp - lastTimestamp;
             lastTimestamp = timestamp;
 
-            frame(dtMs);
+            callGuarded(frame, dtMs);
+            if (trapped) return;
 
             imageData.data.set(new Uint8ClampedArray(memory.buffer, fbPtr, fbBytes));
             ctx.putImageData(imageData, 0, 0);

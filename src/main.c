@@ -40,6 +40,12 @@ void debug_trigger_panic(void) {
     assert(0, "deliberate test panic");
 }
 
+__attribute__((export_name("debug_trigger_trap")))
+void debug_trigger_trap(void) {
+    volatile int *p = (int *)0xfffffff0u;
+    *p = 1;
+}
+
 __attribute__((export_name("frame")))
 void frame(float dt_ms) {
     elapsed_ms += dt_ms;

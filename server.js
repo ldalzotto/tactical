@@ -6,11 +6,14 @@ const { createSSEHub } = require('./lib/sse-hub');
 const { watchPaths } = require('./lib/watcher');
 const { debounce } = require('./lib/debounce');
 const { runBuild } = require('./lib/build-runner');
+const { symbolicate } = require('./lib/symbolicate');
 
 const PORT = process.env.PORT || 8080;
 const ROOT = __dirname;
 
 const RELOAD_EVENTS_PATH = '/__reload';
+const SYMBOLICATE_PATH = '/__symbolicate';
+const MAX_SYMBOLICATE_BODY_BYTES = 64 * 1024;
 const WATCH_ROOTS = [path.join(ROOT, 'src'), path.join(ROOT, 'web')];
 const WATCH_EXTENSIONS = ['.c', '.h', '.js', '.html'];
 const REBUILD_DEBOUNCE_MS = 100;
@@ -37,6 +40,35 @@ function resolveFile(urlPath) {
     return filePath;
 }
 
+function handleSymbolicate(req, res) {
+    let body = '';
+    let tooLarge = false;
+
+    req.on('data', (chunk) => {
+        body += chunk;
+        if (body.length > MAX_SYMBOLICATE_BODY_BYTES) {
+            tooLarge = true;
+            res.writeHead(413);
+            res.end('Payload too large');
+            req.destroy();
+        }
+    });
+
+    req.on('end', async () => {
+        if (tooLarge) return;
+
+        try {
+            const { frames } = JSON.parse(body);
+            const resolved = await symbolicate({ wasmPath: path.join(ROOT, 'build', 'app.wasm'), frames });
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ frames: resolved }));
+        } catch (err) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        }
+    });
+}
+
 const sseHub = createSSEHub();
 
 const server = http.createServer((req, res) => {
@@ -44,6 +76,11 @@ const server = http.createServer((req, res) => {
 
     if (urlPath === RELOAD_EVENTS_PATH) {
         sseHub.handle(req, res);
+        return;
+    }
+
+    if (urlPath === SYMBOLICATE_PATH && req.method === 'POST') {
+        handleSymbolicate(req, res);
         return;
     }
 
