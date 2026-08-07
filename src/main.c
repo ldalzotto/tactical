@@ -1,6 +1,6 @@
 #include <stdint.h>
 
-#include "panic.h"
+#include "assert.h"
 
 #define FB_WIDTH 320
 #define FB_HEIGHT 240
@@ -26,18 +26,8 @@ int get_height(void) {
 
 __attribute__((export_name("init")))
 void init(void) {
-    assert(FB_WIDTH > 0 && FB_HEIGHT > 0, "invalid framebuffer dimensions");
+    assert(FB_WIDTH > 0 && FB_HEIGHT > 0);
     elapsed_ms = 0.0f;
-}
-
-__attribute__((export_name("debug_trigger_assert")))
-void debug_trigger_assert(void) {
-    assert(1 == 2, "assertion failed: 1 == 2");
-}
-
-__attribute__((export_name("debug_trigger_panic")))
-void debug_trigger_panic(void) {
-    assert(0, "deliberate test panic");
 }
 
 __attribute__((export_name("debug_trigger_trap")))
@@ -49,7 +39,6 @@ void debug_trigger_trap(void) {
 __attribute__((export_name("frame")))
 void frame(float dt_ms) {
     elapsed_ms += dt_ms;
-
     int shift = (int)(elapsed_ms * 0.05f);
 
     for (int y = 0; y < FB_HEIGHT; y++) {

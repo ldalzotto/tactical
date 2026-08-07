@@ -21,7 +21,11 @@ endif()
 
 message(STATUS "CONFIG: ${CMAKE_BUILD_TYPE}")
 
-add_executable(app src/main.c src/panic.c)
+add_executable(app 
+    src/assert.c
+
+    src/main.c 
+)
 
 target_compile_options(app PRIVATE -ffreestanding -fno-builtin)
 target_compile_options(app PRIVATE $<$<CONFIG:Debug>:-g -O0>)
