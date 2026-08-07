@@ -14,6 +14,7 @@ extern void create_window(int width, int height);
 
 typedef struct {
     linear_allocator_t allocator;
+    slice_t framebuffer_align;
     slice_uint8_t framebuffer;
     float elapsed_ms;
 } app_state_t;
@@ -29,13 +30,20 @@ app_state_t *init(uint32_t memory_size) {
     state->allocator = bootstrap;
     state->elapsed_ms = 0.0f;
 
-    linear_allocator_push_alignment(&state->allocator, _Alignof(uint32_t));
+    state->framebuffer_align = linear_allocator_push_alignment(&state->allocator, _Alignof(uint32_t));
     slice_t fb_slice = linear_allocator_push(&state->allocator, (size_t)FB_WIDTH * FB_HEIGHT * 4);
     state->framebuffer.slice = fb_slice;
 
     create_window(FB_WIDTH, FB_HEIGHT);
 
     return state;
+}
+
+__attribute__((export_name("deinit")))
+void deinit(app_state_t *state) {
+    linear_allocator_pop(&state->allocator, state->framebuffer.slice);
+    linear_allocator_pop(&state->allocator, state->framebuffer_align);
+    linear_allocator_pop(&state->allocator, (slice_t){state, state + 1});
 }
 
 __attribute__((export_name("get_framebuffer")))
