@@ -19,6 +19,8 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
 endif()
 
+message(STATUS "CONFIG: ${CMAKE_BUILD_TYPE}")
+
 add_executable(app src/main.c src/panic.c)
 
 target_compile_options(app PRIVATE -ffreestanding -fno-builtin)
