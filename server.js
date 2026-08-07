@@ -2,8 +2,18 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { createSSEHub } = require('./lib/sse-hub');
+const { watchPaths } = require('./lib/watcher');
+const { debounce } = require('./lib/debounce');
+const { runBuild } = require('./lib/build-runner');
+
 const PORT = process.env.PORT || 8080;
 const ROOT = __dirname;
+
+const RELOAD_EVENTS_PATH = '/__reload';
+const WATCH_ROOTS = [path.join(ROOT, 'src'), path.join(ROOT, 'web')];
+const WATCH_EXTENSIONS = ['.c', '.h', '.js', '.html'];
+const REBUILD_DEBOUNCE_MS = 100;
 
 const ROUTES = [
     { prefix: '/build/', dir: path.join(ROOT, 'build') },
@@ -27,8 +37,16 @@ function resolveFile(urlPath) {
     return filePath;
 }
 
+const sseHub = createSSEHub();
+
 const server = http.createServer((req, res) => {
     const urlPath = decodeURIComponent(req.url.split('?')[0]);
+
+    if (urlPath === RELOAD_EVENTS_PATH) {
+        sseHub.handle(req, res);
+        return;
+    }
+
     const filePath = resolveFile(urlPath);
 
     if (!filePath) {
@@ -49,6 +67,29 @@ const server = http.createServer((req, res) => {
     });
 });
 
+const rebuild = debounce(() => {
+    runBuild({ cwd: ROOT })
+        .catch((err) => {
+            console.error('build failed:', err.message);
+        })
+        .finally(() => {
+            sseHub.broadcast('reload');
+        });
+}, REBUILD_DEBOUNCE_MS);
+
+const watcher = watchPaths(WATCH_ROOTS, WATCH_EXTENSIONS, (filename) => {
+    console.log(`change detected: ${filename}`);
+    rebuild();
+});
+
 server.listen(PORT, () => {
     console.log(`Serving at http://localhost:${PORT}`);
+    runBuild({ cwd: ROOT }).catch((err) => {
+        console.error('initial build failed:', err.message);
+    });
+});
+
+process.on('SIGINT', () => {
+    watcher.close();
+    server.close(() => process.exit(0));
 });
