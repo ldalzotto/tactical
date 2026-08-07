@@ -27,6 +27,7 @@ app_state_t *init(uint32_t memory_size) {
     state->allocator = bootstrap;
     state->elapsed_ms = 0.0f;
 
+    linear_allocator_push_alignment(&state->allocator, _Alignof(uint32_t));
     slice_t fb_slice = linear_allocator_push(&state->allocator, (size_t)FB_WIDTH * FB_HEIGHT * 4);
     state->framebuffer = (uint8_t *)fb_slice.begin;
 

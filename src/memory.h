@@ -15,4 +15,5 @@ typedef struct {
 linear_allocator_t linear_allocator_init(slice_t data);
 void linear_allocator_deinit(linear_allocator_t *allocator);
 slice_t linear_allocator_push(linear_allocator_t *allocator, size_t size);
+slice_t linear_allocator_push_alignment(linear_allocator_t *allocator, size_t alignment);
 void linear_allocator_pop(linear_allocator_t *allocator, slice_t marker);
