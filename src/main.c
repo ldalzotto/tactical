@@ -1,5 +1,7 @@
 #include <stdint.h>
 
+#include "panic.h"
+
 #define FB_WIDTH 320
 #define FB_HEIGHT 240
 
@@ -24,7 +26,18 @@ int get_height(void) {
 
 __attribute__((export_name("init")))
 void init(void) {
+    ASSERT(FB_WIDTH > 0 && FB_HEIGHT > 0);
     elapsed_ms = 0.0f;
+}
+
+__attribute__((export_name("debug_trigger_assert")))
+void debug_trigger_assert(void) {
+    ASSERT(1 == 2);
+}
+
+__attribute__((export_name("debug_trigger_panic")))
+void debug_trigger_panic(void) {
+    PANIC("deliberate test panic");
 }
 
 __attribute__((export_name("frame")))

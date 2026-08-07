@@ -5,6 +5,7 @@
   "scripts": {
     "build": "cmake -S . -B build && cmake --build build",
     "start": "node server.js",
+    "pretest": "npm run build",
     "test": "node --test"
   }
 }
