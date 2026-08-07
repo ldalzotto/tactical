@@ -15,7 +15,7 @@ project(app C)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-add_executable(app src/main.c)
+add_executable(app src/main.c src/panic.c)
 
 target_compile_options(app PRIVATE -g -O0 -ffreestanding -fno-builtin)
 
