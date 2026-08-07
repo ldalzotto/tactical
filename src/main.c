@@ -2,6 +2,8 @@
 
 #include "memory.h"
 
+SLICE_DEFINE(uint8_t);
+
 #define FB_WIDTH 320
 #define FB_HEIGHT 240
 
@@ -12,7 +14,7 @@ extern void create_window(int width, int height);
 
 typedef struct {
     linear_allocator_t allocator;
-    uint8_t *framebuffer;
+    slice_uint8_t framebuffer;
     float elapsed_ms;
 } app_state_t;
 
@@ -29,7 +31,7 @@ app_state_t *init(uint32_t memory_size) {
 
     linear_allocator_push_alignment(&state->allocator, _Alignof(uint32_t));
     slice_t fb_slice = linear_allocator_push(&state->allocator, (size_t)FB_WIDTH * FB_HEIGHT * 4);
-    state->framebuffer = (uint8_t *)fb_slice.begin;
+    state->framebuffer.slice = fb_slice;
 
     create_window(FB_WIDTH, FB_HEIGHT);
 
@@ -38,7 +40,7 @@ app_state_t *init(uint32_t memory_size) {
 
 __attribute__((export_name("get_framebuffer")))
 uint8_t *get_framebuffer(app_state_t *state) {
-    return state->framebuffer;
+    return state->framebuffer.begin;
 }
 
 __attribute__((export_name("frame")))
@@ -49,10 +51,10 @@ void frame(app_state_t *state, float dt_ms) {
     for (int y = 0; y < FB_HEIGHT; y++) {
         for (int x = 0; x < FB_WIDTH; x++) {
             int idx = (y * FB_WIDTH + x) * 4;
-            state->framebuffer[idx + 0] = (uint8_t)(x + shift);
-            state->framebuffer[idx + 1] = (uint8_t)(y - shift);
-            state->framebuffer[idx + 2] = (uint8_t)((x + y) / 2 + shift);
-            state->framebuffer[idx + 3] = 255;
+            SLICE_AT(state->framebuffer, idx + 0) = (uint8_t)(x + shift);
+            SLICE_AT(state->framebuffer, idx + 1) = (uint8_t)(y - shift);
+            SLICE_AT(state->framebuffer, idx + 2) = (uint8_t)((x + y) / 2 + shift);
+            SLICE_AT(state->framebuffer, idx + 3) = 255;
         }
     }
 }

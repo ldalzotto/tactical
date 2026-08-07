@@ -34,3 +34,18 @@ void linear_allocator_pop(linear_allocator_t *allocator, slice_t marker) {
     assert(marker.begin >= allocator->data.begin && marker.end == allocator->cursor);
     allocator->cursor = marker.begin;
 }
+
+void *slice_at(slice_t s, size_t index, size_t alignment) {
+    assert((alignment & (alignment - 1)) == 0);
+    void *result = (char *)s.begin + index;
+    assert(result <= s.end);
+    assert(((uintptr_t)result & (alignment - 1)) == 0);
+    return result;
+}
+
+slice_t slice_advance(slice_t s, size_t by) {
+    void *begin = (char *)s.begin + by;
+    assert(begin <= s.end);
+    slice_t result = { begin, s.end };
+    return result;
+}
