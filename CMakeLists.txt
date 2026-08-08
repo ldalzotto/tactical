@@ -21,7 +21,10 @@ endif()
 
 message(STATUS "CONFIG: ${CMAKE_BUILD_TYPE}")
 
-add_executable(app
+option(APP_BUILD_TESTS "Build src/test.c's test-discovery/test-runner exports into app.wasm" ON)
+message(STATUS "APP_BUILD_TESTS: ${APP_BUILD_TESTS}")
+
+set(APP_SOURCES
     src/assert.c
     src/memory.c
     src/memory_debug.c
@@ -30,6 +33,12 @@ add_executable(app
 
     src/main.c
 )
+
+if(APP_BUILD_TESTS)
+    list(APPEND APP_SOURCES src/test.c)
+endif()
+
+add_executable(app ${APP_SOURCES})
 
 target_compile_options(app PRIVATE -ffreestanding -fno-builtin)
 target_compile_options(app PRIVATE $<$<CONFIG:Debug>:-g -O0>)
