@@ -11,9 +11,38 @@ static void test_fail_example(void) {
     assert(1 + 1 == 3);
 }
 
+static void test_linear_allocator_pop_move(void) {
+    static char buffer[64];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    slice_t a = linear_allocator_push(&allocator, 4);
+    ((char *)a.begin)[0] = 'A'; ((char *)a.begin)[1] = 'A';
+    ((char *)a.begin)[2] = 'A'; ((char *)a.begin)[3] = 'A';
+
+    slice_t b = linear_allocator_push(&allocator, 4);
+    (void)b;
+
+    slice_t c = linear_allocator_push(&allocator, 4);
+    ((char *)c.begin)[0] = 'C'; ((char *)c.begin)[1] = 'C';
+    ((char *)c.begin)[2] = 'C'; ((char *)c.begin)[3] = 'C';
+
+    linear_allocator_pop_move(&allocator, c, b);
+
+    assert(((char *)b.begin)[0] == 'C');
+    assert(((char *)b.begin)[1] == 'C');
+    assert(((char *)b.begin)[2] == 'C');
+    assert(((char *)b.begin)[3] == 'C');
+    assert(allocator.cursor == byteoffset(b.begin, 4));
+
+    linear_allocator_pop(&allocator, (slice_t){ b.begin, allocator.cursor });
+    linear_allocator_pop(&allocator, a);
+}
+
 static const test_case_t g_tests[] = {
     { TEST_NAME("pass_example"), test_pass_example },
     { TEST_NAME("fail_example"), test_fail_example },
+    { TEST_NAME("linear_allocator_pop_move"), test_linear_allocator_pop_move },
 };
 
 #define TEST_COUNT (sizeof(g_tests) / sizeof(g_tests[0]))
