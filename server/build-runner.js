@@ -1,6 +1,6 @@
-const { spawn: defaultSpawn } = require('node:child_process');
+const { spawn } = require('node:child_process');
 
-function runBuild({ spawn = defaultSpawn, cwd, stdio = 'inherit' } = {}) {
+function runBuild({ cwd, stdio = 'inherit' } = {}) {
     return new Promise((resolve, reject) => {
         const buildScript = process.env.BUILD_MODE === 'release' ? 'build:release' : 'build';
         const proc = spawn('npm', ['run', buildScript], { cwd, stdio });
