@@ -5,6 +5,7 @@
   "scripts": {
     "build": "cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build",
     "build:release": "cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build",
+    "build:pages": "node scripts/build-pages.js",
     "start": "node server/server.js",
     "start:release": "BUILD_MODE=release node server/server.js"
   }
