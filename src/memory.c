@@ -39,6 +39,14 @@ void linear_allocator_pop(linear_allocator_t *allocator, slice_t marker) {
     allocator->cursor = marker.begin;
 }
 
+void linear_allocator_pop_move(linear_allocator_t *allocator, slice_t from, slice_t to) {
+    assert(to.begin <= from.begin);
+    assert(from.end == allocator->cursor);
+    ptrdiff_t size = (char *)from.end - (char *)from.begin;
+    __builtin_memmove(to.begin, from.begin, (size_t)size);
+    allocator->cursor = byteoffset(to.begin, size);
+}
+
 void *slice_at(slice_t s, size_t index, size_t alignment) {
     assert((alignment & (alignment - 1)) == 0);
     void *result = byteoffset(s.begin, (ptrdiff_t)index);
