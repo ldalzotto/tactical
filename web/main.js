@@ -124,10 +124,8 @@ window.addEventListener('unhandledrejection', (event) => {
     handleError(event.reason instanceof Error ? event.reason : new Error(String(event.reason)));
 });
 
-let canvas = null;
-let ctx = null;
-let imageData = null;
-let fbBytes = 0;
+let nextWindowHandle = 1;
+const windows = new Map();
 
 const importObject = {
     env: {
@@ -139,12 +137,20 @@ const importObject = {
             throw new Error(`panic: ${file}:${line}: ${message}`);
         },
         create_window(width, height) {
-            canvas = document.getElementById('screen');
+            const canvas = document.getElementById('screen');
             canvas.width = width;
             canvas.height = height;
-            ctx = canvas.getContext('2d');
-            imageData = ctx.createImageData(width, height);
-            fbBytes = width * height * 4;
+            const ctx = canvas.getContext('2d');
+            const imageData = ctx.createImageData(width, height);
+
+            const handle = nextWindowHandle++;
+            windows.set(handle, { canvas, ctx, imageData });
+            return handle;
+        },
+        present_window(windowHandle, fbBegin, fbEnd) {
+            const win = windows.get(windowHandle);
+            win.imageData.data.set(new Uint8ClampedArray(memory.buffer, fbBegin, fbEnd - fbBegin));
+            win.ctx.putImageData(win.imageData, 0, 0);
         },
         debug_log(beginPtr, endPtr) {
             const message = decodeWasmString(beginPtr, endPtr - beginPtr);
@@ -156,22 +162,14 @@ const importObject = {
 WebAssembly.instantiateStreaming(fetch('/build/app.wasm'), importObject)
     .then(({ instance }) => {
         wasmInstance = instance;
-        const { get_framebuffer, init, onNextFrame } = instance.exports;
+        const { init, onNextFrame } = instance.exports;
 
         const statePtr = init(memory.buffer.byteLength, Math.floor(performance.now()));
-        const fbPtr = get_framebuffer(statePtr);
 
         function tick() {
             const nowMs = Math.floor(performance.now());
             const waitMs = onNextFrame(statePtr, nowMs);
-
-            if (waitMs === 0) {
-                imageData.data.set(new Uint8ClampedArray(memory.buffer, fbPtr, fbBytes));
-                ctx.putImageData(imageData, 0, 0);
-                setTimeout(tick, 0);
-            } else {
-                setTimeout(tick, waitMs);
-            }
+            setTimeout(tick, waitMs);
         }
 
         tick();
