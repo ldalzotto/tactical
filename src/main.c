@@ -57,6 +57,10 @@ app_state_t *init(uint32_t memory_size, uint32_t now_ms) {
 
     create_window(FB_WIDTH, FB_HEIGHT);
 
+    // TODO: use slice
+    const char message[] = "Application initialized";
+    debug_log((void*)message, byteoffset((void*)message, sizeof(message)));
+
     return state;
 }
 
@@ -74,8 +78,6 @@ uint8_t *get_framebuffer(app_state_t *state) {
 
 __attribute__((export_name("onNextFrame")))
 uint32_t onNextFrame(app_state_t *state, uint32_t now_ms) {
-    const char test[] = "hello";
-    debug_log(test, byteoffset(test, sizeof(test)));
     const uint32_t interval_ms = 16; // 60 FPS
     uint32_t wait_ms = clock_time_to_wait(now_ms, state->last_frame_ms, interval_ms);
     if (wait_ms != 0) {
