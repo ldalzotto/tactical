@@ -13,7 +13,6 @@ const ROOT = path.join(__dirname, '..');
 
 const RELOAD_EVENTS_PATH = '/__reload';
 const SYMBOLICATE_PATH = '/__symbolicate';
-const DEBUG_LOG_PATH = '/__debug_log';
 const MAX_SYMBOLICATE_BODY_BYTES = 64 * 1024;
 const WATCH_ROOTS = [path.join(ROOT, 'src'), path.join(ROOT, 'web')];
 const WATCH_EXTENSIONS = ['.c', '.h', '.js', '.html'];
@@ -39,25 +38,6 @@ function resolveFile(urlPath) {
         return null;
     }
     return filePath;
-}
-
-function handleDebugLog(req, res) {
-    let body = '';
-
-    req.on('data', (chunk) => {
-        body += chunk;
-    });
-
-    req.on('end', () => {
-        try {
-            console.log(body);
-            res.writeHead(200);
-            res.end();
-        } catch (err) {
-            res.writeHead(400);
-            res.end();
-        }
-    });
 }
 
 function handleSymbolicate(req, res) {
@@ -96,11 +76,6 @@ const server = http.createServer((req, res) => {
 
     if (urlPath === RELOAD_EVENTS_PATH) {
         sseHub.handle(req, res);
-        return;
-    }
-
-    if (urlPath === DEBUG_LOG_PATH && req.method === 'POST') {
-        handleDebugLog(req, res);
         return;
     }
 
