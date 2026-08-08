@@ -26,6 +26,7 @@ async function markTestFailed(row, status, err) {
             text += `\n\n(symbolication failed: ${symbolicateErr.message})`;
         }
     }
+    console.error(text);
 
     const detail = document.createElement('pre');
     detail.textContent = text;

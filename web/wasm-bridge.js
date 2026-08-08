@@ -92,14 +92,17 @@ async function handleWasmTrap(error) {
     const rawFrames = parseTrapFrames(error.stack || '');
 
     if (rawFrames.length === 0) {
+        console.error(error);
         renderOverlay(`TRAP\n\n${message}\n\n${error.stack || ''}`);
         return;
     }
 
     try {
         const stackText = await symbolicateFrames(rawFrames);
+        console.error(stackText);
         renderOverlay(`TRAP\n\n${message}\n\n${stackText}`);
     } catch (symbolicateErr) {
+        console.error(error);
         renderOverlay(`TRAP\n\n${message}\n\n(symbolication failed: ${symbolicateErr.message})\n\n${error.stack || ''}`);
     }
 }
