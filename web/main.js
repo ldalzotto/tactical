@@ -152,24 +152,23 @@ const importObject = {
 WebAssembly.instantiateStreaming(fetch('/build/app.wasm'), importObject)
     .then(({ instance }) => {
         wasmInstance = instance;
-        const { get_framebuffer, init, frame } = instance.exports;
+        const { get_framebuffer, init, onNextFrame } = instance.exports;
 
-        const statePtr = init(memory.buffer.byteLength);
+        const statePtr = init(memory.buffer.byteLength, Math.floor(performance.now()));
         const fbPtr = get_framebuffer(statePtr);
 
-        let lastTimestamp = null;
+        function tick() {
+            const nowMs = Math.floor(performance.now());
+            const waitMs = onNextFrame(statePtr, nowMs);
 
-        function tick(timestamp) {
-            const dtMs = lastTimestamp === null ? 0 : timestamp - lastTimestamp;
-            lastTimestamp = timestamp;
-
-            frame(statePtr, dtMs);
-
-            imageData.data.set(new Uint8ClampedArray(memory.buffer, fbPtr, fbBytes));
-            ctx.putImageData(imageData, 0, 0);
-
-            requestAnimationFrame(tick);
+            if (waitMs === 0) {
+                imageData.data.set(new Uint8ClampedArray(memory.buffer, fbPtr, fbBytes));
+                ctx.putImageData(imageData, 0, 0);
+                setTimeout(tick, 0);
+            } else {
+                setTimeout(tick, waitMs);
+            }
         }
 
-        requestAnimationFrame(tick);
+        tick();
     });

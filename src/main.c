@@ -1,5 +1,6 @@
 #include <stdint.h>
 
+#include "clock.h"
 #include "memory.h"
 
 SLICE_DEFINE(uint8_t);
@@ -12,15 +13,30 @@ extern unsigned char __heap_base;
 __attribute__((import_module("env"), import_name("create_window")))
 extern void create_window(int width, int height);
 
+static void render(app_state_t *state, uint32_t now_ms) {
+    int shift = (int)(now_ms / 20);
+
+    for (int y = 0; y < FB_HEIGHT; y++) {
+        for (int x = 0; x < FB_WIDTH; x++) {
+            int idx = (y * FB_WIDTH + x) * 4;
+            SLICE_AT(state->framebuffer, idx + 0) = (uint8_t)(x + shift);
+            SLICE_AT(state->framebuffer, idx + 1) = (uint8_t)(y - shift);
+            SLICE_AT(state->framebuffer, idx + 2) = (uint8_t)((x + y) / 2 + shift);
+            SLICE_AT(state->framebuffer, idx + 3) = 255;
+        }
+    }
+}
+
 typedef struct {
     linear_allocator_t allocator;
     slice_t framebuffer_align;
     slice_uint8_t framebuffer;
-    float elapsed_ms;
+    uint32_t next_frame_ms;
+    uint32_t carry_ms;
 } app_state_t;
 
 __attribute__((export_name("init")))
-app_state_t *init(uint32_t memory_size) {
+app_state_t *init(uint32_t memory_size, uint32_t now_ms) {
     slice_t memory = { &__heap_base, (void *)(uintptr_t)memory_size };
     linear_allocator_t bootstrap = linear_allocator_init(memory);
 
@@ -28,7 +44,7 @@ app_state_t *init(uint32_t memory_size) {
     app_state_t *state = (app_state_t *)state_slice.begin;
 
     state->allocator = bootstrap;
-    state->elapsed_ms = 0.0f;
+    clock_init(now_ms, &state->next_frame_ms, &state->carry_ms);
 
     state->framebuffer_align = linear_allocator_push_alignment(&state->allocator, _Alignof(uint32_t));
     slice_t fb_slice = linear_allocator_push(&state->allocator, (size_t)FB_WIDTH * FB_HEIGHT * 4);
@@ -51,18 +67,13 @@ uint8_t *get_framebuffer(app_state_t *state) {
     return state->framebuffer.begin;
 }
 
-__attribute__((export_name("frame")))
-void frame(app_state_t *state, float dt_ms) {
-    state->elapsed_ms += dt_ms;
-    int shift = (int)(state->elapsed_ms * 0.05f);
-
-    for (int y = 0; y < FB_HEIGHT; y++) {
-        for (int x = 0; x < FB_WIDTH; x++) {
-            int idx = (y * FB_WIDTH + x) * 4;
-            SLICE_AT(state->framebuffer, idx + 0) = (uint8_t)(x + shift);
-            SLICE_AT(state->framebuffer, idx + 1) = (uint8_t)(y - shift);
-            SLICE_AT(state->framebuffer, idx + 2) = (uint8_t)((x + y) / 2 + shift);
-            SLICE_AT(state->framebuffer, idx + 3) = 255;
-        }
+__attribute__((export_name("onNextFrame")))
+uint32_t onNextFrame(app_state_t *state, uint32_t now_ms) {
+    uint32_t wait_ms = clock_time_to_wait(now_ms, &state->next_frame_ms, &state->carry_ms);
+    if (wait_ms != 0) {
+        return wait_ms;
     }
+
+    render(state, now_ms);
+    return 0;
 }

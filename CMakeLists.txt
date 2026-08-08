@@ -24,6 +24,7 @@ message(STATUS "CONFIG: ${CMAKE_BUILD_TYPE}")
 add_executable(app
     src/assert.c
     src/memory.c
+    src/clock.c
 
     src/main.c
 )
