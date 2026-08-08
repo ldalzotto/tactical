@@ -4,6 +4,10 @@
 
 #include "assert.h"
 
+void *byteoffset(void *pointer, ptrdiff_t by) {
+    return (char *)pointer + by;
+}
+
 linear_allocator_t linear_allocator_init(slice_t data) {
     linear_allocator_t allocator = { data, data.begin };
     return allocator;
@@ -15,7 +19,7 @@ void linear_allocator_deinit(linear_allocator_t *allocator) {
 
 slice_t linear_allocator_push(linear_allocator_t *allocator, size_t size) {
     void *begin = allocator->cursor;
-    void *end = (char *)begin + size;
+    void *end = byteoffset(begin, (ptrdiff_t)size);
     assert(end <= allocator->data.end);
     allocator->cursor = end;
     slice_t result = { begin, end };
@@ -37,14 +41,14 @@ void linear_allocator_pop(linear_allocator_t *allocator, slice_t marker) {
 
 void *slice_at(slice_t s, size_t index, size_t alignment) {
     assert((alignment & (alignment - 1)) == 0);
-    void *result = (char *)s.begin + index;
+    void *result = byteoffset(s.begin, (ptrdiff_t)index);
     assert(result <= s.end);
     assert(((uintptr_t)result & (alignment - 1)) == 0);
     return result;
 }
 
 slice_t slice_advance(slice_t s, size_t by) {
-    void *begin = (char *)s.begin + by;
+    void *begin = byteoffset(s.begin, (ptrdiff_t)by);
     assert(begin <= s.end);
     slice_t result = { begin, s.end };
     return result;
