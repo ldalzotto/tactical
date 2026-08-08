@@ -1,9 +1,8 @@
 #include <stdint.h>
 
 #include "clock.h"
+#include "graphics.h"
 #include "memory.h"
-
-SLICE_DEFINE(uint8_t);
 
 #define FB_WIDTH 320
 #define FB_HEIGHT 240
@@ -24,7 +23,7 @@ extern void debug_log(void *begin, void *end);
 typedef struct {
     linear_allocator_t allocator;
     slice_t framebuffer_align;
-    slice_uint8_t framebuffer;
+    slice_rgba_t framebuffer;
     uint32_t now_ms;
     uint32_t last_frame_ms;
     window_handle_t window;
@@ -32,16 +31,13 @@ typedef struct {
 
 static void render(app_state_t *state, uint32_t now_ms) {
     int shift = (int)(now_ms / 20);
-
-    for (int y = 0; y < FB_HEIGHT; y++) {
-        for (int x = 0; x < FB_WIDTH; x++) {
-            int idx = (y * FB_WIDTH + x) * 4;
-            SLICE_AT(state->framebuffer, idx + 0) = (uint8_t)(x + shift);
-            SLICE_AT(state->framebuffer, idx + 1) = (uint8_t)(y - shift);
-            SLICE_AT(state->framebuffer, idx + 2) = (uint8_t)((x + y) / 2 + shift);
-            SLICE_AT(state->framebuffer, idx + 3) = 255;
-        }
-    }
+    rgba_t color = {
+        .r = (uint8_t)shift,
+        .g = (uint8_t)(255 - shift),
+        .b = (uint8_t)(shift / 2),
+        .a = 255,
+    };
+    graphics_draw_rectangle(state->framebuffer, FB_WIDTH, 0, 0, FB_WIDTH, FB_HEIGHT, color);
 }
 
 __attribute__((export_name("init")))
@@ -58,7 +54,7 @@ app_state_t *init(uint32_t memory_size, uint32_t now_ms) {
     state->last_frame_ms = now_ms;
 
     state->framebuffer_align = linear_allocator_push_alignment(&state->allocator, _Alignof(uint32_t));
-    slice_t fb_slice = linear_allocator_push(&state->allocator, (size_t)FB_WIDTH * FB_HEIGHT * 4);
+    slice_t fb_slice = linear_allocator_push(&state->allocator, (size_t)FB_WIDTH * FB_HEIGHT * sizeof(rgba_t));
     state->framebuffer.slice = fb_slice;
 
     state->window = create_window(FB_WIDTH, FB_HEIGHT);
@@ -87,6 +83,6 @@ uint32_t onNextFrame(app_state_t *state, uint32_t now_ms) {
 
     state->last_frame_ms = now_ms;
     render(state, now_ms);
-    present_window(state->window, state->framebuffer.begin, state->framebuffer.end);
+    present_window(state->window, (uint8_t *)state->framebuffer.begin, (uint8_t *)state->framebuffer.end);
     return 0;
 }
