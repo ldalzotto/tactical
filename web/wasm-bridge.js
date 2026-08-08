@@ -56,18 +56,18 @@ function renderOverlay(text) {
 }
 
 function parseTrapFrames(stack) {
-    const re = /wasm-function\[(\d+)\]:0x([0-9a-fA-F]+)/g;
+    const re = /wasm-function\[(\d+)\]:(0x[0-9a-fA-F]+)/g;
     const frames = [];
     let match;
     while ((match = re.exec(stack)) !== null) {
-        frames.push({ funcIndex: Number(match[1]), offset: parseInt(match[2], 16) });
+        frames.push({ funcIndex: Number(match[1]), offset: match[2] });
     }
     return frames;
 }
 
 function formatResolvedFrame(frame) {
     if (!frame.locations || frame.locations.length === 0) {
-        return `  wasm-function[${frame.funcIndex}]:0x${frame.offset.toString(16)} (unresolved)`;
+        return `  wasm-function[${frame.funcIndex}]:${frame.offset} (unresolved)`;
     }
     return frame.locations
         .map((loc) => `  ${loc.function} at ${loc.file}:${loc.line}:${loc.column}`)
