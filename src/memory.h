@@ -18,6 +18,8 @@ slice_t linear_allocator_push(linear_allocator_t *allocator, size_t size);
 slice_t linear_allocator_push_alignment(linear_allocator_t *allocator, size_t alignment);
 void linear_allocator_pop(linear_allocator_t *allocator, slice_t marker);
 
+void *byteoffset(void *pointer, ptrdiff_t by);
+
 void *slice_at(slice_t s, size_t index, size_t alignment);
 slice_t slice_advance(slice_t s, size_t by);
 
