@@ -161,6 +161,7 @@ async function handleMemoryViolation(error) {
 }
 
 function handleError(error) {
+    console.error(error);
     if (error instanceof MemoryViolationError) {
         handleMemoryViolation(error);
         return;
@@ -169,7 +170,6 @@ function handleError(error) {
         handleWasmTrap(error);
         return;
     }
-    console.error(error);
     if (document.getElementById('panic-overlay')) {
         return;
     }
