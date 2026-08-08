@@ -37,7 +37,8 @@ static void render(app_state_t *state, uint32_t now_ms) {
 
 __attribute__((export_name("init")))
 app_state_t *init(uint32_t memory_size, uint32_t now_ms) {
-    slice_t memory = { &__heap_base, (void *)(uintptr_t)memory_size };
+    slice_t memory; memory.begin = &__heap_base;
+    memory.end = byteoffset(memory.begin, memory_size);
     linear_allocator_t bootstrap = linear_allocator_init(memory);
 
     slice_t state_slice = linear_allocator_push(&bootstrap, sizeof(app_state_t));
