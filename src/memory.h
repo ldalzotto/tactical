@@ -17,6 +17,7 @@ void linear_allocator_deinit(linear_allocator_t *allocator);
 slice_t linear_allocator_push(linear_allocator_t *allocator, size_t size);
 slice_t linear_allocator_push_alignment(linear_allocator_t *allocator, size_t alignment);
 void linear_allocator_pop(linear_allocator_t *allocator, slice_t marker);
+void linear_allocator_pop_move(linear_allocator_t *allocator, slice_t from, slice_t to);
 
 void *byteoffset(void *pointer, ptrdiff_t by);
 #define typeoffset(pointer, by) (typeof(*pointer)*)byteoffset(pointer, by * sizeof(typeof(*pointer)))
