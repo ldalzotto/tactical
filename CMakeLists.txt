@@ -27,6 +27,7 @@ add_executable(app
     src/memory_debug.c
     src/clock.c
     src/graphics.c
+    src/test.c
 
     src/main.c
 )
