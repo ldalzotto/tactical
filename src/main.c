@@ -61,7 +61,7 @@ __attribute__((export_name("deinit")))
 void deinit(app_state_t *state) {
     linear_allocator_pop(&state->allocator, state->framebuffer.slice);
     linear_allocator_pop(&state->allocator, state->framebuffer_align);
-    linear_allocator_pop(&state->allocator, (slice_t){state, state + 1});
+    linear_allocator_pop(&state->allocator, (slice_t){state, typeoffset(state, 1)});
 }
 
 __attribute__((export_name("get_framebuffer")))

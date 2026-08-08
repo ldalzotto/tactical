@@ -19,6 +19,7 @@ slice_t linear_allocator_push_alignment(linear_allocator_t *allocator, size_t al
 void linear_allocator_pop(linear_allocator_t *allocator, slice_t marker);
 
 void *byteoffset(void *pointer, ptrdiff_t by);
+#define typeoffset(pointer, by) (typeof(*pointer)*)byteoffset(pointer, by * sizeof(typeof(*pointer)))
 
 void *slice_at(slice_t s, size_t index, size_t alignment);
 slice_t slice_advance(slice_t s, size_t by);
@@ -27,7 +28,7 @@ slice_t slice_advance(slice_t s, size_t by);
     typedef union { slice_t slice; struct { type *begin; type *end; }; } slice_##type
 
 #define SLICE_AT(s, index) \
-    (*(__typeof__((s).begin))slice_at((s).slice, (size_t)(index) * sizeof(*(s).begin), _Alignof(__typeof__(*(s).begin))))
+    (*(typeof((s).begin))slice_at((s).slice, (size_t)(index) * sizeof(*(s).begin), _Alignof(typeof(*(s).begin))))
 
 #define SLICE_ADVANCE(s, by) \
-    ((__typeof__(s)){ .slice = slice_advance((s).slice, (size_t)(by) * sizeof(*(s).begin)) })
+    ((typeof(s)){ .slice = slice_advance((s).slice, (size_t)(by) * sizeof(*(s).begin)) })
