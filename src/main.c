@@ -10,8 +10,13 @@ SLICE_DEFINE(uint8_t);
 
 extern unsigned char __heap_base;
 
+typedef uint32_t window_handle_t;
+
 __attribute__((import_module("env"), import_name("create_window")))
-extern void create_window(int width, int height);
+extern window_handle_t create_window(int width, int height);
+
+__attribute__((import_module("env"), import_name("present_window")))
+extern void present_window(window_handle_t window, uint8_t *fb_begin, uint8_t *fb_end);
 
 __attribute__((import_module("env"), import_name("debug_log")))
 extern void debug_log(void *begin, void *end);
@@ -22,6 +27,7 @@ typedef struct {
     slice_uint8_t framebuffer;
     uint32_t now_ms;
     uint32_t last_frame_ms;
+    window_handle_t window;
 } app_state_t;
 
 static void render(app_state_t *state, uint32_t now_ms) {
@@ -55,7 +61,7 @@ app_state_t *init(uint32_t memory_size, uint32_t now_ms) {
     slice_t fb_slice = linear_allocator_push(&state->allocator, (size_t)FB_WIDTH * FB_HEIGHT * 4);
     state->framebuffer.slice = fb_slice;
 
-    create_window(FB_WIDTH, FB_HEIGHT);
+    state->window = create_window(FB_WIDTH, FB_HEIGHT);
 
     // TODO: use slice
     const char message[] = "Application initialized";
@@ -71,11 +77,6 @@ void deinit(app_state_t *state) {
     linear_allocator_pop(&state->allocator, (slice_t){state, typeoffset(state, 1)});
 }
 
-__attribute__((export_name("get_framebuffer")))
-uint8_t *get_framebuffer(app_state_t *state) {
-    return state->framebuffer.begin;
-}
-
 __attribute__((export_name("onNextFrame")))
 uint32_t onNextFrame(app_state_t *state, uint32_t now_ms) {
     const uint32_t interval_ms = 16; // 60 FPS
@@ -86,5 +87,6 @@ uint32_t onNextFrame(app_state_t *state, uint32_t now_ms) {
 
     state->last_frame_ms = now_ms;
     render(state, now_ms);
+    present_window(state->window, state->framebuffer.begin, state->framebuffer.end);
     return 0;
 }
