@@ -102,12 +102,74 @@ async function handleWasmTrap(error) {
     }
 }
 
+const MEMORY_VIOLATION_KINDS = ['use-after-free', 'overlap-on-track', 'double-track', 'double-untrack'];
+const backtraceLog = [];
+
+function captureRawFrames() {
+    return parseTrapFrames(new Error().stack || '');
+}
+
+class MemoryViolationError extends Error {
+    constructor(kind, addr, accessBacktraceId, allocBacktraceId, freeBacktraceId) {
+        super(`memory violation: ${MEMORY_VIOLATION_KINDS[kind] || kind} at 0x${(addr >>> 0).toString(16)}`);
+        this.kind = kind;
+        this.addr = addr;
+        this.accessBacktraceId = accessBacktraceId;
+        this.allocBacktraceId = allocBacktraceId;
+        this.freeBacktraceId = freeBacktraceId;
+    }
+}
+
+async function resolveBacktrace(id) {
+    if (id === 0) {
+        return null;
+    }
+    const frames = backtraceLog[id - 1];
+    if (!frames || frames.length === 0) {
+        return '(no frames captured)';
+    }
+    try {
+        const response = await fetch('/__symbolicate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ frames }),
+        });
+        const data = await response.json();
+        if (!response.ok || data.error) {
+            throw new Error(data.error || `symbolicate returned ${response.status}`);
+        }
+        return data.frames.map(formatResolvedFrame).join('\n');
+    } catch (err) {
+        return `(symbolication failed: ${err.message})`;
+    }
+}
+
+async function handleMemoryViolation(error) {
+    const kindName = MEMORY_VIOLATION_KINDS[error.kind] || `unknown(${error.kind})`;
+    const [accessStack, allocStack, freeStack] = await Promise.all([
+        resolveBacktrace(error.accessBacktraceId),
+        resolveBacktrace(error.allocBacktraceId),
+        resolveBacktrace(error.freeBacktraceId),
+    ]);
+
+    const sections = [`MEMORY VIOLATION: ${kindName}`, '', `address: 0x${(error.addr >>> 0).toString(16)}`];
+    if (accessStack) sections.push('', 'accessed at:', accessStack);
+    if (allocStack) sections.push('', 'allocated at:', allocStack);
+    if (freeStack) sections.push('', 'freed at:', freeStack);
+
+    renderOverlay(sections.join('\n'));
+}
+
 function handleError(error) {
+    console.error(error);
+    if (error instanceof MemoryViolationError) {
+        handleMemoryViolation(error);
+        return;
+    }
     if (error instanceof WebAssembly.RuntimeError) {
         handleWasmTrap(error);
         return;
     }
-    console.error(error);
     if (document.getElementById('panic-overlay')) {
         return;
     }
@@ -155,6 +217,13 @@ const importObject = {
         debug_log(beginPtr, endPtr) {
             const message = decodeWasmString(beginPtr, endPtr - beginPtr);
             console.log(message);
+        },
+        debug_capture_backtrace() {
+            backtraceLog.push(captureRawFrames());
+            return backtraceLog.length;
+        },
+        debug_report_violation(kind, addr, accessBacktraceId, allocBacktraceId, freeBacktraceId) {
+            throw new MemoryViolationError(kind, addr, accessBacktraceId, allocBacktraceId, freeBacktraceId);
         },
     },
 };
