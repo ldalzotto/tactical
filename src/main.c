@@ -3,7 +3,6 @@
 #include "clock.h"
 #include "graphics.h"
 #include "memory.h"
-#include "memory_debug.h"
 
 #define FB_WIDTH 320
 #define FB_HEIGHT 240
@@ -31,7 +30,6 @@ typedef struct {
 } app_state_t;
 
 static void render(app_state_t *state, uint32_t now_ms) {
-    memory_debug_track(&state->framebuffer.slice);
     int shift = (int)(now_ms / 20);
     rgba_t color = {
         .r = (uint8_t)shift,
@@ -40,7 +38,6 @@ static void render(app_state_t *state, uint32_t now_ms) {
         .a = 255,
     };
     graphics_draw_rectangle(state->framebuffer, FB_WIDTH, 0, 0, FB_WIDTH, FB_HEIGHT, color);
-    memory_debug_untrack(&state->framebuffer.slice);
 }
 
 __attribute__((export_name("init")))
@@ -71,7 +68,6 @@ app_state_t *init(uint32_t memory_size, uint32_t now_ms) {
 
 __attribute__((export_name("deinit")))
 void deinit(app_state_t *state) {
-    memory_debug_untrack(&state->framebuffer.slice);
     linear_allocator_pop(&state->allocator, state->framebuffer.slice);
     linear_allocator_pop(&state->allocator, state->framebuffer_align);
     linear_allocator_pop(&state->allocator, (slice_t){state, typeoffset(state, 1)});

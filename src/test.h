@@ -1,6 +1,7 @@
 #pragma once
 
 #include "memory.h"
+#include <stdint.h>
 
 typedef void (*test_fn_t)(void);
 

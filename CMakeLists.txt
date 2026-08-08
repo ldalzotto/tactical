@@ -27,7 +27,6 @@ message(STATUS "APP_BUILD_TESTS: ${APP_BUILD_TESTS}")
 set(APP_SOURCES
     src/assert.c
     src/memory.c
-    src/memory_debug.c
     src/clock.c
     src/graphics.c
 
