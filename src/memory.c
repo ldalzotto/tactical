@@ -42,7 +42,7 @@ void linear_allocator_pop(linear_allocator_t *allocator, slice_t marker) {
 void linear_allocator_pop_move(linear_allocator_t *allocator, slice_t from, slice_t to) {
     assert(to.begin <= from.begin);
     assert(from.end == allocator->cursor);
-    ptrdiff_t size = (char *)from.end - (char *)from.begin;
+    ptrdiff_t size = SLICE_BYTESIZE(from);
     __builtin_memmove(to.begin, from.begin, (size_t)size);
     allocator->cursor = byteoffset(to.begin, size);
 }
@@ -60,4 +60,8 @@ slice_t slice_advance(slice_t s, size_t by) {
     assert(begin <= s.end);
     slice_t result = { begin, s.end };
     return result;
+}
+
+ptrdiff_t bytesize(void *begin, void *end) {
+    return (char *)end - (char *)begin;
 }
