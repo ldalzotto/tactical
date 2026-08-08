@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const { spawn } = require('node:child_process');
 
-const SYMBOLIZER_BIN = 'llvm-symbolizer-22';
+const SYMBOLIZER_BIN = 'llvm-symbolizer';
 const WASM_OBJDUMP_BIN = 'wasm-objdump';
 
 function getWasmCodeOffset({ objPath }) {
