@@ -34,11 +34,6 @@ async function markTestFailed(row, status, err) {
     row.after(detail);
 }
 
-function markTestPassed(status) {
-    status.textContent = 'PASS';
-    status.style.color = '#4caf50';
-}
-
 async function runTests(instance) {
     const panel = document.getElementById('test-panel');
     panel.style.cssText = 'font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 14px; padding: 24px;';
@@ -46,20 +41,31 @@ async function runTests(instance) {
     const { test_discovery_count, test_discovery_name_begin, test_discovery_name_end, test_discovery_fn_at, test_run } = instance.exports;
     const count = test_discovery_count();
 
+    let passed = 0;
+    let failed = 0;
+
     for (let i = 0; i < count; i++) {
         const beginPtr = test_discovery_name_begin(i);
         const endPtr = test_discovery_name_end(i);
         const name = decodeWasmString(beginPtr, endPtr - beginPtr);
-        const { row, status } = addTestRow(panel, name);
 
         const fn = test_discovery_fn_at(i);
         try {
             test_run(fn);
-            markTestPassed(status);
+            passed++;
         } catch (err) {
+            failed++;
+            const { row, status } = addTestRow(panel, name);
             await markTestFailed(row, status, err);
         }
     }
+
+    const summary = document.createElement('div');
+    summary.style.cssText = 'font-weight: bold; margin-bottom: 16px;';
+    summary.innerHTML =
+        `<div style="color: #4caf50;">Tests Passed (${passed}/${count})</div>` +
+        `<div style="color: #ff6b6b;">Tests Failed (${failed}/${count})</div>`;
+    panel.prepend(summary);
 }
 
 WebAssembly.instantiateStreaming(fetch('/build/app.wasm'), importObject)
