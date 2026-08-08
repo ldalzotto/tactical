@@ -1,6 +1,8 @@
 #pragma once
 
-void panic(unsigned char condition);
+#include <stdbool.h>
+
+void panic(bool condition);
 
 #ifndef NDEBUG
 #define assert panic
