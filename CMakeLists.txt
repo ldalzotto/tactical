@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.20)
 set(CMAKE_SYSTEM_NAME Generic)
 set(CMAKE_SYSTEM_PROCESSOR wasm32)
 
-set(CMAKE_C_COMPILER clang-22)
+set(CMAKE_C_COMPILER clang)
 set(CMAKE_C_COMPILER_TARGET wasm32)
 
 # Freestanding wasm32 has no entry point and no libc, so the normal
