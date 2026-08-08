@@ -1,10 +1,14 @@
 #pragma once
 
 #include <stddef.h>
+#include <stdint.h>
 
 typedef struct {
     void *begin;
     void *end;
+#ifndef NDEBUG
+    uint32_t debug_id; // 0 = untracked; else (generation << MEMORY_DEBUG_SLOT_BITS) | slot
+#endif
 } slice_t;
 
 typedef struct {
