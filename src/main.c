@@ -13,6 +13,14 @@ extern unsigned char __heap_base;
 __attribute__((import_module("env"), import_name("create_window")))
 extern void create_window(int width, int height);
 
+typedef struct {
+    linear_allocator_t allocator;
+    slice_t framebuffer_align;
+    slice_uint8_t framebuffer;
+    uint32_t now_ms;
+    uint32_t last_frame_ms;
+} app_state_t;
+
 static void render(app_state_t *state, uint32_t now_ms) {
     int shift = (int)(now_ms / 20);
 
@@ -27,14 +35,6 @@ static void render(app_state_t *state, uint32_t now_ms) {
     }
 }
 
-typedef struct {
-    linear_allocator_t allocator;
-    slice_t framebuffer_align;
-    slice_uint8_t framebuffer;
-    uint32_t next_frame_ms;
-    uint32_t carry_ms;
-} app_state_t;
-
 __attribute__((export_name("init")))
 app_state_t *init(uint32_t memory_size, uint32_t now_ms) {
     slice_t memory = { &__heap_base, (void *)(uintptr_t)memory_size };
@@ -44,7 +44,8 @@ app_state_t *init(uint32_t memory_size, uint32_t now_ms) {
     app_state_t *state = (app_state_t *)state_slice.begin;
 
     state->allocator = bootstrap;
-    clock_init(now_ms, &state->next_frame_ms, &state->carry_ms);
+    state->now_ms = now_ms;
+    state->last_frame_ms = now_ms;
 
     state->framebuffer_align = linear_allocator_push_alignment(&state->allocator, _Alignof(uint32_t));
     slice_t fb_slice = linear_allocator_push(&state->allocator, (size_t)FB_WIDTH * FB_HEIGHT * 4);
@@ -69,11 +70,13 @@ uint8_t *get_framebuffer(app_state_t *state) {
 
 __attribute__((export_name("onNextFrame")))
 uint32_t onNextFrame(app_state_t *state, uint32_t now_ms) {
-    uint32_t wait_ms = clock_time_to_wait(now_ms, &state->next_frame_ms, &state->carry_ms);
+    const uint32_t interval_ms = 16; // 60 FPS
+    uint32_t wait_ms = clock_time_to_wait(now_ms, state->last_frame_ms, interval_ms);
     if (wait_ms != 0) {
         return wait_ms;
     }
 
+    state->last_frame_ms = now_ms;
     render(state, now_ms);
     return 0;
 }
