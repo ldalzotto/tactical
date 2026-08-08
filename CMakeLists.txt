@@ -25,6 +25,7 @@ add_executable(app
     src/assert.c
     src/memory.c
     src/clock.c
+    src/graphics.c
 
     src/main.c
 )
