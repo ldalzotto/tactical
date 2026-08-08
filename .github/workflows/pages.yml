@@ -31,7 +31,7 @@ jobs:
       - name: Install CMake and build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake clang llvm
+          sudo apt-get install -y cmake clang lld
 
       - name: Build for GitHub Pages
         run: npm run build:pages
