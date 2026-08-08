@@ -1,9 +1,37 @@
 const fs = require('node:fs');
-const { spawn: defaultSpawn } = require('node:child_process');
+const { spawn } = require('node:child_process');
 
-const SYMBOLIZER_BIN = process.env.LLVM_SYMBOLIZER || 'llvm-symbolizer-22';
+const SYMBOLIZER_BIN = 'llvm-symbolizer-22';
+const WASM_OBJDUMP_BIN = 'wasm-objdump';
 
-function runSymbolizer({ spawn = defaultSpawn, objPath, addresses }) {
+function getWasmCodeOffset({ objPath }) {
+    return new Promise((resolve, reject) => {
+        const proc = spawn(WASM_OBJDUMP_BIN, ['-h', objPath], {
+            stdio: ['pipe', 'pipe', 'pipe'],
+        });
+
+        let stdout = '';
+        let stderr = '';
+        proc.stdout.on('data', (chunk) => { stdout += chunk; });
+        proc.stderr.on('data', (chunk) => { stderr += chunk; });
+
+        proc.on('error', reject);
+        proc.on('close', (code) => {
+            if (code !== 0) {
+                reject(new Error(`wasm-objdump exited with code ${code}: ${stderr}`));
+                return;
+            }
+            const codeStart = stdout
+                .split('\n')
+                .find((line) => line.trimStart().startsWith('Code '));
+            const offset = codeStart
+                ?.match(/start=(0x[0-9a-fA-F]+)/)?.[1];
+            resolve(offset);
+        });
+    });
+}
+
+function runSymbolizer({ objPath, offset0x, addresses }) {
     return new Promise((resolve, reject) => {
         const proc = spawn(SYMBOLIZER_BIN, ['--obj=' + objPath, '-f', '-C', '--inlines'], {
             stdio: ['pipe', 'pipe', 'pipe'],
@@ -22,8 +50,13 @@ function runSymbolizer({ spawn = defaultSpawn, objPath, addresses }) {
             }
             resolve(stdout);
         });
-
-        proc.stdin.write(addresses.map((addr) => `0x${addr.toString(16)}\n`).join(''));
+        
+        const offset = Number.parseInt(offset0x, 16);
+        proc.stdin.write(addresses.map((addr) => {
+            const address = Number.parseInt(addr, 16);
+            const addressWithOffset = address - offset;
+            return `0x${addressWithOffset.toString(16)}\n`;
+        }).join(''));
         proc.stdin.end();
     });
 }
@@ -56,11 +89,12 @@ function parseSymbolizerOutput(output, count) {
     });
 }
 
-async function symbolicate({ wasmPath, frames, spawn }) {
+async function symbolicate({ wasmPath, frames }) {
     const buffer = fs.readFileSync(wasmPath);
 
     const addresses = frames.map((frame) => frame.offset);
-    const output = await runSymbolizer({ spawn, objPath: wasmPath, addresses });
+    const offset = await getWasmCodeOffset({ objPath: wasmPath });
+    const output = await runSymbolizer({ objPath: wasmPath, offset0x: offset, addresses });
     const resolvedLocations = parseSymbolizerOutput(output, frames.length);
 
     return frames.map((frame, i) => ({
