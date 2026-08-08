@@ -74,6 +74,19 @@ function formatResolvedFrame(frame) {
         .join('\n');
 }
 
+async function symbolicateFrames(rawFrames) {
+    const response = await fetch('/__symbolicate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ frames: rawFrames }),
+    });
+    const data = await response.json();
+    if (!response.ok || data.error) {
+        throw new Error(data.error || `symbolicate returned ${response.status}`);
+    }
+    return data.frames.map(formatResolvedFrame).join('\n');
+}
+
 async function handleWasmTrap(error) {
     const message = error.message || String(error);
     const rawFrames = parseTrapFrames(error.stack || '');
@@ -84,16 +97,7 @@ async function handleWasmTrap(error) {
     }
 
     try {
-        const response = await fetch('/__symbolicate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ frames: rawFrames }),
-        });
-        const data = await response.json();
-        if (!response.ok || data.error) {
-            throw new Error(data.error || `symbolicate returned ${response.status}`);
-        }
-        const stackText = data.frames.map(formatResolvedFrame).join('\n');
+        const stackText = await symbolicateFrames(rawFrames);
         renderOverlay(`TRAP\n\n${message}\n\n${stackText}`);
     } catch (symbolicateErr) {
         renderOverlay(`TRAP\n\n${message}\n\n(symbolication failed: ${symbolicateErr.message})\n\n${error.stack || ''}`);
@@ -127,16 +131,7 @@ async function resolveBacktrace(id) {
         return '(no frames captured)';
     }
     try {
-        const response = await fetch('/__symbolicate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ frames }),
-        });
-        const data = await response.json();
-        if (!response.ok || data.error) {
-            throw new Error(data.error || `symbolicate returned ${response.status}`);
-        }
-        return data.frames.map(formatResolvedFrame).join('\n');
+        return await symbolicateFrames(frames);
     } catch (err) {
         return `(symbolication failed: ${err.message})`;
     }

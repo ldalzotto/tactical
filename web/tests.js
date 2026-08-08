@@ -12,12 +12,23 @@ function addTestRow(panel, name) {
     return { row, status };
 }
 
-function markTestFailed(row, status, message) {
+async function markTestFailed(row, status, err) {
     status.textContent = 'FAIL';
     status.style.color = '#ff6b6b';
 
+    let text = err.message || String(err);
+
+    const rawFrames = parseTrapFrames(err.stack || '');
+    if (rawFrames.length > 0) {
+        try {
+            text += '\n\n' + await symbolicateFrames(rawFrames);
+        } catch (symbolicateErr) {
+            text += `\n\n(symbolication failed: ${symbolicateErr.message})`;
+        }
+    }
+
     const detail = document.createElement('pre');
-    detail.textContent = message;
+    detail.textContent = text;
     detail.style.cssText = 'margin: 0 0 8px 84px; color: #ff6b6b; white-space: pre-wrap;';
     row.after(detail);
 }
@@ -27,7 +38,7 @@ function markTestPassed(status) {
     status.style.color = '#4caf50';
 }
 
-function runTests(instance) {
+async function runTests(instance) {
     const panel = document.getElementById('test-panel');
     panel.style.cssText = 'font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 14px; padding: 24px;';
 
@@ -45,7 +56,7 @@ function runTests(instance) {
             test_run(fn);
             markTestPassed(status);
         } catch (err) {
-            markTestFailed(row, status, err.message || String(err));
+            await markTestFailed(row, status, err);
         }
     }
 }
