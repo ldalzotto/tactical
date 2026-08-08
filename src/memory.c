@@ -44,7 +44,7 @@ void linear_allocator_pop(linear_allocator_t *allocator, slice_t marker) {
 void *slice_at(slice_t s, size_t index, size_t alignment) {
     assert((alignment & (alignment - 1)) == 0);
     void *result = byteoffset(s.begin, (ptrdiff_t)index);
-    assert(result <= s.end);
+    assert(result < s.end); // We are going to deref the pointer
     assert(((uintptr_t)result & (alignment - 1)) == 0);
 #ifndef NDEBUG
     memory_debug_check_access(s, result);
@@ -54,7 +54,7 @@ void *slice_at(slice_t s, size_t index, size_t alignment) {
 
 slice_t slice_advance(slice_t s, size_t by) {
     void *begin = byteoffset(s.begin, (ptrdiff_t)by);
-    assert(begin <= s.end);
+    assert(begin <= s.end); // We are allowed to advance to the end
     slice_t result = s;
     result.begin = begin;
     return result;
