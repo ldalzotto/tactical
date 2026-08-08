@@ -13,6 +13,9 @@ extern unsigned char __heap_base;
 __attribute__((import_module("env"), import_name("create_window")))
 extern void create_window(int width, int height);
 
+__attribute__((import_module("env"), import_name("debug_log")))
+extern void debug_log(void *begin, void *end);
+
 typedef struct {
     linear_allocator_t allocator;
     slice_t framebuffer_align;
@@ -71,6 +74,8 @@ uint8_t *get_framebuffer(app_state_t *state) {
 
 __attribute__((export_name("onNextFrame")))
 uint32_t onNextFrame(app_state_t *state, uint32_t now_ms) {
+    const char test[] = "hello";
+    debug_log(test, byteoffset(test, sizeof(test)));
     const uint32_t interval_ms = 16; // 60 FPS
     uint32_t wait_ms = clock_time_to_wait(now_ms, state->last_frame_ms, interval_ms);
     if (wait_ms != 0) {

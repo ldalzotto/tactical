@@ -146,6 +146,15 @@ const importObject = {
             imageData = ctx.createImageData(width, height);
             fbBytes = width * height * 4;
         },
+        debug_log(beginPtr, endPtr) {
+            const message = decodeWasmString(beginPtr, endPtr - beginPtr);
+            console.log(message);
+            fetch('/__debug_log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/text' },
+                body: message,
+            }).catch(() => {});
+        },
     },
 };
 
