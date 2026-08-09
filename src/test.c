@@ -4,6 +4,7 @@
 #include "game/entity.h"
 #include "game/grid.h"
 #include "game/layout.h"
+#include "game/pathing.h"
 
 #define TEST_NAME(str) (slice_t){ .begin = (void *)(str), .end = (void *)((str) + sizeof(str) - 1) }
 
@@ -593,6 +594,183 @@ static void test_grid_to_screen_round_trips_with_screen_to_grid(void) {
     }
 }
 
+static void test_pathing_flat_grid_distance(void) {
+    static _Alignas(entity_t) char buffer[4096];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    grid_t grid = grid_init(&allocator, 4, 4);
+
+    slice_entity_t entity_witness;
+    slice_t entity_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, entity_witness);
+    entity_list_t entities = entity_list_init(&allocator, 1);
+
+    slice_int32_t int32_witness;
+    slice_t pathing_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, int32_witness);
+    pathing_state_t pathing = pathing_init(&allocator, 4, 4);
+
+    pathing_compute_distances(pathing, grid, entities, ENTITY_ID_NONE, 0, 0, 100);
+
+    assert_test(pathing_distance_at(pathing, grid, 0, 0) == 0);
+    assert_test(pathing_distance_at(pathing, grid, 3, 3) == 6);
+
+    pathing_deinit(&allocator, pathing);
+    linear_allocator_pop(&allocator, pathing_align);
+    entity_list_deinit(&allocator, entities);
+    linear_allocator_pop(&allocator, entity_align);
+    grid_deinit(&allocator, grid);
+}
+
+static void test_pathing_obstacle_forces_detour(void) {
+    static _Alignas(entity_t) char buffer[4096];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    grid_t grid = grid_init(&allocator, 5, 3);
+
+    slice_entity_t entity_witness;
+    slice_t entity_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, entity_witness);
+    entity_list_t entities = entity_list_init(&allocator, 1);
+
+    slice_int32_t int32_witness;
+    slice_t pathing_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, int32_witness);
+    pathing_state_t pathing = pathing_init(&allocator, 5, 3);
+
+    pathing_compute_distances(pathing, grid, entities, ENTITY_ID_NONE, 0, 1, 100);
+    int baseline = pathing_distance_at(pathing, grid, 4, 1);
+    assert_test(baseline == 4);
+
+    grid_set_walkable(grid, 2, 0, false);
+    grid_set_walkable(grid, 2, 1, false);
+
+    pathing_compute_distances(pathing, grid, entities, ENTITY_ID_NONE, 0, 1, 100);
+    int obstructed = pathing_distance_at(pathing, grid, 4, 1);
+
+    assert_test(obstructed > baseline);
+
+    pathing_deinit(&allocator, pathing);
+    linear_allocator_pop(&allocator, pathing_align);
+    entity_list_deinit(&allocator, entities);
+    linear_allocator_pop(&allocator, entity_align);
+    grid_deinit(&allocator, grid);
+}
+
+static void test_pathing_occupied_tile_blocks_corridor(void) {
+    static _Alignas(entity_t) char buffer[4096];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    grid_t grid = grid_init(&allocator, 5, 1);
+
+    slice_entity_t entity_witness;
+    slice_t entity_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, entity_witness);
+    entity_list_t entities = entity_list_init(&allocator, 2);
+    entity_spawn(&entities, ENTITY_TEAM_ENEMY, 2, 0, 10, 2, 3);
+
+    slice_int32_t int32_witness;
+    slice_t pathing_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, int32_witness);
+    pathing_state_t pathing = pathing_init(&allocator, 5, 1);
+
+    pathing_compute_distances(pathing, grid, entities, ENTITY_ID_NONE, 0, 0, 100);
+
+    assert_test(pathing_distance_at(pathing, grid, 1, 0) == 1);
+    assert_test(pathing_distance_at(pathing, grid, 2, 0) == -1);
+    assert_test(pathing_distance_at(pathing, grid, 3, 0) == -1);
+    assert_test(pathing_distance_at(pathing, grid, 4, 0) == -1);
+
+    pathing_deinit(&allocator, pathing);
+    linear_allocator_pop(&allocator, pathing_align);
+    entity_list_deinit(&allocator, entities);
+    linear_allocator_pop(&allocator, entity_align);
+    grid_deinit(&allocator, grid);
+}
+
+static void test_pathing_skip_entity_allows_own_start_tile(void) {
+    static _Alignas(entity_t) char buffer[4096];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    grid_t grid = grid_init(&allocator, 4, 4);
+
+    slice_entity_t entity_witness;
+    slice_t entity_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, entity_witness);
+    entity_list_t entities = entity_list_init(&allocator, 2);
+    entity_id_t mover = entity_spawn(&entities, ENTITY_TEAM_PLAYER, 1, 1, 10, 2, 3);
+
+    slice_int32_t int32_witness;
+    slice_t pathing_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, int32_witness);
+    pathing_state_t pathing = pathing_init(&allocator, 4, 4);
+
+    pathing_compute_distances(pathing, grid, entities, mover, 1, 1, 100);
+
+    assert_test(pathing_distance_at(pathing, grid, 1, 1) == 0);
+    assert_test(pathing_distance_at(pathing, grid, 0, 0) == 2);
+
+    pathing_deinit(&allocator, pathing);
+    linear_allocator_pop(&allocator, pathing_align);
+    entity_list_deinit(&allocator, entities);
+    linear_allocator_pop(&allocator, entity_align);
+    grid_deinit(&allocator, grid);
+}
+
+static void test_pathing_max_steps_caps_distance(void) {
+    static _Alignas(entity_t) char buffer[4096];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    grid_t grid = grid_init(&allocator, 4, 4);
+
+    slice_entity_t entity_witness;
+    slice_t entity_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, entity_witness);
+    entity_list_t entities = entity_list_init(&allocator, 1);
+
+    slice_int32_t int32_witness;
+    slice_t pathing_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, int32_witness);
+    pathing_state_t pathing = pathing_init(&allocator, 4, 4);
+
+    pathing_compute_distances(pathing, grid, entities, ENTITY_ID_NONE, 0, 0, 2);
+
+    assert_test(pathing_distance_at(pathing, grid, 2, 0) == 2);
+    assert_test(pathing_distance_at(pathing, grid, 3, 0) == -1);
+    assert_test(pathing_distance_at(pathing, grid, 3, 3) == -1);
+
+    pathing_deinit(&allocator, pathing);
+    linear_allocator_pop(&allocator, pathing_align);
+    entity_list_deinit(&allocator, entities);
+    linear_allocator_pop(&allocator, entity_align);
+    grid_deinit(&allocator, grid);
+}
+
+static void test_pathing_distance_at_out_of_bounds_returns_negative_one(void) {
+    static _Alignas(entity_t) char buffer[4096];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    grid_t grid = grid_init(&allocator, 4, 4);
+
+    slice_entity_t entity_witness;
+    slice_t entity_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, entity_witness);
+    entity_list_t entities = entity_list_init(&allocator, 1);
+
+    slice_int32_t int32_witness;
+    slice_t pathing_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, int32_witness);
+    pathing_state_t pathing = pathing_init(&allocator, 4, 4);
+
+    pathing_compute_distances(pathing, grid, entities, ENTITY_ID_NONE, 0, 0, 100);
+
+    assert_test(pathing_distance_at(pathing, grid, -1, 0) == -1);
+    assert_test(pathing_distance_at(pathing, grid, 0, -1) == -1);
+    assert_test(pathing_distance_at(pathing, grid, 4, 0) == -1);
+    assert_test(pathing_distance_at(pathing, grid, 0, 4) == -1);
+    assert_test(pathing_distance_at(pathing, grid, 100, 100) == -1);
+
+    pathing_deinit(&allocator, pathing);
+    linear_allocator_pop(&allocator, pathing_align);
+    entity_list_deinit(&allocator, entities);
+    linear_allocator_pop(&allocator, entity_align);
+    grid_deinit(&allocator, grid);
+}
+
 static const test_case_t g_tests[] = {
     { TEST_NAME("pass_example"), test_pass_example },
     { TEST_NAME("fail_example"), test_fail_example },
@@ -634,6 +812,12 @@ static const test_case_t g_tests[] = {
     { TEST_NAME("point_in_rect"), test_point_in_rect },
     { TEST_NAME("screen_to_grid_corners"), test_screen_to_grid_corners },
     { TEST_NAME("grid_to_screen_round_trips_with_screen_to_grid"), test_grid_to_screen_round_trips_with_screen_to_grid },
+    { TEST_NAME("pathing_flat_grid_distance"), test_pathing_flat_grid_distance },
+    { TEST_NAME("pathing_obstacle_forces_detour"), test_pathing_obstacle_forces_detour },
+    { TEST_NAME("pathing_occupied_tile_blocks_corridor"), test_pathing_occupied_tile_blocks_corridor },
+    { TEST_NAME("pathing_skip_entity_allows_own_start_tile"), test_pathing_skip_entity_allows_own_start_tile },
+    { TEST_NAME("pathing_max_steps_caps_distance"), test_pathing_max_steps_caps_distance },
+    { TEST_NAME("pathing_distance_at_out_of_bounds_returns_negative_one"), test_pathing_distance_at_out_of_bounds_returns_negative_one },
 };
 
 #define TEST_COUNT (sizeof(g_tests) / sizeof(g_tests[0]))
