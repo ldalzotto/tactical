@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "Debug tests.html (Chrome, C breakpoints)",
+      "url": "http://localhost:8081/tests.html",
+      "webRoot": "${workspaceFolder}",
+    },
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "Launc index.html (Chrome, C breakpoints)",
+      "url": "http://localhost:8081/index.html",
+      "webRoot": "${workspaceFolder}",
+    }
+  ]
+}
