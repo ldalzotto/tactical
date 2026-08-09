@@ -4,6 +4,7 @@
 #include "game/action.h"
 #include "game/ai.h"
 #include "game/entity.h"
+#include "game/game.h"
 #include "game/grid.h"
 #include "game/input.h"
 #include "game/layout.h"
@@ -1432,6 +1433,251 @@ static void test_ai_zero_mp_not_adjacent_does_nothing(void) {
     grid_deinit(&allocator, grid);
 }
 
+// Shared layout used by game orchestration tests: grid_width=16,
+// grid_height=10, fb 320x240, hud_height=40 -- same numbers as
+// test_layout_compute_defaults, so tile_size=20 and end_turn_button is the
+// known rect x=250,y=210,w=60,h=20.
+#define GAME_TEST_GRID_WIDTH 16
+#define GAME_TEST_GRID_HEIGHT 10
+#define GAME_TEST_FB_WIDTH 320
+#define GAME_TEST_FB_HEIGHT 240
+#define GAME_TEST_HUD_HEIGHT 40
+
+static void test_game_entity_pressed_selects_own_and_switches_selection(void) {
+    static _Alignas(entity_t) char buffer[8192];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    game_state_t game = game_init(&allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+
+    entity_id_t p1 = entity_spawn(&game.entities, ENTITY_TEAM_PLAYER, 0, 0, 10, 2, 3);
+    entity_id_t p2 = entity_spawn(&game.entities, ENTITY_TEAM_PLAYER, 1, 0, 10, 2, 3);
+
+    game_on_entity_pressed(&game, p1);
+    assert_test(game.selected_entity == p1);
+
+    game_on_entity_pressed(&game, p2);
+    assert_test(game.selected_entity == p2);
+
+    game_deinit(&allocator, game);
+}
+
+static void test_game_entity_pressed_enemy_with_none_selected_noops(void) {
+    static _Alignas(entity_t) char buffer[8192];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    game_state_t game = game_init(&allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+
+    entity_id_t e1 = entity_spawn(&game.entities, ENTITY_TEAM_ENEMY, 5, 5, 10, 2, 3);
+
+    game_on_entity_pressed(&game, e1);
+    assert_test(game.selected_entity == ENTITY_ID_NONE);
+
+    game_deinit(&allocator, game);
+}
+
+static void test_game_entity_pressed_adjacent_enemy_attacks_then_noops_when_ap_zero(void) {
+    static _Alignas(entity_t) char buffer[8192];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    game_state_t game = game_init(&allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+
+    entity_id_t p = entity_spawn(&game.entities, ENTITY_TEAM_PLAYER, 0, 0, 10, 1, 3);
+    entity_id_t e = entity_spawn(&game.entities, ENTITY_TEAM_ENEMY, 1, 0, 10, 2, 3);
+
+    game_on_entity_pressed(&game, p);
+    assert_test(game.selected_entity == p);
+
+    game_on_entity_pressed(&game, e);
+    assert_test(entity_at(game.entities, p)->ap == 0);
+    assert_test(entity_at(game.entities, e)->hp == 5);
+    assert_test(entity_at(game.entities, e)->alive);
+
+    game_on_entity_pressed(&game, e);
+    assert_test(entity_at(game.entities, p)->ap == 0);
+    assert_test(entity_at(game.entities, e)->hp == 5);
+
+    game_deinit(&allocator, game);
+}
+
+static void test_game_tile_pressed_moves_within_reach_and_consumes_mp(void) {
+    static _Alignas(entity_t) char buffer[8192];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    game_state_t game = game_init(&allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+
+    entity_id_t p = entity_spawn(&game.entities, ENTITY_TEAM_PLAYER, 0, 0, 10, 2, 3);
+
+    game_on_entity_pressed(&game, p);
+    game_on_tile_pressed(&game, 2, 0);
+
+    entity_t *entity = entity_at(game.entities, p);
+    assert_test(entity->x == 2 && entity->y == 0);
+    assert_test(entity->mp == 1);
+
+    game_deinit(&allocator, game);
+}
+
+static void test_game_tile_pressed_noops_on_unreachable_tile(void) {
+    static _Alignas(entity_t) char buffer[8192];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    game_state_t game = game_init(&allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+
+    entity_id_t p = entity_spawn(&game.entities, ENTITY_TEAM_PLAYER, 0, 0, 10, 2, 1);
+
+    game_on_entity_pressed(&game, p);
+    game_on_tile_pressed(&game, 5, 0);
+
+    entity_t *entity = entity_at(game.entities, p);
+    assert_test(entity->x == 0 && entity->y == 0);
+    assert_test(entity->mp == 1);
+
+    game_deinit(&allocator, game);
+}
+
+static void test_game_end_turn_resets_player_phase_and_deselects(void) {
+    static _Alignas(entity_t) char buffer[8192];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    game_state_t game = game_init(&allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+
+    entity_id_t p = entity_spawn(&game.entities, ENTITY_TEAM_PLAYER, 0, 0, 10, 2, 3);
+    entity_spawn(&game.entities, ENTITY_TEAM_ENEMY, 15, 9, 10, 2, 0); // far away, zero mp: can't reach or attack
+
+    entity_at(game.entities, p)->ap = 0;
+    entity_at(game.entities, p)->mp = 0;
+
+    game_on_entity_pressed(&game, p);
+    assert_test(game.selected_entity == p);
+
+    game_on_end_turn_pressed(&game);
+
+    assert_test(game.turn.phase == TURN_PHASE_PLAYER);
+    assert_test(game.turn.turn_number == 2);
+    assert_test(game.selected_entity == ENTITY_ID_NONE);
+
+    entity_t *player = entity_at(game.entities, p);
+    assert_test(player->ap == player->max_ap);
+    assert_test(player->mp == player->max_mp);
+    assert_test(player->alive);
+
+    game_deinit(&allocator, game);
+}
+
+static void test_game_1v1_enemy_death_sets_win_and_freezes_input(void) {
+    static _Alignas(entity_t) char buffer[8192];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    game_state_t game = game_init(&allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+
+    entity_id_t p = entity_spawn(&game.entities, ENTITY_TEAM_PLAYER, 0, 0, 10, 2, 3);
+    entity_id_t e = entity_spawn(&game.entities, ENTITY_TEAM_ENEMY, 1, 0, 5, 2, 3);
+
+    game_on_entity_pressed(&game, p);
+    game_on_entity_pressed(&game, e);
+
+    assert_test(!entity_at(game.entities, e)->alive);
+    assert_test(game.game_over == GAME_OVER_WIN);
+
+    // Further presses of any kind must now be frozen no-ops.
+    game_on_tile_pressed(&game, 2, 0);
+    entity_t *player = entity_at(game.entities, p);
+    assert_test(player->x == 0 && player->y == 0);
+
+    turn_phase_t phase_before = game.turn.phase;
+    int turn_number_before = game.turn.turn_number;
+    game_on_end_turn_pressed(&game);
+    assert_test(game.turn.phase == phase_before);
+    assert_test(game.turn.turn_number == turn_number_before);
+
+    assert_test(game.game_over == GAME_OVER_WIN);
+
+    game_deinit(&allocator, game);
+}
+
+static void test_game_ai_kills_last_player_during_end_turn_sets_lose(void) {
+    static _Alignas(entity_t) char buffer[8192];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    game_state_t game = game_init(&allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+
+    entity_id_t p = entity_spawn(&game.entities, ENTITY_TEAM_PLAYER, 0, 0, 5, 2, 3);
+    entity_spawn(&game.entities, ENTITY_TEAM_ENEMY, 1, 0, 10, 2, 3);
+
+    assert_test(game.turn.phase == TURN_PHASE_PLAYER);
+
+    game_on_end_turn_pressed(&game);
+
+    assert_test(!entity_at(game.entities, p)->alive);
+    assert_test(game.game_over == GAME_OVER_LOSE);
+
+    // Further presses must be frozen no-ops.
+    turn_phase_t phase_before = game.turn.phase;
+    game_on_end_turn_pressed(&game);
+    assert_test(game.turn.phase == phase_before);
+
+    game_deinit(&allocator, game);
+}
+
+static void test_game_on_input_event_click_in_end_turn_button_behaves_like_end_turn_pressed(void) {
+    static _Alignas(entity_t) char buffer[8192];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    game_state_t game = game_init(&allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+
+    entity_id_t p = entity_spawn(&game.entities, ENTITY_TEAM_PLAYER, 0, 0, 10, 2, 3);
+    entity_spawn(&game.entities, ENTITY_TEAM_ENEMY, 15, 9, 10, 2, 0); // far away, zero mp: can't reach or attack
+    entity_at(game.entities, p)->ap = 0;
+    entity_at(game.entities, p)->mp = 0;
+
+    game_on_entity_pressed(&game, p);
+    assert_test(game.selected_entity == p);
+
+    assert_test(point_in_rect(game.viewport.end_turn_button, 260, 215));
+    input_event_t click = { .type = INPUT_EVENT_MOUSE_CLICK, .x = 260, .y = 215 };
+    game_on_input_event(&game, click);
+
+    assert_test(game.turn.phase == TURN_PHASE_PLAYER);
+    assert_test(game.turn.turn_number == 2);
+    assert_test(game.selected_entity == ENTITY_ID_NONE);
+
+    entity_t *player = entity_at(game.entities, p);
+    assert_test(player->ap == player->max_ap);
+    assert_test(player->mp == player->max_mp);
+
+    game_deinit(&allocator, game);
+}
+
+static void test_game_on_input_event_click_on_entity_tile_behaves_like_entity_pressed(void) {
+    static _Alignas(entity_t) char buffer[8192];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    game_state_t game = game_init(&allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+
+    entity_spawn(&game.entities, ENTITY_TEAM_PLAYER, 0, 0, 10, 2, 3);
+    entity_id_t p2 = entity_spawn(&game.entities, ENTITY_TEAM_PLAYER, 3, 3, 10, 2, 3);
+
+    int px, py;
+    grid_to_screen(game.viewport, 3, 3, &px, &py);
+
+    input_event_t click = { .type = INPUT_EVENT_MOUSE_CLICK, .x = px + 1, .y = py + 1 };
+    game_on_input_event(&game, click);
+
+    assert_test(game.selected_entity == p2);
+
+    game_deinit(&allocator, game);
+}
+
 static const test_case_t g_tests[] = {
     { TEST_NAME("pass_example"), test_pass_example },
     { TEST_NAME("fail_example"), test_fail_example },
@@ -1503,6 +1749,16 @@ static const test_case_t g_tests[] = {
     { TEST_NAME("ai_obstacle_forces_detour"), test_ai_obstacle_forces_detour },
     { TEST_NAME("ai_multiple_enemies_act_independently_in_ascending_id_order"), test_ai_multiple_enemies_act_independently_in_ascending_id_order },
     { TEST_NAME("ai_zero_mp_not_adjacent_does_nothing"), test_ai_zero_mp_not_adjacent_does_nothing },
+    { TEST_NAME("game_entity_pressed_selects_own_and_switches_selection"), test_game_entity_pressed_selects_own_and_switches_selection },
+    { TEST_NAME("game_entity_pressed_enemy_with_none_selected_noops"), test_game_entity_pressed_enemy_with_none_selected_noops },
+    { TEST_NAME("game_entity_pressed_adjacent_enemy_attacks_then_noops_when_ap_zero"), test_game_entity_pressed_adjacent_enemy_attacks_then_noops_when_ap_zero },
+    { TEST_NAME("game_tile_pressed_moves_within_reach_and_consumes_mp"), test_game_tile_pressed_moves_within_reach_and_consumes_mp },
+    { TEST_NAME("game_tile_pressed_noops_on_unreachable_tile"), test_game_tile_pressed_noops_on_unreachable_tile },
+    { TEST_NAME("game_end_turn_resets_player_phase_and_deselects"), test_game_end_turn_resets_player_phase_and_deselects },
+    { TEST_NAME("game_1v1_enemy_death_sets_win_and_freezes_input"), test_game_1v1_enemy_death_sets_win_and_freezes_input },
+    { TEST_NAME("game_ai_kills_last_player_during_end_turn_sets_lose"), test_game_ai_kills_last_player_during_end_turn_sets_lose },
+    { TEST_NAME("game_on_input_event_click_in_end_turn_button_behaves_like_end_turn_pressed"), test_game_on_input_event_click_in_end_turn_button_behaves_like_end_turn_pressed },
+    { TEST_NAME("game_on_input_event_click_on_entity_tile_behaves_like_entity_pressed"), test_game_on_input_event_click_on_entity_tile_behaves_like_entity_pressed },
 };
 
 #define TEST_COUNT (sizeof(g_tests) / sizeof(g_tests[0]))
