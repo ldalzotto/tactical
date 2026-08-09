@@ -5,6 +5,7 @@
 #include "game/grid.h"
 #include "game/layout.h"
 #include "game/pathing.h"
+#include "game/turn.h"
 
 #define TEST_NAME(str) (slice_t){ .begin = (void *)(str), .end = (void *)((str) + sizeof(str) - 1) }
 
@@ -771,6 +772,136 @@ static void test_pathing_distance_at_out_of_bounds_returns_negative_one(void) {
     grid_deinit(&allocator, grid);
 }
 
+static void test_turn_init_starts_player_turn_one(void) {
+    turn_state_t state = turn_init();
+
+    assert_test(state.phase == TURN_PHASE_PLAYER);
+    assert_test(state.turn_number == 1);
+}
+
+static void test_turn_reset_team_points_ignores_dead_entities(void) {
+    static _Alignas(entity_t) char buffer[1024];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    entity_list_t list = entity_list_init(&allocator, 2);
+    entity_id_t alive_id = entity_spawn(&list, ENTITY_TEAM_PLAYER, 0, 0, 10, 2, 3);
+    entity_id_t dead_id = entity_spawn(&list, ENTITY_TEAM_PLAYER, 1, 0, 10, 2, 3);
+
+    entity_damage(list, dead_id, 10);
+
+    entity_t *alive = entity_at(list, alive_id);
+    entity_t *dead = entity_at(list, dead_id);
+    alive->ap = 0;
+    alive->mp = 0;
+    dead->ap = 0;
+    dead->mp = 0;
+
+    turn_reset_team_points(list, ENTITY_TEAM_PLAYER);
+
+    alive = entity_at(list, alive_id);
+    dead = entity_at(list, dead_id);
+
+    assert_test(alive->ap == alive->max_ap);
+    assert_test(alive->mp == alive->max_mp);
+
+    assert_test(dead->ap == 0);
+    assert_test(dead->mp == 0);
+
+    entity_list_deinit(&allocator, list);
+}
+
+static void test_turn_reset_team_points_only_affects_matching_team(void) {
+    static _Alignas(entity_t) char buffer[1024];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    entity_list_t list = entity_list_init(&allocator, 2);
+    entity_id_t player_id = entity_spawn(&list, ENTITY_TEAM_PLAYER, 0, 0, 10, 2, 3);
+    entity_id_t enemy_id = entity_spawn(&list, ENTITY_TEAM_ENEMY, 1, 0, 10, 2, 3);
+
+    entity_at(list, player_id)->ap = 0;
+    entity_at(list, player_id)->mp = 0;
+    entity_at(list, enemy_id)->ap = 0;
+    entity_at(list, enemy_id)->mp = 0;
+
+    turn_reset_team_points(list, ENTITY_TEAM_PLAYER);
+
+    entity_t *player = entity_at(list, player_id);
+    entity_t *enemy = entity_at(list, enemy_id);
+
+    assert_test(player->ap == player->max_ap);
+    assert_test(player->mp == player->max_mp);
+    assert_test(enemy->ap == 0);
+    assert_test(enemy->mp == 0);
+
+    entity_list_deinit(&allocator, list);
+}
+
+static void test_turn_begin_enemy_phase_resets_only_enemy_team(void) {
+    static _Alignas(entity_t) char buffer[1024];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    entity_list_t list = entity_list_init(&allocator, 2);
+    entity_id_t player_id = entity_spawn(&list, ENTITY_TEAM_PLAYER, 0, 0, 10, 2, 3);
+    entity_id_t enemy_id = entity_spawn(&list, ENTITY_TEAM_ENEMY, 1, 0, 10, 2, 3);
+
+    entity_at(list, player_id)->ap = 0;
+    entity_at(list, player_id)->mp = 0;
+    entity_at(list, enemy_id)->ap = 0;
+    entity_at(list, enemy_id)->mp = 0;
+
+    turn_state_t state = turn_init();
+    state = turn_begin_enemy_phase(state, list);
+
+    assert_test(state.phase == TURN_PHASE_ENEMY);
+    assert_test(state.turn_number == 1);
+
+    entity_t *player = entity_at(list, player_id);
+    entity_t *enemy = entity_at(list, enemy_id);
+
+    assert_test(player->ap == 0);
+    assert_test(player->mp == 0);
+    assert_test(enemy->ap == enemy->max_ap);
+    assert_test(enemy->mp == enemy->max_mp);
+
+    entity_list_deinit(&allocator, list);
+}
+
+static void test_turn_begin_player_phase_resets_only_player_team_and_increments_turn(void) {
+    static _Alignas(entity_t) char buffer[1024];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    entity_list_t list = entity_list_init(&allocator, 2);
+    entity_id_t player_id = entity_spawn(&list, ENTITY_TEAM_PLAYER, 0, 0, 10, 2, 3);
+    entity_id_t enemy_id = entity_spawn(&list, ENTITY_TEAM_ENEMY, 1, 0, 10, 2, 3);
+
+    turn_state_t state = turn_init();
+    state = turn_begin_enemy_phase(state, list);
+
+    entity_at(list, player_id)->ap = 0;
+    entity_at(list, player_id)->mp = 0;
+    entity_at(list, enemy_id)->ap = 0;
+    entity_at(list, enemy_id)->mp = 0;
+
+    state = turn_begin_player_phase(state, list);
+
+    assert_test(state.phase == TURN_PHASE_PLAYER);
+    assert_test(state.turn_number == 2);
+
+    entity_t *player = entity_at(list, player_id);
+    entity_t *enemy = entity_at(list, enemy_id);
+
+    assert_test(player->ap == player->max_ap);
+    assert_test(player->mp == player->max_mp);
+    assert_test(enemy->ap == 0);
+    assert_test(enemy->mp == 0);
+
+    entity_list_deinit(&allocator, list);
+}
+
 static const test_case_t g_tests[] = {
     { TEST_NAME("pass_example"), test_pass_example },
     { TEST_NAME("fail_example"), test_fail_example },
@@ -818,6 +949,11 @@ static const test_case_t g_tests[] = {
     { TEST_NAME("pathing_skip_entity_allows_own_start_tile"), test_pathing_skip_entity_allows_own_start_tile },
     { TEST_NAME("pathing_max_steps_caps_distance"), test_pathing_max_steps_caps_distance },
     { TEST_NAME("pathing_distance_at_out_of_bounds_returns_negative_one"), test_pathing_distance_at_out_of_bounds_returns_negative_one },
+    { TEST_NAME("turn_init_starts_player_turn_one"), test_turn_init_starts_player_turn_one },
+    { TEST_NAME("turn_reset_team_points_ignores_dead_entities"), test_turn_reset_team_points_ignores_dead_entities },
+    { TEST_NAME("turn_reset_team_points_only_affects_matching_team"), test_turn_reset_team_points_only_affects_matching_team },
+    { TEST_NAME("turn_begin_enemy_phase_resets_only_enemy_team"), test_turn_begin_enemy_phase_resets_only_enemy_team },
+    { TEST_NAME("turn_begin_player_phase_resets_only_player_team_and_increments_turn"), test_turn_begin_player_phase_resets_only_player_team_and_increments_turn },
 };
 
 #define TEST_COUNT (sizeof(g_tests) / sizeof(g_tests[0]))
