@@ -1,6 +1,7 @@
 #include "test.h"
 #include "lib/assert.h"
 #include "lib/runtime.h"
+#include "game/grid.h"
 
 #define TEST_NAME(str) (slice_t){ .begin = (void *)(str), .end = (void *)((str) + sizeof(str) - 1) }
 
@@ -293,6 +294,94 @@ static void test_input_event_layout(void) {
     assert_test(SLICE_AT(s, 1).y == 4);
 }
 
+static void test_grid_init(void) {
+    static _Alignas(tile_t) char buffer[256];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    grid_t grid = grid_init(&allocator, 3, 2);
+
+    assert_test(grid.width == 3);
+    assert_test(grid.height == 2);
+    assert_test(SLICE_BYTESIZE(grid.tiles) == 6 * (ptrdiff_t)sizeof(tile_t));
+
+    for (int y = 0; y < grid.height; y++) {
+        for (int x = 0; x < grid.width; x++) {
+            assert_test(grid_is_walkable(grid, x, y));
+        }
+    }
+
+    grid_deinit(&allocator, grid);
+}
+
+static void test_grid_in_bounds(void) {
+    static _Alignas(tile_t) char buffer[256];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    grid_t grid = grid_init(&allocator, 4, 3);
+
+    assert_test(grid_in_bounds(grid, 0, 0));
+    assert_test(grid_in_bounds(grid, 3, 2));
+    assert_test(!grid_in_bounds(grid, 4, 0));
+    assert_test(!grid_in_bounds(grid, 0, 3));
+    assert_test(!grid_in_bounds(grid, -1, 0));
+    assert_test(!grid_in_bounds(grid, 0, -1));
+
+    grid_deinit(&allocator, grid);
+}
+
+static void test_grid_set_walkable_round_trip(void) {
+    static _Alignas(tile_t) char buffer[256];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    grid_t grid = grid_init(&allocator, 3, 3);
+
+    assert_test(grid_is_walkable(grid, 1, 1));
+
+    grid_set_walkable(grid, 1, 1, false);
+    assert_test(!grid_is_walkable(grid, 1, 1));
+
+    grid_set_walkable(grid, 1, 1, true);
+    assert_test(grid_is_walkable(grid, 1, 1));
+
+    grid_deinit(&allocator, grid);
+}
+
+static void test_grid_tile_at_panics_on_out_of_bounds(void) {
+    static _Alignas(tile_t) char buffer[256];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    grid_t grid = grid_init(&allocator, 2, 2);
+
+    // x within a valid row-major flat index range but past the grid's
+    // logical width still panics: pick indices whose flat offset (y *
+    // width + x) exceeds the total tile count (4), not just the grid's
+    // width/height, since grid_tile_at indexes the flat array directly.
+    expect_panic_begin();
+    grid_tile_at(grid, 5, 0);
+    assert_test(expect_panic_end());
+
+    expect_panic_begin();
+    grid_tile_at(grid, 0, 100);
+    assert_test(expect_panic_end());
+
+    grid_deinit(&allocator, grid);
+}
+
+static void test_grid_deinit_right_after_init(void) {
+    static _Alignas(tile_t) char buffer[256];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    grid_t grid = grid_init(&allocator, 5, 5);
+    grid_deinit(&allocator, grid);
+
+    assert_test(allocator.cursor == allocator.data.begin);
+}
+
 static const test_case_t g_tests[] = {
     { TEST_NAME("pass_example"), test_pass_example },
     { TEST_NAME("fail_example"), test_fail_example },
@@ -318,6 +407,11 @@ static const test_case_t g_tests[] = {
     { TEST_NAME("slice_advance_panics_on_out_of_bounds"), test_slice_advance_panics_on_out_of_bounds },
     { TEST_NAME("bytesize"), test_bytesize },
     { TEST_NAME("input_event_layout"), test_input_event_layout },
+    { TEST_NAME("grid_init"), test_grid_init },
+    { TEST_NAME("grid_in_bounds"), test_grid_in_bounds },
+    { TEST_NAME("grid_set_walkable_round_trip"), test_grid_set_walkable_round_trip },
+    { TEST_NAME("grid_tile_at_panics_on_out_of_bounds"), test_grid_tile_at_panics_on_out_of_bounds },
+    { TEST_NAME("grid_deinit_right_after_init"), test_grid_deinit_right_after_init },
 };
 
 #define TEST_COUNT (sizeof(g_tests) / sizeof(g_tests[0]))
