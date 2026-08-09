@@ -1,6 +1,7 @@
 #include "test.h"
 #include "lib/assert.h"
 #include "lib/runtime.h"
+#include "game/entity.h"
 #include "game/grid.h"
 
 #define TEST_NAME(str) (slice_t){ .begin = (void *)(str), .end = (void *)((str) + sizeof(str) - 1) }
@@ -382,6 +383,151 @@ static void test_grid_deinit_right_after_init(void) {
     assert_test(allocator.cursor == allocator.data.begin);
 }
 
+static void test_entity_spawn_sequential_ids(void) {
+    static _Alignas(entity_t) char buffer[1024];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    entity_list_t list = entity_list_init(&allocator, 4);
+
+    entity_id_t a = entity_spawn(&list, ENTITY_TEAM_PLAYER, 0, 0, 10, 2, 3);
+    entity_id_t b = entity_spawn(&list, ENTITY_TEAM_ENEMY, 1, 0, 10, 2, 3);
+    entity_id_t c = entity_spawn(&list, ENTITY_TEAM_PLAYER, 2, 0, 10, 2, 3);
+
+    assert_test(a == 0);
+    assert_test(b == 1);
+    assert_test(c == 2);
+    assert_test(list.count == 3);
+
+    entity_list_deinit(&allocator, list);
+}
+
+static void test_entity_at_returns_live_mutable_pointer(void) {
+    static _Alignas(entity_t) char buffer[1024];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    entity_list_t list = entity_list_init(&allocator, 4);
+    entity_id_t id = entity_spawn(&list, ENTITY_TEAM_PLAYER, 5, 5, 10, 2, 3);
+
+    entity_t *entity = entity_at(list, id);
+    assert_test(entity->x == 5);
+    assert_test(entity->y == 5);
+    assert_test(entity->hp == 10);
+    assert_test(entity->alive);
+
+    entity->x = 7;
+    entity->hp = 3;
+
+    entity_t *reread = entity_at(list, id);
+    assert_test(reread->x == 7);
+    assert_test(reread->hp == 3);
+
+    entity_list_deinit(&allocator, list);
+}
+
+static void test_entity_find_at_ignores_dead_and_empty(void) {
+    static _Alignas(entity_t) char buffer[1024];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    entity_list_t list = entity_list_init(&allocator, 4);
+    entity_id_t alive_id = entity_spawn(&list, ENTITY_TEAM_PLAYER, 1, 1, 10, 2, 3);
+    entity_id_t dead_id = entity_spawn(&list, ENTITY_TEAM_ENEMY, 2, 2, 10, 2, 3);
+
+    entity_damage(list, dead_id, 10);
+
+    assert_test(entity_find_at(list, 1, 1) == alive_id);
+    assert_test(entity_find_at(list, 2, 2) == ENTITY_ID_NONE);
+    assert_test(entity_find_at(list, 9, 9) == ENTITY_ID_NONE);
+
+    entity_list_deinit(&allocator, list);
+}
+
+static void test_entity_damage_clamps_and_flips_alive(void) {
+    static _Alignas(entity_t) char buffer[1024];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    entity_list_t list = entity_list_init(&allocator, 4);
+    entity_id_t id = entity_spawn(&list, ENTITY_TEAM_PLAYER, 0, 0, 5, 2, 3);
+
+    entity_damage(list, id, 2);
+    entity_t *entity = entity_at(list, id);
+    assert_test(entity->hp == 3);
+    assert_test(entity->alive);
+
+    entity_damage(list, id, 3);
+    entity = entity_at(list, id);
+    assert_test(entity->hp == 0);
+    assert_test(!entity->alive);
+
+    entity_damage(list, id, 5);
+    entity = entity_at(list, id);
+    assert_test(entity->hp == 0);
+    assert_test(!entity->alive);
+
+    entity_list_deinit(&allocator, list);
+}
+
+static void test_entity_is_adjacent(void) {
+    entity_t center = { .x = 5, .y = 5 };
+
+    entity_t up = { .x = 5, .y = 4 };
+    entity_t down = { .x = 5, .y = 6 };
+    entity_t left = { .x = 4, .y = 5 };
+    entity_t right = { .x = 6, .y = 5 };
+
+    entity_t diag = { .x = 6, .y = 4 };
+    entity_t self_pos = { .x = 5, .y = 5 };
+    entity_t far = { .x = 8, .y = 5 };
+
+    assert_test(entity_is_adjacent(center, up));
+    assert_test(entity_is_adjacent(center, down));
+    assert_test(entity_is_adjacent(center, left));
+    assert_test(entity_is_adjacent(center, right));
+
+    assert_test(!entity_is_adjacent(center, diag));
+    assert_test(!entity_is_adjacent(center, self_pos));
+    assert_test(!entity_is_adjacent(center, far));
+}
+
+static void test_entity_alive_count_per_team(void) {
+    static _Alignas(entity_t) char buffer[1024];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    entity_list_t list = entity_list_init(&allocator, 5);
+    entity_id_t p1 = entity_spawn(&list, ENTITY_TEAM_PLAYER, 0, 0, 10, 2, 3);
+    entity_spawn(&list, ENTITY_TEAM_PLAYER, 1, 0, 10, 2, 3);
+    entity_id_t e1 = entity_spawn(&list, ENTITY_TEAM_ENEMY, 2, 0, 10, 2, 3);
+    entity_spawn(&list, ENTITY_TEAM_ENEMY, 3, 0, 10, 2, 3);
+    entity_spawn(&list, ENTITY_TEAM_ENEMY, 4, 0, 10, 2, 3);
+
+    entity_damage(list, p1, 10);
+    entity_damage(list, e1, 10);
+
+    assert_test(entity_alive_count(list, ENTITY_TEAM_PLAYER) == 1);
+    assert_test(entity_alive_count(list, ENTITY_TEAM_ENEMY) == 2);
+
+    entity_list_deinit(&allocator, list);
+}
+
+static void test_entity_at_panics_on_out_of_range(void) {
+    static _Alignas(entity_t) char buffer[1024];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    entity_list_t list = entity_list_init(&allocator, 4);
+    entity_spawn(&list, ENTITY_TEAM_PLAYER, 0, 0, 10, 2, 3);
+
+    expect_panic_begin();
+    entity_at(list, 999);
+    assert_test(expect_panic_end());
+
+    entity_list_deinit(&allocator, list);
+}
+
 static const test_case_t g_tests[] = {
     { TEST_NAME("pass_example"), test_pass_example },
     { TEST_NAME("fail_example"), test_fail_example },
@@ -412,6 +558,13 @@ static const test_case_t g_tests[] = {
     { TEST_NAME("grid_set_walkable_round_trip"), test_grid_set_walkable_round_trip },
     { TEST_NAME("grid_tile_at_panics_on_out_of_bounds"), test_grid_tile_at_panics_on_out_of_bounds },
     { TEST_NAME("grid_deinit_right_after_init"), test_grid_deinit_right_after_init },
+    { TEST_NAME("entity_spawn_sequential_ids"), test_entity_spawn_sequential_ids },
+    { TEST_NAME("entity_at_returns_live_mutable_pointer"), test_entity_at_returns_live_mutable_pointer },
+    { TEST_NAME("entity_find_at_ignores_dead_and_empty"), test_entity_find_at_ignores_dead_and_empty },
+    { TEST_NAME("entity_damage_clamps_and_flips_alive"), test_entity_damage_clamps_and_flips_alive },
+    { TEST_NAME("entity_is_adjacent"), test_entity_is_adjacent },
+    { TEST_NAME("entity_alive_count_per_team"), test_entity_alive_count_per_team },
+    { TEST_NAME("entity_at_panics_on_out_of_range"), test_entity_at_panics_on_out_of_range },
 };
 
 #define TEST_COUNT (sizeof(g_tests) / sizeof(g_tests[0]))
