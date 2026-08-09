@@ -3,22 +3,12 @@
 #include "clock.h"
 #include "graphics.h"
 #include "memory.h"
+#include "runtime.h"
 
 #define FB_WIDTH 320
 #define FB_HEIGHT 240
 
 extern unsigned char __heap_base;
-
-typedef uint32_t window_handle_t;
-
-__attribute__((import_module("env"), import_name("create_window")))
-extern window_handle_t create_window(int width, int height);
-
-__attribute__((import_module("env"), import_name("present_window")))
-extern void present_window(window_handle_t window, uint8_t *fb_begin, uint8_t *fb_end);
-
-__attribute__((import_module("env"), import_name("debug_log")))
-extern void debug_log(void *begin, void *end);
 
 typedef struct {
     linear_allocator_t allocator;
@@ -59,8 +49,7 @@ app_state_t *init(uint32_t memory_size, uint32_t now_ms) {
 
     state->window = create_window(FB_WIDTH, FB_HEIGHT);
 
-    slice_t message = STR("Application initialized");
-    debug_log(message.begin, message.end);
+    debug_log(STR("Application initialized"));
 
     return state;
 }
@@ -82,6 +71,6 @@ uint32_t onNextFrame(app_state_t *state, uint32_t now_ms) {
 
     state->last_frame_ms = now_ms;
     render(state, now_ms);
-    present_window(state->window, (uint8_t *)state->framebuffer.begin, (uint8_t *)state->framebuffer.end);
+    present_window(state->window, state->framebuffer.slice);
     return 0;
 }
