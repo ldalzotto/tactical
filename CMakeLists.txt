@@ -33,6 +33,7 @@ set(APP_SOURCES
 
     src/game/entity.c
     src/game/grid.c
+    src/game/layout.c
 
     src/main.c
 )
