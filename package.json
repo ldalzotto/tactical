@@ -9,6 +9,6 @@
     "build:release:verbose": "node server/build.js --release --verbose",
     "start": "node server/server.js",
     "start:release": "node server/server.js --release",
-    "test": "node server/build.js && node server/run-tests.js"
+    "test": "npm run build && node server/run-tests.js"
   }
 }
