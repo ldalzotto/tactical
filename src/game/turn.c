@@ -5,8 +5,8 @@ turn_state_t turn_init(void) {
 }
 
 void turn_reset_team_points(entity_list_t entities, entity_team_t team) {
-    for (int i = 0; i < entities.count; i++) {
-        entity_t *entity = &SLICE_AT(entities.entities, i);
+    for ( SLICE_FOREACH(entities.entities, entity_s)) {
+        entity_t *entity = &SLICE_DEREF(entity_s);
         if (entity->alive && entity->team == team) {
             entity->ap = entity->max_ap;
             entity->mp = entity->max_mp;

@@ -45,7 +45,7 @@ app_state_t *init(uint32_t memory_size, uint32_t now_ms) {
 
     state->window = create_window(FB_WIDTH, FB_HEIGHT);
     state->game = game_init(&state->allocator, GRID_WIDTH, GRID_HEIGHT, FB_WIDTH, FB_HEIGHT, HUD_HEIGHT);
-    scenario_setup_default(&state->game);
+    scenario_setup_default(&state->allocator, &state->game);
 
     debug_log(STR("Application initialized"));
 
