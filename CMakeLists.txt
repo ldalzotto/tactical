@@ -35,6 +35,7 @@ set(APP_SOURCES
     src/game/grid.c
     src/game/layout.c
     src/game/pathing.c
+    src/game/turn.c
 
     src/main.c
 )
