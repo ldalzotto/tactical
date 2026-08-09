@@ -3,6 +3,7 @@
 #include "lib/runtime.h"
 #include "game/entity.h"
 #include "game/grid.h"
+#include "game/input.h"
 #include "game/layout.h"
 #include "game/pathing.h"
 #include "game/turn.h"
@@ -382,6 +383,30 @@ static void test_grid_deinit_right_after_init(void) {
 
     grid_t grid = grid_init(&allocator, 5, 5);
     grid_deinit(&allocator, grid);
+
+    assert_test(allocator.cursor == allocator.data.begin);
+}
+
+static void test_input_init_allocates_buffer_capacity(void) {
+    static _Alignas(input_event_t) char buffer[sizeof(input_event_t) * INPUT_EVENT_BUFFER_CAPACITY + 16];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    input_state_t state = input_init(&allocator, 0);
+
+    assert_test(state.window == 0);
+    assert_test(SLICE_BYTESIZE(state.buffer) == INPUT_EVENT_BUFFER_CAPACITY * (ptrdiff_t)sizeof(input_event_t));
+
+    input_deinit(&allocator, state);
+}
+
+static void test_input_deinit_right_after_init(void) {
+    static _Alignas(input_event_t) char buffer[sizeof(input_event_t) * INPUT_EVENT_BUFFER_CAPACITY + 16];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    input_state_t state = input_init(&allocator, 0);
+    input_deinit(&allocator, state);
 
     assert_test(allocator.cursor == allocator.data.begin);
 }
@@ -932,6 +957,8 @@ static const test_case_t g_tests[] = {
     { TEST_NAME("grid_set_walkable_round_trip"), test_grid_set_walkable_round_trip },
     { TEST_NAME("grid_tile_at_panics_on_out_of_bounds"), test_grid_tile_at_panics_on_out_of_bounds },
     { TEST_NAME("grid_deinit_right_after_init"), test_grid_deinit_right_after_init },
+    { TEST_NAME("input_init_allocates_buffer_capacity"), test_input_init_allocates_buffer_capacity },
+    { TEST_NAME("input_deinit_right_after_init"), test_input_deinit_right_after_init },
     { TEST_NAME("entity_spawn_sequential_ids"), test_entity_spawn_sequential_ids },
     { TEST_NAME("entity_at_returns_live_mutable_pointer"), test_entity_at_returns_live_mutable_pointer },
     { TEST_NAME("entity_find_at_ignores_dead_and_empty"), test_entity_find_at_ignores_dead_and_empty },
