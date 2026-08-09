@@ -1,9 +1,9 @@
 #include <stdint.h>
 
-#include "clock.h"
-#include "graphics.h"
-#include "memory.h"
-#include "runtime.h"
+#include "lib/clock.h"
+#include "lib/graphics.h"
+#include "lib/memory.h"
+#include "lib/runtime.h"
 
 #define FB_WIDTH 320
 #define FB_HEIGHT 240

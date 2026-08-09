@@ -1,5 +1,5 @@
 #include "test.h"
-#include "assert.h"
+#include "lib/assert.h"
 
 #define TEST_NAME(str) (slice_t){ .begin = (void *)(str), .end = (void *)((str) + sizeof(str) - 1) }
 
