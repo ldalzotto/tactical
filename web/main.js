@@ -93,7 +93,7 @@ async function main() {
     await runApp({
         wasmBytes,
         now: () => performance.now(),
-        createWindow(width, height) {
+        createWindow(width, height, pushInputEvent) {
             const canvas = document.getElementById('screen');
             canvas.width = width;
             canvas.height = height;
@@ -102,6 +102,27 @@ async function main() {
 
             const handle = nextWindowHandle++;
             windows.set(handle, { canvas, ctx, imageData });
+
+            function canvasCoordinates(event) {
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                return {
+                    x: Math.round((event.clientX - rect.left) * scaleX),
+                    y: Math.round((event.clientY - rect.top) * scaleY),
+                };
+            }
+
+            canvas.addEventListener('mousemove', (event) => {
+                const { x, y } = canvasCoordinates(event);
+                pushInputEvent(handle, 0, x, y);
+            });
+
+            canvas.addEventListener('click', (event) => {
+                const { x, y } = canvasCoordinates(event);
+                pushInputEvent(handle, 1, x, y);
+            });
+
             return handle;
         },
         presentWindow(windowHandle, pixels) {

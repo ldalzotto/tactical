@@ -1,5 +1,6 @@
 #include "test.h"
 #include "lib/assert.h"
+#include "lib/runtime.h"
 
 #define TEST_NAME(str) (slice_t){ .begin = (void *)(str), .end = (void *)((str) + sizeof(str) - 1) }
 
@@ -278,6 +279,20 @@ static void test_bytesize(void) {
     assert_test(SLICE_BYTESIZE(s) == 7);
 }
 
+static void test_input_event_layout(void) {
+    assert_test(sizeof(input_event_t) == 12);
+
+    static input_event_t events[2];
+    slice_input_event_t s = { .slice = { events, events + 2 } };
+
+    SLICE_AT(s, 0) = (input_event_t){ .type = INPUT_EVENT_MOUSE_MOVE, .x = 1, .y = 2 };
+    SLICE_AT(s, 1) = (input_event_t){ .type = INPUT_EVENT_MOUSE_CLICK, .x = 3, .y = 4 };
+
+    assert_test(SLICE_AT(s, 0).type == INPUT_EVENT_MOUSE_MOVE);
+    assert_test(SLICE_AT(s, 1).x == 3);
+    assert_test(SLICE_AT(s, 1).y == 4);
+}
+
 static const test_case_t g_tests[] = {
     { TEST_NAME("pass_example"), test_pass_example },
     { TEST_NAME("fail_example"), test_fail_example },
@@ -302,6 +317,7 @@ static const test_case_t g_tests[] = {
     { TEST_NAME("slice_advance"), test_slice_advance },
     { TEST_NAME("slice_advance_panics_on_out_of_bounds"), test_slice_advance_panics_on_out_of_bounds },
     { TEST_NAME("bytesize"), test_bytesize },
+    { TEST_NAME("input_event_layout"), test_input_event_layout },
 };
 
 #define TEST_COUNT (sizeof(g_tests) / sizeof(g_tests[0]))

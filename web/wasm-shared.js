@@ -43,8 +43,20 @@ function decodeWasmMemoryString(memory, ptr, len) {
 // corrupting memory.
 const MEMORY_PAGES = 32;
 
+const INPUT_EVENT_BYTE_SIZE = 12;
+
 function buildImportObject({ createWindow, presentWindow, debugLog, reportPanic }) {
     const memory = new WebAssembly.Memory({ initial: MEMORY_PAGES });
+    const pendingInputEvents = new Map();
+
+    function pushInputEvent(windowHandle, type, x, y) {
+        let events = pendingInputEvents.get(windowHandle);
+        if (!events) {
+            events = [];
+            pendingInputEvents.set(windowHandle, events);
+        }
+        events.push({ type, x, y });
+    }
 
     const importObject = {
         env: {
@@ -65,10 +77,27 @@ function buildImportObject({ createWindow, presentWindow, debugLog, reportPanic 
                 }
                 throw new Error(`panic: ${file}:${line}: ${message}`);
             },
+            poll_input_events(windowHandle, beginPtr, endPtr) {
+                const events = pendingInputEvents.get(windowHandle) ?? [];
+                const capacity = Math.floor((endPtr - beginPtr) / INPUT_EVENT_BYTE_SIZE);
+                const writeCount = Math.min(capacity, events.length);
+                const view = new DataView(memory.buffer);
+
+                for (let i = 0; i < writeCount; i++) {
+                    const offset = beginPtr + i * INPUT_EVENT_BYTE_SIZE;
+                    view.setInt32(offset, events[i].type, true);
+                    view.setInt32(offset + 4, events[i].x, true);
+                    view.setInt32(offset + 8, events[i].y, true);
+                }
+
+                pendingInputEvents.set(windowHandle, events.slice(writeCount));
+
+                return beginPtr + writeCount * INPUT_EVENT_BYTE_SIZE;
+            },
         },
     };
 
-    return { memory, importObject };
+    return { memory, importObject, pushInputEvent };
 }
 
 async function runWasmTests({ wasmBytes, resolveFrames, onResult, onComplete, createWindow, presentWindow, debugLog }) {
@@ -103,7 +132,12 @@ async function runWasmTests({ wasmBytes, resolveFrames, onResult, onComplete, cr
 }
 
 async function runApp({ wasmBytes, now, createWindow, presentWindow, debugLog, reportPanic }) {
-    const { memory, importObject } = buildImportObject({ createWindow, presentWindow, debugLog, reportPanic });
+    const { memory, importObject, pushInputEvent } = buildImportObject({
+        createWindow: createWindow && ((width, height) => createWindow(width, height, pushInputEvent)),
+        presentWindow,
+        debugLog,
+        reportPanic,
+    });
     const { instance } = await WebAssembly.instantiate(wasmBytes, importObject);
     const { init, onNextFrame } = instance.exports;
 
