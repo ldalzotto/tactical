@@ -2,10 +2,18 @@
 
 #include "../lib/assert.h"
 
-pathing_state_t pathing_init(linear_allocator_t *allocator, int grid_width, int grid_height) {
-    assert_debug(grid_width > 0 && grid_height > 0);
+void pathing_deinit(linear_allocator_t *allocator, pathing_state_t state) {
+    LINEAR_ALLOCATOR_POP(allocator, state.queue);
+    LINEAR_ALLOCATOR_POP(allocator, state.dist);
+    linear_allocator_pop(allocator, state.align);
+}
 
-    size_t count = (size_t)(grid_width * grid_height);
+pathing_state_t pathing_compute_distances(linear_allocator_t *allocator, grid_t grid, entity_list_t entities, entity_t* entity, int from_x, int from_y, int max_steps) {
+    assert_debug(grid_in_bounds(grid, from_x, from_y));
+
+    size_t count = (size_t)(grid.width * grid.height);
+
+    slice_t align = linear_allocator_push_alignment(allocator, _Alignof(int32_t));
 
     slice_int32_t dist;
     dist = LINEAR_ALLOCATOR_PUSH(allocator, dist, count);
@@ -13,20 +21,8 @@ pathing_state_t pathing_init(linear_allocator_t *allocator, int grid_width, int 
     slice_int32_t queue;
     queue = LINEAR_ALLOCATOR_PUSH(allocator, queue, count);
 
-    pathing_state_t state = { .dist = dist, .queue = queue };
-    return state;
-}
-
-void pathing_deinit(linear_allocator_t *allocator, pathing_state_t state) {
-    LINEAR_ALLOCATOR_POP(allocator, state.queue);
-    LINEAR_ALLOCATOR_POP(allocator, state.dist);
-}
-
-void pathing_compute_distances(pathing_state_t state, grid_t grid, entity_list_t entities, entity_t* entity, int from_x, int from_y, int max_steps) {
-    assert_debug(grid_in_bounds(grid, from_x, from_y));
-
-    int count = grid.width * grid.height;
-    for (int i = 0; i < count; i++) {
+    pathing_state_t state = { .align = align, .dist = dist, .queue = queue };
+    for (size_t i = 0; i < count; i++) {
         SLICE_AT(state.dist, i) = -1;
     }
 
@@ -80,6 +76,8 @@ void pathing_compute_distances(pathing_state_t state, grid_t grid, entity_list_t
             tail++;
         }
     }
+
+    return state;
 }
 
 int pathing_distance_at(pathing_state_t state, grid_t grid, int x, int y) {

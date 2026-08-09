@@ -569,17 +569,12 @@ static void test_pathing_flat_grid_distance(void) {
     slice_t entity_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, entity_witness);
     entity_list_t entities = entity_list_init(&allocator);
 
-    slice_int32_t int32_witness;
-    slice_t pathing_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, int32_witness);
-    pathing_state_t pathing = pathing_init(&allocator, 4, 4);
-
-    pathing_compute_distances(pathing, grid, entities, 0, 0, 0, 100);
+    pathing_state_t pathing = pathing_compute_distances(&allocator, grid, entities, 0, 0, 0, 100);
 
     assert_test(pathing_distance_at(pathing, grid, 0, 0) == 0);
     assert_test(pathing_distance_at(pathing, grid, 3, 3) == 6);
 
     pathing_deinit(&allocator, pathing);
-    linear_allocator_pop(&allocator, pathing_align);
     entity_list_deinit(&allocator, entities);
     linear_allocator_pop(&allocator, entity_align);
     grid_deinit(&allocator, grid);
@@ -596,24 +591,21 @@ static void test_pathing_obstacle_forces_detour(void) {
     slice_t entity_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, entity_witness);
     entity_list_t entities = entity_list_init(&allocator);
 
-    slice_int32_t int32_witness;
-    slice_t pathing_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, int32_witness);
-    pathing_state_t pathing = pathing_init(&allocator, 5, 3);
-
-    pathing_compute_distances(pathing, grid, entities, 0, 0, 1, 100);
+    pathing_state_t pathing = pathing_compute_distances(&allocator, grid, entities, 0, 0, 1, 100);
     int baseline = pathing_distance_at(pathing, grid, 4, 1);
     assert_test(baseline == 4);
+
+    pathing_deinit(&allocator, pathing);
 
     grid_set_walkable(grid, 2, 0, false);
     grid_set_walkable(grid, 2, 1, false);
 
-    pathing_compute_distances(pathing, grid, entities, 0, 0, 1, 100);
+    pathing = pathing_compute_distances(&allocator, grid, entities, 0, 0, 1, 100);
     int obstructed = pathing_distance_at(pathing, grid, 4, 1);
 
     assert_test(obstructed > baseline);
 
     pathing_deinit(&allocator, pathing);
-    linear_allocator_pop(&allocator, pathing_align);
     entity_list_deinit(&allocator, entities);
     linear_allocator_pop(&allocator, entity_align);
     grid_deinit(&allocator, grid);
@@ -631,11 +623,7 @@ static void test_pathing_occupied_tile_blocks_corridor(void) {
     entity_list_t entities = entity_list_init(&allocator);
     entity_spawn(&allocator, &entities, ENTITY_TEAM_ENEMY, 2, 0, 10, 2, 3);
 
-    slice_int32_t int32_witness;
-    slice_t pathing_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, int32_witness);
-    pathing_state_t pathing = pathing_init(&allocator, 5, 1);
-
-    pathing_compute_distances(pathing, grid, entities, 0, 0, 0, 100);
+    pathing_state_t pathing = pathing_compute_distances(&allocator, grid, entities, 0, 0, 0, 100);
 
     assert_test(pathing_distance_at(pathing, grid, 1, 0) == 1);
     assert_test(pathing_distance_at(pathing, grid, 2, 0) == -1);
@@ -643,7 +631,6 @@ static void test_pathing_occupied_tile_blocks_corridor(void) {
     assert_test(pathing_distance_at(pathing, grid, 4, 0) == -1);
 
     pathing_deinit(&allocator, pathing);
-    linear_allocator_pop(&allocator, pathing_align);
     entity_list_deinit(&allocator, entities);
     linear_allocator_pop(&allocator, entity_align);
     grid_deinit(&allocator, grid);
@@ -661,17 +648,12 @@ static void test_pathing_skip_entity_allows_own_start_tile(void) {
     entity_list_t entities = entity_list_init(&allocator);
     entity_t* mover = entity_spawn(&allocator, &entities, ENTITY_TEAM_PLAYER, 1, 1, 10, 2, 3);
 
-    slice_int32_t int32_witness;
-    slice_t pathing_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, int32_witness);
-    pathing_state_t pathing = pathing_init(&allocator, 4, 4);
-
-    pathing_compute_distances(pathing, grid, entities, mover, 1, 1, 100);
+    pathing_state_t pathing = pathing_compute_distances(&allocator, grid, entities, mover, 1, 1, 100);
 
     assert_test(pathing_distance_at(pathing, grid, 1, 1) == 0);
     assert_test(pathing_distance_at(pathing, grid, 0, 0) == 2);
 
     pathing_deinit(&allocator, pathing);
-    linear_allocator_pop(&allocator, pathing_align);
     entity_list_deinit(&allocator, entities);
     linear_allocator_pop(&allocator, entity_align);
     grid_deinit(&allocator, grid);
@@ -688,18 +670,13 @@ static void test_pathing_max_steps_caps_distance(void) {
     slice_t entity_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, entity_witness);
     entity_list_t entities = entity_list_init(&allocator);
 
-    slice_int32_t int32_witness;
-    slice_t pathing_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, int32_witness);
-    pathing_state_t pathing = pathing_init(&allocator, 4, 4);
-
-    pathing_compute_distances(pathing, grid, entities, 0, 0, 0, 2);
+    pathing_state_t pathing = pathing_compute_distances(&allocator, grid, entities, 0, 0, 0, 2);
 
     assert_test(pathing_distance_at(pathing, grid, 2, 0) == 2);
     assert_test(pathing_distance_at(pathing, grid, 3, 0) == -1);
     assert_test(pathing_distance_at(pathing, grid, 3, 3) == -1);
 
     pathing_deinit(&allocator, pathing);
-    linear_allocator_pop(&allocator, pathing_align);
     entity_list_deinit(&allocator, entities);
     linear_allocator_pop(&allocator, entity_align);
     grid_deinit(&allocator, grid);
@@ -716,11 +693,7 @@ static void test_pathing_distance_at_out_of_bounds_returns_negative_one(void) {
     slice_t entity_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, entity_witness);
     entity_list_t entities = entity_list_init(&allocator);
 
-    slice_int32_t int32_witness;
-    slice_t pathing_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, int32_witness);
-    pathing_state_t pathing = pathing_init(&allocator, 4, 4);
-
-    pathing_compute_distances(pathing, grid, entities, 0, 0, 0, 100);
+    pathing_state_t pathing = pathing_compute_distances(&allocator, grid, entities, 0, 0, 0, 100);
 
     assert_test(pathing_distance_at(pathing, grid, -1, 0) == -1);
     assert_test(pathing_distance_at(pathing, grid, 0, -1) == -1);
@@ -729,7 +702,6 @@ static void test_pathing_distance_at_out_of_bounds_returns_negative_one(void) {
     assert_test(pathing_distance_at(pathing, grid, 100, 100) == -1);
 
     pathing_deinit(&allocator, pathing);
-    linear_allocator_pop(&allocator, pathing_align);
     entity_list_deinit(&allocator, entities);
     linear_allocator_pop(&allocator, entity_align);
     grid_deinit(&allocator, grid);
@@ -877,11 +849,7 @@ static void test_action_try_move_succeeds_within_mp(void) {
     entity_list_t entities = entity_list_init(&allocator);
     entity_t* mover = entity_spawn(&allocator, &entities, ENTITY_TEAM_PLAYER, 0, 0, 10, 2, 3);
 
-    slice_int32_t int32_witness;
-    slice_t pathing_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, int32_witness);
-    pathing_state_t pathing = pathing_init(&allocator, 4, 4);
-
-    bool result = action_try_move(grid, entities, pathing, mover, 2, 0);
+    bool result = action_try_move(&allocator, grid, entities, mover, 2, 0);
     assert_test(result);
 
     entity_t *entity = mover;
@@ -889,8 +857,6 @@ static void test_action_try_move_succeeds_within_mp(void) {
     assert_test(entity->y == 0);
     assert_test(entity->mp == 1);
 
-    pathing_deinit(&allocator, pathing);
-    linear_allocator_pop(&allocator, pathing_align);
     entity_list_deinit(&allocator, entities);
     linear_allocator_pop(&allocator, entity_align);
     grid_deinit(&allocator, grid);
@@ -908,11 +874,7 @@ static void test_action_try_move_fails_beyond_mp(void) {
     entity_list_t entities = entity_list_init(&allocator);
     entity_t* mover = entity_spawn(&allocator, &entities, ENTITY_TEAM_PLAYER, 0, 0, 10, 2, 2);
 
-    slice_int32_t int32_witness;
-    slice_t pathing_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, int32_witness);
-    pathing_state_t pathing = pathing_init(&allocator, 4, 4);
-
-    bool result = action_try_move(grid, entities, pathing, mover, 3, 0);
+    bool result = action_try_move(&allocator, grid, entities, mover, 3, 0);
     assert_test(!result);
 
     entity_t *entity = mover;
@@ -920,8 +882,6 @@ static void test_action_try_move_fails_beyond_mp(void) {
     assert_test(entity->y == 0);
     assert_test(entity->mp == 2);
 
-    pathing_deinit(&allocator, pathing);
-    linear_allocator_pop(&allocator, pathing_align);
     entity_list_deinit(&allocator, entities);
     linear_allocator_pop(&allocator, entity_align);
     grid_deinit(&allocator, grid);
@@ -940,11 +900,7 @@ static void test_action_try_move_fails_onto_obstacle(void) {
     entity_list_t entities = entity_list_init(&allocator);
     entity_t* mover = entity_spawn(&allocator, &entities, ENTITY_TEAM_PLAYER, 0, 0, 10, 2, 3);
 
-    slice_int32_t int32_witness;
-    slice_t pathing_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, int32_witness);
-    pathing_state_t pathing = pathing_init(&allocator, 4, 4);
-
-    bool result = action_try_move(grid, entities, pathing, mover, 1, 0);
+    bool result = action_try_move(&allocator, grid, entities, mover, 1, 0);
     assert_test(!result);
 
     entity_t *entity = mover;
@@ -952,8 +908,6 @@ static void test_action_try_move_fails_onto_obstacle(void) {
     assert_test(entity->y == 0);
     assert_test(entity->mp == 3);
 
-    pathing_deinit(&allocator, pathing);
-    linear_allocator_pop(&allocator, pathing_align);
     entity_list_deinit(&allocator, entities);
     linear_allocator_pop(&allocator, entity_align);
     grid_deinit(&allocator, grid);
@@ -972,11 +926,7 @@ static void test_action_try_move_fails_onto_occupied_tile(void) {
     entity_t* mover = entity_spawn(&allocator, &entities, ENTITY_TEAM_PLAYER, 0, 0, 10, 2, 3);
     entity_spawn(&allocator, &entities, ENTITY_TEAM_ENEMY, 1, 0, 10, 2, 3);
 
-    slice_int32_t int32_witness;
-    slice_t pathing_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, int32_witness);
-    pathing_state_t pathing = pathing_init(&allocator, 4, 4);
-
-    bool result = action_try_move(grid, entities, pathing, mover, 1, 0);
+    bool result = action_try_move(&allocator, grid, entities, mover, 1, 0);
     assert_test(!result);
 
     entity_t *entity = mover;
@@ -984,8 +934,6 @@ static void test_action_try_move_fails_onto_occupied_tile(void) {
     assert_test(entity->y == 0);
     assert_test(entity->mp == 3);
 
-    pathing_deinit(&allocator, pathing);
-    linear_allocator_pop(&allocator, pathing_align);
     entity_list_deinit(&allocator, entities);
     linear_allocator_pop(&allocator, entity_align);
     grid_deinit(&allocator, grid);
@@ -1003,11 +951,7 @@ static void test_action_try_move_fails_out_of_bounds(void) {
     entity_list_t entities = entity_list_init(&allocator);
     entity_t* mover = entity_spawn(&allocator, &entities, ENTITY_TEAM_PLAYER, 0, 0, 10, 2, 10);
 
-    slice_int32_t int32_witness;
-    slice_t pathing_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, int32_witness);
-    pathing_state_t pathing = pathing_init(&allocator, 4, 4);
-
-    bool result = action_try_move(grid, entities, pathing, mover, 4, 0);
+    bool result = action_try_move(&allocator, grid, entities, mover, 4, 0);
     assert_test(!result);
 
     entity_t *entity = mover;
@@ -1015,8 +959,6 @@ static void test_action_try_move_fails_out_of_bounds(void) {
     assert_test(entity->y == 0);
     assert_test(entity->mp == 10);
 
-    pathing_deinit(&allocator, pathing);
-    linear_allocator_pop(&allocator, pathing_align);
     entity_list_deinit(&allocator, entities);
     linear_allocator_pop(&allocator, entity_align);
     grid_deinit(&allocator, grid);
@@ -1164,11 +1106,7 @@ static void test_ai_adjacent_enemy_attacks_without_moving(void) {
     entity_t* player = entity_spawn(&allocator, &entities, ENTITY_TEAM_PLAYER, 0, 0, 10, 2, 3);
     entity_t* enemy = entity_spawn(&allocator, &entities, ENTITY_TEAM_ENEMY, 1, 0, 10, 2, 3);
 
-    slice_int32_t int32_witness;
-    slice_t pathing_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, int32_witness);
-    pathing_state_t pathing = pathing_init(&allocator, 4, 4);
-
-    ai_run_enemy_phase(grid, entities, pathing);
+    ai_run_enemy_phase(&allocator, grid, entities);
 
     entity_t *enemy_entity = enemy;
     entity_t *player_entity = player;
@@ -1178,8 +1116,6 @@ static void test_ai_adjacent_enemy_attacks_without_moving(void) {
     assert_test(player_entity->hp == 5);
     assert_test(player_entity->alive);
 
-    pathing_deinit(&allocator, pathing);
-    linear_allocator_pop(&allocator, pathing_align);
     entity_list_deinit(&allocator, entities);
     linear_allocator_pop(&allocator, entity_align);
     grid_deinit(&allocator, grid);
@@ -1198,11 +1134,7 @@ static void test_ai_far_enemy_with_enough_mp_closes_and_attacks(void) {
     entity_t* player = entity_spawn(&allocator, &entities, ENTITY_TEAM_PLAYER, 0, 0, 10, 2, 3);
     entity_t* enemy = entity_spawn(&allocator, &entities, ENTITY_TEAM_ENEMY, 4, 0, 10, 2, 4);
 
-    slice_int32_t int32_witness;
-    slice_t pathing_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, int32_witness);
-    pathing_state_t pathing = pathing_init(&allocator, 5, 1);
-
-    ai_run_enemy_phase(grid, entities, pathing);
+    ai_run_enemy_phase(&allocator, grid, entities);
 
     entity_t *enemy_entity = enemy;
     entity_t *player_entity = player;
@@ -1213,8 +1145,6 @@ static void test_ai_far_enemy_with_enough_mp_closes_and_attacks(void) {
     assert_test(player_entity->hp == 5);
     assert_test(player_entity->alive);
 
-    pathing_deinit(&allocator, pathing);
-    linear_allocator_pop(&allocator, pathing_align);
     entity_list_deinit(&allocator, entities);
     linear_allocator_pop(&allocator, entity_align);
     grid_deinit(&allocator, grid);
@@ -1233,11 +1163,7 @@ static void test_ai_insufficient_mp_moves_partial_no_attack(void) {
     entity_t* player = entity_spawn(&allocator, &entities, ENTITY_TEAM_PLAYER, 0, 0, 10, 2, 3);
     entity_t* enemy = entity_spawn(&allocator, &entities, ENTITY_TEAM_ENEMY, 4, 0, 10, 2, 1);
 
-    slice_int32_t int32_witness;
-    slice_t pathing_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, int32_witness);
-    pathing_state_t pathing = pathing_init(&allocator, 5, 1);
-
-    ai_run_enemy_phase(grid, entities, pathing);
+    ai_run_enemy_phase(&allocator, grid, entities);
 
     entity_t *enemy_entity = enemy;
     entity_t *player_entity = player;
@@ -1248,8 +1174,6 @@ static void test_ai_insufficient_mp_moves_partial_no_attack(void) {
     assert_test(!entity_is_adjacent(*enemy_entity, *player_entity));
     assert_test(player_entity->hp == 10);
 
-    pathing_deinit(&allocator, pathing);
-    linear_allocator_pop(&allocator, pathing_align);
     entity_list_deinit(&allocator, entities);
     linear_allocator_pop(&allocator, entity_align);
     grid_deinit(&allocator, grid);
@@ -1270,11 +1194,7 @@ static void test_ai_obstacle_forces_detour(void) {
     entity_t* player = entity_spawn(&allocator, &entities, ENTITY_TEAM_PLAYER, 4, 1, 10, 2, 3);
     entity_t* enemy = entity_spawn(&allocator, &entities, ENTITY_TEAM_ENEMY, 0, 1, 10, 2, 8);
 
-    slice_int32_t int32_witness;
-    slice_t pathing_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, int32_witness);
-    pathing_state_t pathing = pathing_init(&allocator, 5, 3);
-
-    ai_run_enemy_phase(grid, entities, pathing);
+    ai_run_enemy_phase(&allocator, grid, entities);
 
     entity_t *enemy_entity = enemy;
     entity_t *player_entity = player;
@@ -1283,8 +1203,6 @@ static void test_ai_obstacle_forces_detour(void) {
     assert_test(player_entity->hp == 5);
     assert_test(enemy_entity->ap == 1);
 
-    pathing_deinit(&allocator, pathing);
-    linear_allocator_pop(&allocator, pathing_align);
     entity_list_deinit(&allocator, entities);
     linear_allocator_pop(&allocator, entity_align);
     grid_deinit(&allocator, grid);
@@ -1306,11 +1224,7 @@ static void test_ai_multiple_enemies_act_independently_in_ascending_id_order(voi
 
     assert_test(enemy_a < enemy_b);
 
-    slice_int32_t int32_witness;
-    slice_t pathing_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, int32_witness);
-    pathing_state_t pathing = pathing_init(&allocator, 4, 4);
-
-    ai_run_enemy_phase(grid, entities, pathing);
+    ai_run_enemy_phase(&allocator, grid, entities);
 
     entity_t *player_entity = player;
     entity_t *a_entity = enemy_a;
@@ -1327,8 +1241,6 @@ static void test_ai_multiple_enemies_act_independently_in_ascending_id_order(voi
     assert_test(player_entity->hp == 20);
     assert_test(player_entity->alive);
 
-    pathing_deinit(&allocator, pathing);
-    linear_allocator_pop(&allocator, pathing_align);
     entity_list_deinit(&allocator, entities);
     linear_allocator_pop(&allocator, entity_align);
     grid_deinit(&allocator, grid);
@@ -1347,11 +1259,7 @@ static void test_ai_zero_mp_not_adjacent_does_nothing(void) {
     entity_t* player = entity_spawn(&allocator, &entities, ENTITY_TEAM_PLAYER, 0, 0, 10, 2, 3);
     entity_t* enemy = entity_spawn(&allocator, &entities, ENTITY_TEAM_ENEMY, 3, 3, 10, 2, 0);
 
-    slice_int32_t int32_witness;
-    slice_t pathing_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, int32_witness);
-    pathing_state_t pathing = pathing_init(&allocator, 4, 4);
-
-    ai_run_enemy_phase(grid, entities, pathing);
+    ai_run_enemy_phase(&allocator, grid, entities);
 
     entity_t *enemy_entity = enemy;
     entity_t *player_entity = player;
@@ -1361,8 +1269,6 @@ static void test_ai_zero_mp_not_adjacent_does_nothing(void) {
     assert_test(enemy_entity->ap == 2);
     assert_test(player_entity->hp == 10);
 
-    pathing_deinit(&allocator, pathing);
-    linear_allocator_pop(&allocator, pathing_align);
     entity_list_deinit(&allocator, entities);
     linear_allocator_pop(&allocator, entity_align);
     grid_deinit(&allocator, grid);
@@ -1447,7 +1353,7 @@ static void test_game_tile_pressed_moves_within_reach_and_consumes_mp(void) {
     entity_t* p = entity_spawn(&allocator, &game.entities, ENTITY_TEAM_PLAYER, 0, 0, 10, 2, 3);
 
     game_on_entity_pressed(&game, p);
-    game_on_tile_pressed(&game, 2, 0);
+    game_on_tile_pressed(&game, &allocator, 2, 0);
 
     entity_t *entity = p;
     assert_test(entity->x == 2 && entity->y == 0);
@@ -1466,7 +1372,7 @@ static void test_game_tile_pressed_noops_on_unreachable_tile(void) {
     entity_t* p = entity_spawn(&allocator, &game.entities, ENTITY_TEAM_PLAYER, 0, 0, 10, 2, 1);
 
     game_on_entity_pressed(&game, p);
-    game_on_tile_pressed(&game, 5, 0);
+    game_on_tile_pressed(&game, &allocator, 5, 0);
 
     entity_t *entity = p;
     assert_test(entity->x == 0 && entity->y == 0);
@@ -1491,7 +1397,7 @@ static void test_game_end_turn_resets_player_phase_and_deselects(void) {
     game_on_entity_pressed(&game, p);
     assert_test(game.selected_entity == p);
 
-    game_on_end_turn_pressed(&game);
+    game_on_end_turn_pressed(&game, &allocator);
 
     assert_test(game.turn.phase == TURN_PHASE_PLAYER);
     assert_test(game.turn.turn_number == 2);
@@ -1522,13 +1428,13 @@ static void test_game_1v1_enemy_death_sets_win_and_freezes_input(void) {
     assert_test(game.game_over == GAME_OVER_WIN);
 
     // Further presses of any kind must now be frozen no-ops.
-    game_on_tile_pressed(&game, 2, 0);
+    game_on_tile_pressed(&game, &allocator, 2, 0);
     entity_t *player = p;
     assert_test(player->x == 0 && player->y == 0);
 
     turn_phase_t phase_before = game.turn.phase;
     int turn_number_before = game.turn.turn_number;
-    game_on_end_turn_pressed(&game);
+    game_on_end_turn_pressed(&game, &allocator);
     assert_test(game.turn.phase == phase_before);
     assert_test(game.turn.turn_number == turn_number_before);
 
@@ -1549,14 +1455,14 @@ static void test_game_ai_kills_last_player_during_end_turn_sets_lose(void) {
 
     assert_test(game.turn.phase == TURN_PHASE_PLAYER);
 
-    game_on_end_turn_pressed(&game);
+    game_on_end_turn_pressed(&game, &allocator);
 
     assert_test(!p->alive);
     assert_test(game.game_over == GAME_OVER_LOSE);
 
     // Further presses must be frozen no-ops.
     turn_phase_t phase_before = game.turn.phase;
-    game_on_end_turn_pressed(&game);
+    game_on_end_turn_pressed(&game, &allocator);
     assert_test(game.turn.phase == phase_before);
 
     game_deinit(&allocator, game);
@@ -1579,7 +1485,7 @@ static void test_game_on_input_event_click_in_end_turn_button_behaves_like_end_t
 
     assert_test(point_in_rect(game.viewport.end_turn_button, 260, 215));
     input_event_t click = { .type = INPUT_EVENT_MOUSE_CLICK, .x = 260, .y = 215 };
-    game_on_input_event(&game, click);
+    game_on_input_event(&game, &allocator, click);
 
     assert_test(game.turn.phase == TURN_PHASE_PLAYER);
     assert_test(game.turn.turn_number == 2);
@@ -1606,7 +1512,7 @@ static void test_game_on_input_event_click_on_entity_tile_behaves_like_entity_pr
     grid_to_screen(game.viewport, 3, 3, &px, &py);
 
     input_event_t click = { .type = INPUT_EVENT_MOUSE_CLICK, .x = px + 1, .y = py + 1 };
-    game_on_input_event(&game, click);
+    game_on_input_event(&game, &allocator, click);
 
     assert_test(game.selected_entity == p2);
 
