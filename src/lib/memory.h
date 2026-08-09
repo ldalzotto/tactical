@@ -49,6 +49,8 @@ ptrdiff_t bytesize(void *begin, void *end);
 #define SLICE_ADVANCE(s, by) \
     ((typeof(s)){ .slice = slice_advance((s).slice, (size_t)(by) * sizeof(*(s).begin)) })
 
+#define SLICE_FOREACH(s, var) typeof(s) var = s; SLICE_BYTESIZE(var) != 0; var = SLICE_ADVANCE(var, 1)
+
 #define SLICE_BYTESIZE(s) bytesize((s).begin, (s).end)
 
 #define STR(litteral) (slice_t){.begin = litteral, .end = byteoffset(litteral, sizeof(litteral) - 1)}
