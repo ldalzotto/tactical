@@ -72,11 +72,11 @@ uint32_t onNextFrame(app_state_t *state, uint32_t now_ms) {
 
     slice_input_event_t events = input_poll(&state->allocator, state->window);
     for (input_event_t *event = events.begin; event != events.end; event++) {
-        game_on_input_event(&state->game, *event);
+        game_on_input_event(&state->game, &state->allocator, *event);
     }
     linear_allocator_pop(&state->allocator, events.slice);
 
-    render_frame(state->framebuffer, FB_WIDTH, state->game);
+    render_frame(state->framebuffer, FB_WIDTH, state->game, &state->allocator);
     present_window(state->window, state->framebuffer.slice);
     return 0;
 }
