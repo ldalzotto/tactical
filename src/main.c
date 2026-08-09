@@ -8,8 +8,6 @@
 #define FB_WIDTH 320
 #define FB_HEIGHT 240
 
-extern unsigned char __heap_base;
-
 typedef struct {
     linear_allocator_t allocator;
     slice_t framebuffer_align;
@@ -32,7 +30,7 @@ static void render(app_state_t *state, uint32_t now_ms) {
 
 __attribute__((export_name("init")))
 app_state_t *init(uint32_t memory_size, uint32_t now_ms) {
-    slice_t memory; memory.begin = &__heap_base;
+    slice_t memory; memory.begin = heap_base();
     memory.end = byteoffset(memory.begin, memory_size);
     linear_allocator_t bootstrap = linear_allocator_init(memory);
 
