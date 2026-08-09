@@ -12,7 +12,7 @@ grid_t grid_init(linear_allocator_t *allocator, int width, int height) {
     slice_tile_t tiles;
     tiles = LINEAR_ALLOCATOR_PUSH(allocator, tiles, (size_t)(width * height));
 
-    for (slice_tile_t tile = tiles; SLICE_BYTESIZE(tile) != 0; tile = SLICE_ADVANCE(tile, 1)) {
+    for (SLICE_FOREACH(tiles, tile)) {
         SLICE_DEREF(tile) = (tile_t){ .walkable = true };
     }
 
