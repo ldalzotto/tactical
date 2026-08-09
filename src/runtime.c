@@ -1,5 +1,11 @@
 #include "./runtime.h"
 
+extern unsigned char __heap_base;
+
+void* heap_base() {
+    return &__heap_base;
+}
+
 __attribute__((import_module("env"), import_name("create_window")))
 extern window_handle_t __create_window(int32_t width, int32_t height);
 
