@@ -1,9 +1,12 @@
 const { spawn } = require('node:child_process');
+const path = require('node:path');
 
-function runBuild({ cwd, stdio = 'inherit' } = {}) {
+function runBuild({ cwd, stdio = 'inherit', release = false, verbose = false } = {}) {
     return new Promise((resolve, reject) => {
-        const buildScript = process.env.BUILD_MODE === 'release' ? 'build:release' : 'build';
-        const proc = spawn('npm', ['run', buildScript], { cwd, stdio });
+        const args = [path.join(__dirname, 'build.js')];
+        if (release) args.push('--release');
+        if (verbose) args.push('--verbose');
+        const proc = spawn('node', args, { cwd, stdio });
 
         proc.on('error', reject);
         proc.on('exit', (code) => {

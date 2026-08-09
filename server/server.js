@@ -8,6 +8,10 @@ const { debounce } = require('./debounce');
 const { runBuild } = require('./build-runner');
 const { symbolicate } = require('./symbolicate');
 
+const args = process.argv.slice(2);
+const RELEASE = args.includes('--release');
+const VERBOSE = args.includes('--verbose');
+
 const PORT = process.env.PORT || 8081;
 const ROOT = path.join(__dirname, '..');
 
@@ -105,7 +109,7 @@ const server = http.createServer((req, res) => {
 });
 
 const rebuild = debounce(() => {
-    runBuild({ cwd: ROOT })
+    runBuild({ cwd: ROOT, release: RELEASE, verbose: VERBOSE })
         .catch((err) => {
             console.error('build failed:', err.message);
         })
@@ -121,7 +125,7 @@ const watcher = watchPaths(WATCH_ROOTS, WATCH_EXTENSIONS, (filename) => {
 
 server.listen(PORT, () => {
     console.log(`Serving at http://localhost:${PORT}`);
-    runBuild({ cwd: ROOT }).catch((err) => {
+    runBuild({ cwd: ROOT, release: RELEASE, verbose: VERBOSE }).catch((err) => {
         console.error('initial build failed:', err.message);
     });
 });
