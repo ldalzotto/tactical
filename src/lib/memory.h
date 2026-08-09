@@ -19,6 +19,18 @@ slice_t linear_allocator_push_alignment(linear_allocator_t *allocator, size_t al
 void linear_allocator_pop(linear_allocator_t *allocator, slice_t marker);
 void linear_allocator_pop_move(linear_allocator_t *allocator, slice_t from, slice_t to);
 
+#define LINEAR_ALLOCATOR_PUSH(allocator, witness, count) \
+    ((typeof(witness)){ .slice = linear_allocator_push((allocator), (size_t)(count) * sizeof(*(witness).begin)) })
+
+#define LINEAR_ALLOCATOR_PUSH_ALIGNMENT(allocator, witness) \
+    linear_allocator_push_alignment((allocator), _Alignof(typeof(*(witness).begin)))
+
+#define LINEAR_ALLOCATOR_POP(allocator, typed_slice) \
+    linear_allocator_pop((allocator), (typed_slice).slice)
+
+#define LINEAR_ALLOCATOR_POP_MOVE(allocator, from, to) \
+    linear_allocator_pop_move((allocator), (from).slice, (to).slice)
+
 void *byteoffset(void *pointer, ptrdiff_t by);
 #define typeoffset(pointer, by) (typeof(*pointer)*)byteoffset(pointer, by * sizeof(typeof(*pointer)))
 
@@ -31,6 +43,8 @@ ptrdiff_t bytesize(void *begin, void *end);
 
 #define SLICE_AT(s, index) \
     (*(typeof((s).begin))slice_at((s).slice, (size_t)(index) * sizeof(*(s).begin), _Alignof(typeof(*(s).begin))))
+
+#define SLICE_DEREF(s) SLICE_AT(s, 0)
 
 #define SLICE_ADVANCE(s, by) \
     ((typeof(s)){ .slice = slice_advance((s).slice, (size_t)(by) * sizeof(*(s).begin)) })

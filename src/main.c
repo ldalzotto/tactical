@@ -17,6 +17,8 @@ typedef struct {
     window_handle_t window;
 } app_state_t;
 
+SLICE_DEFINE(app_state_t);
+
 static void render(app_state_t *state, uint32_t now_ms) {
     int shift = (int)(now_ms / 20);
     rgba_t color = {
@@ -34,16 +36,15 @@ app_state_t *init(uint32_t memory_size, uint32_t now_ms) {
     memory.end = byteoffset(memory.begin, memory_size);
     linear_allocator_t bootstrap = linear_allocator_init(memory);
 
-    slice_t state_slice = linear_allocator_push(&bootstrap, sizeof(app_state_t));
-    app_state_t *state = (app_state_t *)state_slice.begin;
+    slice_app_state_t state_slice = LINEAR_ALLOCATOR_PUSH(&bootstrap, state_slice, 1);
+    app_state_t *state = state_slice.begin;
 
     state->allocator = bootstrap;
     state->now_ms = now_ms;
     state->last_frame_ms = now_ms;
 
-    state->framebuffer_align = linear_allocator_push_alignment(&state->allocator, _Alignof(uint32_t));
-    slice_t fb_slice = linear_allocator_push(&state->allocator, (size_t)FB_WIDTH * FB_HEIGHT * sizeof(rgba_t));
-    state->framebuffer.slice = fb_slice;
+    state->framebuffer_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&state->allocator, state->framebuffer);
+    state->framebuffer = LINEAR_ALLOCATOR_PUSH(&state->allocator, state->framebuffer, FB_WIDTH * FB_HEIGHT);
 
     state->window = create_window(FB_WIDTH, FB_HEIGHT);
 
@@ -54,7 +55,7 @@ app_state_t *init(uint32_t memory_size, uint32_t now_ms) {
 
 __attribute__((export_name("deinit")))
 void deinit(app_state_t *state) {
-    linear_allocator_pop(&state->allocator, state->framebuffer.slice);
+    LINEAR_ALLOCATOR_POP(&state->allocator, state->framebuffer);
     linear_allocator_pop(&state->allocator, state->framebuffer_align);
     linear_allocator_pop(&state->allocator, (slice_t){state, typeoffset(state, 1)});
 }
