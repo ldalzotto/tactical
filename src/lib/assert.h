@@ -5,7 +5,11 @@
 void panic(bool condition);
 
 #ifndef NDEBUG
-#define assert panic
+#define assert_debug panic
 #else
-#define assert(...) ((void)0)
+#define assert_debug(...) ((void)0)
 #endif
+
+static inline void assert_test(bool condition) {
+    panic(condition);
+}

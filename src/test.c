@@ -4,11 +4,11 @@
 #define TEST_NAME(str) (slice_t){ .begin = (void *)(str), .end = (void *)((str) + sizeof(str) - 1) }
 
 static void test_pass_example(void) {
-    assert(1 + 1 == 2);
+    assert_test(1 + 1 == 2);
 }
 
 static void test_fail_example(void) {
-    assert(1 + 1 == 3);
+    assert_test(1 + 1 == 3);
 }
 
 static void test_linear_allocator_pop_move(void) {
@@ -29,11 +29,11 @@ static void test_linear_allocator_pop_move(void) {
 
     linear_allocator_pop_move(&allocator, c, b);
 
-    assert(((char *)b.begin)[0] == 'C');
-    assert(((char *)b.begin)[1] == 'C');
-    assert(((char *)b.begin)[2] == 'C');
-    assert(((char *)b.begin)[3] == 'C');
-    assert(allocator.cursor == byteoffset(b.begin, 4));
+    assert_test(((char *)b.begin)[0] == 'C');
+    assert_test(((char *)b.begin)[1] == 'C');
+    assert_test(((char *)b.begin)[2] == 'C');
+    assert_test(((char *)b.begin)[3] == 'C');
+    assert_test(allocator.cursor == byteoffset(b.begin, 4));
 
     linear_allocator_pop(&allocator, (slice_t){ b.begin, allocator.cursor });
     linear_allocator_pop(&allocator, a);
@@ -54,19 +54,19 @@ uint32_t test_discovery_count(void) {
 
 __attribute__((export_name("test_discovery_name_begin")))
 const char *test_discovery_name_begin(uint32_t index) {
-    assert(index < TEST_COUNT);
+    assert_test(index < TEST_COUNT);
     return (const char *)g_tests[index].name.begin;
 }
 
 __attribute__((export_name("test_discovery_name_end")))
 const char *test_discovery_name_end(uint32_t index) {
-    assert(index < TEST_COUNT);
+    assert_test(index < TEST_COUNT);
     return (const char *)g_tests[index].name.end;
 }
 
 __attribute__((export_name("test_discovery_fn_at")))
 test_fn_t test_discovery_fn_at(uint32_t index) {
-    assert(index < TEST_COUNT);
+    assert_test(index < TEST_COUNT);
     return g_tests[index].fn;
 }
 
