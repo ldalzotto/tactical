@@ -9,6 +9,7 @@
 #include "game/input.h"
 #include "game/layout.h"
 #include "game/pathing.h"
+#include "game/scenario.h"
 #include "game/turn.h"
 
 #define TEST_NAME(str) (slice_t){ .begin = (void *)(str), .end = (void *)((str) + sizeof(str) - 1) }
@@ -1678,6 +1679,58 @@ static void test_game_on_input_event_click_on_entity_tile_behaves_like_entity_pr
     game_deinit(&allocator, game);
 }
 
+static void test_scenario_setup_default_populates_map_and_units(void) {
+    static _Alignas(entity_t) char buffer[8192];
+    slice_t data = { buffer, buffer + sizeof(buffer) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    game_state_t game = game_init(&allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+
+    scenario_setup_default(&game);
+
+    assert_test(game.entities.count == 6);
+
+    struct {
+        int x, y;
+        entity_team_t team;
+    } expected[6] = {
+        { 1, 2, ENTITY_TEAM_PLAYER },
+        { 1, 5, ENTITY_TEAM_PLAYER },
+        { 1, 8, ENTITY_TEAM_PLAYER },
+        { 14, 2, ENTITY_TEAM_ENEMY },
+        { 14, 5, ENTITY_TEAM_ENEMY },
+        { 14, 8, ENTITY_TEAM_ENEMY },
+    };
+
+    for (entity_id_t id = 0; id < 6; id++) {
+        entity_t *entity = entity_at(game.entities, id);
+        assert_test(entity->x == expected[id].x);
+        assert_test(entity->y == expected[id].y);
+        assert_test(entity->team == expected[id].team);
+        assert_test(entity->hp == 10 && entity->max_hp == 10);
+        assert_test(entity->ap == 1 && entity->max_ap == 1);
+        assert_test(entity->mp == 3 && entity->max_mp == 3);
+        assert_test(entity->alive);
+    }
+
+    assert_test(!grid_is_walkable(game.grid, 7, 4));
+    assert_test(!grid_is_walkable(game.grid, 7, 5));
+
+    for (int y = 0; y < game.grid.height; y++) {
+        for (int x = 0; x < game.grid.width; x++) {
+            if ((x == 7 && y == 4) || (x == 7 && y == 5)) {
+                continue;
+            }
+            assert_test(grid_is_walkable(game.grid, x, y));
+        }
+    }
+
+    assert_test(entity_alive_count(game.entities, ENTITY_TEAM_PLAYER) == 3);
+    assert_test(entity_alive_count(game.entities, ENTITY_TEAM_ENEMY) == 3);
+
+    game_deinit(&allocator, game);
+}
+
 static const test_case_t g_tests[] = {
     { TEST_NAME("pass_example"), test_pass_example },
     { TEST_NAME("fail_example"), test_fail_example },
@@ -1759,6 +1812,7 @@ static const test_case_t g_tests[] = {
     { TEST_NAME("game_ai_kills_last_player_during_end_turn_sets_lose"), test_game_ai_kills_last_player_during_end_turn_sets_lose },
     { TEST_NAME("game_on_input_event_click_in_end_turn_button_behaves_like_end_turn_pressed"), test_game_on_input_event_click_in_end_turn_button_behaves_like_end_turn_pressed },
     { TEST_NAME("game_on_input_event_click_on_entity_tile_behaves_like_entity_pressed"), test_game_on_input_event_click_on_entity_tile_behaves_like_entity_pressed },
+    { TEST_NAME("scenario_setup_default_populates_map_and_units"), test_scenario_setup_default_populates_map_and_units },
 };
 
 #define TEST_COUNT (sizeof(g_tests) / sizeof(g_tests[0]))
