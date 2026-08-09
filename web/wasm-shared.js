@@ -36,9 +36,44 @@ function decodeWasmMemoryString(memory, ptr, len) {
     return new TextDecoder().decode(bytes);
 }
 
-async function runWasmTests({ wasmBytes, importObject, resolveFrames, onResult, onComplete }) {
+// Wasm memory is imported (not module-owned), so JS decides the budget up
+// front. 32 pages (2 MiB) comfortably covers the module's static data/stack
+// plus the framebuffer with headroom; bump it if the app grows. If it's ever
+// too small, the C-side linear allocator asserts/traps instead of silently
+// corrupting memory.
+const MEMORY_PAGES = 32;
+
+function buildImportObject({ createWindow, presentWindow, debugLog, reportPanic }) {
+    const memory = new WebAssembly.Memory({ initial: MEMORY_PAGES });
+
+    const importObject = {
+        env: {
+            memory,
+            create_window: createWindow ?? (() => 0),
+            present_window(windowHandle, fbBegin, fbEnd) {
+                (presentWindow ?? (() => {}))(windowHandle, new Uint8ClampedArray(memory.buffer, fbBegin, fbEnd - fbBegin));
+            },
+            debug_log(beginPtr, endPtr) {
+                const message = decodeWasmMemoryString(memory, beginPtr, endPtr - beginPtr);
+                (debugLog ?? console.log)(message);
+            },
+            report_panic(filePtr, fileLen, line, msgPtr, msgLen) {
+                const file = decodeWasmMemoryString(memory, filePtr, fileLen);
+                const message = decodeWasmMemoryString(memory, msgPtr, msgLen);
+                if (reportPanic) {
+                    reportPanic({ file, line, message });
+                }
+                throw new Error(`panic: ${file}:${line}: ${message}`);
+            },
+        },
+    };
+
+    return { memory, importObject };
+}
+
+async function runWasmTests({ wasmBytes, resolveFrames, onResult, onComplete, createWindow, presentWindow, debugLog }) {
+    const { memory, importObject } = buildImportObject({ createWindow, presentWindow, debugLog });
     const { instance } = await WebAssembly.instantiate(wasmBytes, importObject);
-    const memory = importObject.env.memory;
     const { test_discovery_count, test_discovery_name_begin, test_discovery_name_end, test_discovery_fn_at, test_run } = instance.exports;
     const count = test_discovery_count();
 
@@ -67,6 +102,24 @@ async function runWasmTests({ wasmBytes, importObject, resolveFrames, onResult, 
     return { passed, failed, count };
 }
 
+async function runApp({ wasmBytes, now, createWindow, presentWindow, debugLog, reportPanic }) {
+    const { memory, importObject } = buildImportObject({ createWindow, presentWindow, debugLog, reportPanic });
+    const { instance } = await WebAssembly.instantiate(wasmBytes, importObject);
+    const { init, onNextFrame } = instance.exports;
+
+    const statePtr = init(memory.buffer.byteLength, Math.floor(now()));
+
+    function tick() {
+        const nowMs = Math.floor(now());
+        const waitMs = onNextFrame(statePtr, nowMs);
+        setTimeout(tick, waitMs);
+    }
+
+    tick();
+
+    return instance;
+}
+
 if (typeof module !== 'undefined') {
-    module.exports = { parseTrapFrames, formatResolvedFrame, resolveFailureText, decodeWasmMemoryString, runWasmTests };
+    module.exports = { parseTrapFrames, formatResolvedFrame, resolveFailureText, decodeWasmMemoryString, runWasmTests, runApp };
 }

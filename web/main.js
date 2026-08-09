@@ -1,17 +1,121 @@
-let wasmInstance = null;
+function renderOverlay(text) {
+    if (document.getElementById('panic-overlay')) {
+        return;
+    }
 
-WebAssembly.instantiateStreaming(fetch('/build/app.wasm'), importObject)
-    .then(({ instance }) => {
-        wasmInstance = instance;
-        const { init, onNextFrame } = instance.exports;
+    const overlay = document.createElement('div');
+    overlay.id = 'panic-overlay';
+    overlay.style.cssText = [
+        'position: fixed',
+        'inset: 0',
+        'background: rgba(20, 0, 0, 0.94)',
+        'color: #ff6b6b',
+        'font-family: ui-monospace, SFMono-Regular, Consolas, monospace',
+        'font-size: 14px',
+        'line-height: 1.5',
+        'padding: 24px',
+        'box-sizing: border-box',
+        'z-index: 2147483647',
+        'overflow: auto',
+        'user-select: text',
+    ].join(';');
 
-        const statePtr = init(memory.buffer.byteLength, Math.floor(performance.now()));
+    const pre = document.createElement('pre');
+    pre.textContent = text;
+    pre.style.cssText = 'margin: 0 0 16px 0; white-space: pre-wrap; word-break: break-word;';
 
-        function tick() {
-            const nowMs = Math.floor(performance.now());
-            const waitMs = onNextFrame(statePtr, nowMs);
-            setTimeout(tick, waitMs);
-        }
-
-        tick();
+    const copyButton = document.createElement('button');
+    copyButton.textContent = 'Copy';
+    copyButton.style.cssText = 'font-family: inherit; font-size: 13px; padding: 6px 14px; cursor: pointer;';
+    copyButton.addEventListener('click', () => {
+        navigator.clipboard.writeText(text)
+            .then(() => {
+                copyButton.textContent = 'Copied!';
+            })
+            .catch(() => {
+                copyButton.textContent = 'Copy failed';
+            });
     });
+
+    overlay.appendChild(pre);
+    overlay.appendChild(copyButton);
+    document.body.appendChild(overlay);
+}
+
+async function resolveFramesViaServer(rawFrames) {
+    const response = await fetch('/__symbolicate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ frames: rawFrames }),
+    });
+    const data = await response.json();
+    if (!response.ok || data.error) {
+        throw new Error(data.error || `symbolicate returned ${response.status}`);
+    }
+    return data.frames;
+}
+
+async function handleWasmTrap(error) {
+    console.error(error);
+    const { message, framesText } = await resolveFailureText(error, resolveFramesViaServer);
+    const detail = framesText || error.stack || '';
+    renderOverlay(`TRAP\n\n${message}\n\n${detail}`);
+}
+
+function handleError(error) {
+    console.error(error);
+    if (error instanceof WebAssembly.RuntimeError) {
+        handleWasmTrap(error);
+        return;
+    }
+    if (document.getElementById('panic-overlay')) {
+        return;
+    }
+    renderOverlay(`ERROR\n\n${error.message || String(error)}\n\n${error.stack || ''}`);
+}
+
+window.addEventListener('error', (event) => {
+    event.preventDefault();
+    handleError(event.error ?? new Error(event.message));
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+    event.preventDefault();
+    handleError(event.reason instanceof Error ? event.reason : new Error(String(event.reason)));
+});
+
+let nextWindowHandle = 1;
+const windows = new Map();
+
+async function main() {
+    const wasmBytes = await fetch('/build/app.wasm').then((r) => r.arrayBuffer());
+
+    await runApp({
+        wasmBytes,
+        now: () => performance.now(),
+        createWindow(width, height) {
+            const canvas = document.getElementById('screen');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            const imageData = ctx.createImageData(width, height);
+
+            const handle = nextWindowHandle++;
+            windows.set(handle, { canvas, ctx, imageData });
+            return handle;
+        },
+        presentWindow(windowHandle, pixels) {
+            const win = windows.get(windowHandle);
+            win.imageData.data.set(pixels);
+            win.ctx.putImageData(win.imageData, 0, 0);
+        },
+        debugLog(message) {
+            console.log(message);
+        },
+        reportPanic({ file, line, message }) {
+            renderOverlay(`PANIC\n\n${file}:${line}\n\n${message}`);
+        },
+    });
+}
+
+main().catch(handleError);

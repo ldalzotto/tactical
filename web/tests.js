@@ -47,7 +47,6 @@ async function run_tests() {
 
     await runWasmTests({
         wasmBytes,
-        importObject,
         resolveFrames,
         onResult({ name, passed, detail }) {
             if (!passed) {
