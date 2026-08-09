@@ -16,7 +16,7 @@ __attribute__((import_module("env"), import_name("debug_log")))
 extern void __debug_log(void *begin, void *end);
 
 __attribute__((import_module("env"), import_name("poll_input_events")))
-extern void *__poll_input_events(window_handle_t window, void *begin, void *end);
+extern void *__poll_input_events(window_handle_t window, void *begin);
 
 window_handle_t create_window(int32_t width, int32_t height) {
     return __create_window(width, height);
@@ -30,6 +30,6 @@ void debug_log(slice_t str) {
     __debug_log(str.begin, str.end);
 }
 
-void *poll_input_events(window_handle_t window, void *begin, void *end) {
-    return __poll_input_events(window, begin, end);
+void *poll_input_events(window_handle_t window, void *begin) {
+    return __poll_input_events(window, begin);
 }

@@ -77,10 +77,9 @@ function buildImportObject({ createWindow, presentWindow, debugLog, reportPanic 
                 }
                 throw new Error(`panic: ${file}:${line}: ${message}`);
             },
-            poll_input_events(windowHandle, beginPtr, endPtr) {
+            poll_input_events(windowHandle, beginPtr) {
                 const events = pendingInputEvents.get(windowHandle) ?? [];
-                const capacity = Math.floor((endPtr - beginPtr) / INPUT_EVENT_BYTE_SIZE);
-                const writeCount = Math.min(capacity, events.length);
+                const writeCount = events.length;
                 const view = new DataView(memory.buffer);
 
                 for (let i = 0; i < writeCount; i++) {
