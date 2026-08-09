@@ -25,11 +25,11 @@ option(APP_BUILD_TESTS "Build src/test.c's test-discovery/test-runner exports in
 message(STATUS "APP_BUILD_TESTS: ${APP_BUILD_TESTS}")
 
 set(APP_SOURCES
-    src/assert.c
-    src/clock.c
-    src/graphics.c
-    src/memory.c
-    src/runtime.c
+    src/lib/assert.c
+    src/lib/clock.c
+    src/lib/graphics.c
+    src/lib/memory.c
+    src/lib/runtime.c
 
     src/main.c
 )
