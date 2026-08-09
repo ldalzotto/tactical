@@ -3,9 +3,12 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "build": "cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build",
-    "build:release": "cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build",
+    "build": "node server/build.js",
+    "build:verbose": "node server/build.js --verbose",
+    "build:release": "node server/build.js --release",
+    "build:release:verbose": "node server/build.js --release --verbose",
     "start": "node server/server.js",
-    "start:release": "BUILD_MODE=release node server/server.js"
+    "start:release": "node server/server.js --release",
+    "test": "node server/build.js && node server/run-tests.js"
   }
 }
