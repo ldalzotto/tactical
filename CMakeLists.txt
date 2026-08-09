@@ -32,6 +32,7 @@ set(APP_SOURCES
     src/lib/runtime.c
 
     src/game/action.c
+    src/game/ai.c
     src/game/entity.c
     src/game/grid.c
     src/game/input.c
