@@ -40,6 +40,10 @@ endif()
 
 add_executable(app ${APP_SOURCES})
 
+if(APP_BUILD_TESTS)
+    target_compile_definitions(app PRIVATE APP_BUILD_TESTS)
+endif()
+
 target_compile_options(app PRIVATE -ffreestanding -fno-builtin)
 target_compile_options(app PRIVATE $<$<CONFIG:Debug>:-g -O0>)
 target_compile_options(app PRIVATE $<$<CONFIG:Release>:-O3>)

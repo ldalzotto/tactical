@@ -11,7 +11,15 @@ static void test_pass_example(void) {
 }
 
 static void test_fail_example(void) {
+    expect_panic_begin();
     assert_test(1 + 1 == 3);
+    assert_test(expect_panic_end());
+
+    expect_panic_begin();
+    assert_test(1 == 2);
+    assert_test(expect_panic_end());
+
+    assert_test(1 + 1 == 2);
 }
 
 static void test_byteoffset(void) {
@@ -186,5 +194,6 @@ test_fn_t test_discovery_fn_at(uint32_t index) {
 
 __attribute__((export_name("test_run")))
 void test_run(test_fn_t fn) {
+    expect_panic_end();
     fn();
 }
