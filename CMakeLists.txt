@@ -31,6 +31,8 @@ set(APP_SOURCES
     src/lib/memory.c
     src/lib/runtime.c
 
+    src/game/grid.c
+
     src/main.c
 )
 
