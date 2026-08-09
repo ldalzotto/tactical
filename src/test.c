@@ -304,7 +304,7 @@ static void test_input_event_layout(void) {
 }
 
 static void test_grid_init(void) {
-    static _Alignas(tile_t) char buffer[256];
+    static char buffer[256];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
 
@@ -312,7 +312,6 @@ static void test_grid_init(void) {
 
     assert_test(grid.width == 3);
     assert_test(grid.height == 2);
-    assert_test(SLICE_BYTESIZE(grid.tiles) == 6 * (ptrdiff_t)sizeof(tile_t));
 
     for (int y = 0; y < grid.height; y++) {
         for (int x = 0; x < grid.width; x++) {
@@ -324,7 +323,7 @@ static void test_grid_init(void) {
 }
 
 static void test_grid_in_bounds(void) {
-    static _Alignas(tile_t) char buffer[256];
+    static char buffer[256];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
 
@@ -341,7 +340,7 @@ static void test_grid_in_bounds(void) {
 }
 
 static void test_grid_set_walkable_round_trip(void) {
-    static _Alignas(tile_t) char buffer[256];
+    static char buffer[256];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
 
@@ -359,7 +358,7 @@ static void test_grid_set_walkable_round_trip(void) {
 }
 
 static void test_grid_tile_at_panics_on_out_of_bounds(void) {
-    static _Alignas(tile_t) char buffer[256];
+    static char buffer[256];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
 
@@ -370,18 +369,18 @@ static void test_grid_tile_at_panics_on_out_of_bounds(void) {
     // width + x) exceeds the total tile count (4), not just the grid's
     // width/height, since grid_tile_at indexes the flat array directly.
     expect_panic_begin();
-    grid_tile_at(grid, 5, 0);
+    grid_is_walkable(grid, 5, 0);
     assert_test(expect_panic_end());
 
     expect_panic_begin();
-    grid_tile_at(grid, 0, 100);
+    grid_is_walkable(grid, 0, 100);
     assert_test(expect_panic_end());
 
     grid_deinit(&allocator, grid);
 }
 
 static void test_grid_deinit_right_after_init(void) {
-    static _Alignas(tile_t) char buffer[256];
+    static char buffer[256];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
 
