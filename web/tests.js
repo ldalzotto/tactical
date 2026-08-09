@@ -1,72 +1,69 @@
-function addTestRow(panel, name) {
-    const row = document.createElement('div');
-    row.style.cssText = 'padding: 4px 0;';
+async function run_tests() {
 
-    const status = document.createElement('span');
-    status.textContent = 'RUNNING';
-    status.style.cssText = 'display: inline-block; width: 80px; color: #999;';
+    function addTestRow(panel, name) {
+        const row = document.createElement('div');
+        row.style.cssText = 'padding: 4px 0;';
 
-    row.appendChild(status);
-    row.appendChild(document.createTextNode(name));
-    panel.appendChild(row);
-    return { row, status };
-}
+        const status = document.createElement('span');
+        status.textContent = 'RUNNING';
+        status.style.cssText = 'display: inline-block; width: 80px; color: #999;';
 
-async function markTestFailed(row, status, err) {
-    status.textContent = 'FAIL';
-    status.style.color = '#ff6b6b';
-
-    let text = err.message || String(err);
-
-    const rawFrames = parseTrapFrames(err.stack || '');
-    if (rawFrames.length > 0) {
-        try {
-            text += '\n\n' + await symbolicateFrames(rawFrames);
-        } catch (symbolicateErr) {
-            text += `\n\n(symbolication failed: ${symbolicateErr.message})`;
-        }
+        row.appendChild(status);
+        console.log(name);
+        row.appendChild(document.createTextNode(name));
+        panel.appendChild(row);
+        return { row, status };
     }
-    console.error(text);
 
-    const detail = document.createElement('pre');
-    detail.textContent = text;
-    detail.style.cssText = 'margin: 0 0 8px 84px; color: #ff6b6b; white-space: pre-wrap;';
-    row.after(detail);
-}
+    function markTestFailed(row, status, detail) {
+        status.textContent = 'FAIL';
+        status.style.color = '#ff6b6b';
 
-async function runTests(instance) {
+        console.error(detail);
+
+        const pre = document.createElement('pre');
+        pre.textContent = detail;
+        pre.style.cssText = 'margin: 0 0 8px 84px; color: #ff6b6b; white-space: pre-wrap;';
+        row.after(pre);
+    }
+
+    async function resolveFrames(frames) {
+        const response = await fetch('/__symbolicate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ frames }),
+        });
+        const data = await response.json();
+        if (!response.ok || data.error) {
+            throw new Error(data.error || `symbolicate returned ${response.status}`);
+        }
+        return data.frames;
+    }
+
     const panel = document.getElementById('test-panel');
     panel.style.cssText = 'font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 14px; padding: 24px;';
 
-    const { test_discovery_count, test_discovery_name_begin, test_discovery_name_end, test_discovery_fn_at, test_run } = instance.exports;
-    const count = test_discovery_count();
+    const wasmBytes = await fetch('/build/app.wasm').then((r) => r.arrayBuffer());
 
-    let passed = 0;
-    let failed = 0;
-
-    for (let i = 0; i < count; i++) {
-        const beginPtr = test_discovery_name_begin(i);
-        const endPtr = test_discovery_name_end(i);
-        const name = decodeWasmString(beginPtr, endPtr - beginPtr);
-
-        const fn = test_discovery_fn_at(i);
-        try {
-            test_run(fn);
-            passed++;
-        } catch (err) {
-            failed++;
-            const { row, status } = addTestRow(panel, name);
-            await markTestFailed(row, status, err);
-        }
-    }
-
-    const summary = document.createElement('div');
-    summary.style.cssText = 'font-weight: bold; margin-bottom: 16px;';
-    summary.innerHTML =
-        `<div style="color: #4caf50;">Tests Passed (${passed}/${count})</div>` +
-        `<div style="color: #ff6b6b;">Tests Failed (${failed}/${count})</div>`;
-    panel.prepend(summary);
+    await runWasmTests({
+        wasmBytes,
+        importObject,
+        resolveFrames,
+        onResult({ name, passed, detail }) {
+            if (!passed) {
+                const { row, status } = addTestRow(panel, name);
+                markTestFailed(row, status, detail);
+            }
+        },
+        onComplete({ passed, failed, count }) {
+            const summary = document.createElement('div');
+            summary.style.cssText = 'font-weight: bold; margin-bottom: 16px;';
+            summary.innerHTML =
+                `<div style="color: #4caf50;">Tests Passed (${passed}/${count})</div>` +
+                `<div style="color: #ff6b6b;">Tests Failed (${failed}/${count})</div>`;
+            panel.prepend(summary);
+        },
+    });
 }
 
-WebAssembly.instantiateStreaming(fetch('/build/app.wasm'), importObject)
-    .then(({ instance }) => runTests(instance));
+run_tests();

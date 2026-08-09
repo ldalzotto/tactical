@@ -2,14 +2,10 @@
 // front. 32 pages (2 MiB) comfortably covers the module's static data/stack
 // plus the framebuffer with headroom; bump it if the app grows. If it's ever
 // too small, the C-side linear allocator asserts/traps instead of silently
+
 // corrupting memory, and the existing trap overlay below will show it.
 const MEMORY_PAGES = 32;
 const memory = new WebAssembly.Memory({ initial: MEMORY_PAGES });
-
-function decodeWasmString(ptr, len) {
-    const bytes = new Uint8Array(memory.buffer, ptr, len);
-    return new TextDecoder().decode(bytes);
-}
 
 function renderOverlay(text) {
     if (document.getElementById('panic-overlay')) {
@@ -55,26 +51,7 @@ function renderOverlay(text) {
     document.body.appendChild(overlay);
 }
 
-function parseTrapFrames(stack) {
-    const re = /wasm-function\[(\d+)\]:(0x[0-9a-fA-F]+)/g;
-    const frames = [];
-    let match;
-    while ((match = re.exec(stack)) !== null) {
-        frames.push({ funcIndex: Number(match[1]), offset: match[2] });
-    }
-    return frames;
-}
-
-function formatResolvedFrame(frame) {
-    if (!frame.locations || frame.locations.length === 0) {
-        return `  wasm-function[${frame.funcIndex}]:${frame.offset} (unresolved)`;
-    }
-    return frame.locations
-        .map((loc) => `  ${loc.function} at ${loc.file}:${loc.line}:${loc.column}`)
-        .join('\n');
-}
-
-async function symbolicateFrames(rawFrames) {
+async function resolveFramesViaServer(rawFrames) {
     const response = await fetch('/__symbolicate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -84,27 +61,14 @@ async function symbolicateFrames(rawFrames) {
     if (!response.ok || data.error) {
         throw new Error(data.error || `symbolicate returned ${response.status}`);
     }
-    return data.frames.map(formatResolvedFrame).join('\n');
+    return data.frames;
 }
 
 async function handleWasmTrap(error) {
-    const message = error.message || String(error);
-    const rawFrames = parseTrapFrames(error.stack || '');
-
-    if (rawFrames.length === 0) {
-        console.error(error);
-        renderOverlay(`TRAP\n\n${message}\n\n${error.stack || ''}`);
-        return;
-    }
-
-    try {
-        const stackText = await symbolicateFrames(rawFrames);
-        console.error(stackText);
-        renderOverlay(`TRAP\n\n${message}\n\n${stackText}`);
-    } catch (symbolicateErr) {
-        console.error(error);
-        renderOverlay(`TRAP\n\n${message}\n\n(symbolication failed: ${symbolicateErr.message})\n\n${error.stack || ''}`);
-    }
+    console.error(error);
+    const { message, framesText } = await resolveFailureText(error, resolveFramesViaServer);
+    const detail = framesText || error.stack || '';
+    renderOverlay(`TRAP\n\n${message}\n\n${detail}`);
 }
 
 function handleError(error) {
@@ -136,8 +100,8 @@ const importObject = {
     env: {
         memory,
         report_panic(filePtr, fileLen, line, msgPtr, msgLen) {
-            const file = decodeWasmString(filePtr, fileLen);
-            const message = decodeWasmString(msgPtr, msgLen);
+            const file = decodeWasmMemoryString(memory, filePtr, fileLen);
+            const message = decodeWasmMemoryString(memory, msgPtr, msgLen);
             renderOverlay(`PANIC\n\n${file}:${line}\n\n${message}`);
             throw new Error(`panic: ${file}:${line}: ${message}`);
         },
@@ -158,7 +122,7 @@ const importObject = {
             win.ctx.putImageData(win.imageData, 0, 0);
         },
         debug_log(beginPtr, endPtr) {
-            const message = decodeWasmString(beginPtr, endPtr - beginPtr);
+            const message = decodeWasmMemoryString(memory, beginPtr, endPtr - beginPtr);
             console.log(message);
         }
     },
