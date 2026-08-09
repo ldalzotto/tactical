@@ -4,9 +4,16 @@
 #include "lib/graphics.h"
 #include "lib/memory.h"
 #include "lib/runtime.h"
+#include "game/game.h"
+#include "game/input.h"
+#include "game/render.h"
+#include "game/scenario.h"
 
 #define FB_WIDTH 320
 #define FB_HEIGHT 240
+#define GRID_WIDTH 16
+#define GRID_HEIGHT 10
+#define HUD_HEIGHT 40
 
 typedef struct {
     linear_allocator_t allocator;
@@ -15,20 +22,11 @@ typedef struct {
     uint32_t now_ms;
     uint32_t last_frame_ms;
     window_handle_t window;
+    input_state_t input;
+    game_state_t game;
 } app_state_t;
 
 SLICE_DEFINE(app_state_t);
-
-static void render(app_state_t *state, uint32_t now_ms) {
-    int shift = (int)(now_ms / 20);
-    rgba_t color = {
-        .r = (uint8_t)shift,
-        .g = (uint8_t)(255 - shift),
-        .b = (uint8_t)(shift / 2),
-        .a = 255,
-    };
-    graphics_draw_rectangle(state->framebuffer, FB_WIDTH, 0, 0, FB_WIDTH, FB_HEIGHT, color);
-}
 
 __attribute__((export_name("init")))
 app_state_t *init(uint32_t memory_size, uint32_t now_ms) {
@@ -47,6 +45,9 @@ app_state_t *init(uint32_t memory_size, uint32_t now_ms) {
     state->framebuffer = LINEAR_ALLOCATOR_PUSH(&state->allocator, state->framebuffer, FB_WIDTH * FB_HEIGHT);
 
     state->window = create_window(FB_WIDTH, FB_HEIGHT);
+    state->input = input_init(&state->allocator, state->window);
+    state->game = game_init(&state->allocator, GRID_WIDTH, GRID_HEIGHT, FB_WIDTH, FB_HEIGHT, HUD_HEIGHT);
+    scenario_setup_default(&state->game);
 
     debug_log(STR("Application initialized"));
 
@@ -55,6 +56,8 @@ app_state_t *init(uint32_t memory_size, uint32_t now_ms) {
 
 __attribute__((export_name("deinit")))
 void deinit(app_state_t *state) {
+    game_deinit(&state->allocator, state->game);
+    input_deinit(&state->allocator, state->input);
     LINEAR_ALLOCATOR_POP(&state->allocator, state->framebuffer);
     linear_allocator_pop(&state->allocator, state->framebuffer_align);
     linear_allocator_pop(&state->allocator, (slice_t){state, typeoffset(state, 1)});
@@ -69,7 +72,12 @@ uint32_t onNextFrame(app_state_t *state, uint32_t now_ms) {
     }
 
     state->last_frame_ms = now_ms;
-    render(state, now_ms);
+
+    slice_input_event_t events = input_poll(state->input);
+    for (input_event_t *event = events.begin; event != events.end; event++) {
+        game_on_input_event(&state->game, *event);
+    }
+    render_frame(state->framebuffer, FB_WIDTH, state->game);
     present_window(state->window, state->framebuffer.slice);
     return 0;
 }
