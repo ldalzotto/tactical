@@ -36,3 +36,5 @@ ptrdiff_t bytesize(void *begin, void *end);
     ((typeof(s)){ .slice = slice_advance((s).slice, (size_t)(by) * sizeof(*(s).begin)) })
 
 #define SLICE_BYTESIZE(s) bytesize((s).begin, (s).end)
+
+#define STR(litteral) (slice_t){.begin = litteral, .end = byteoffset(litteral, sizeof(litteral) - 1)}
