@@ -2,13 +2,11 @@
 
 #include "../lib/assert.h"
 
-entity_list_t entity_list_init(linear_allocator_t *allocator, int capacity) {
-    assert_debug(capacity > 0);
-
+entity_list_t entity_list_init(linear_allocator_t *allocator) {
     slice_entity_t entities;
-    entities = LINEAR_ALLOCATOR_PUSH(allocator, entities, (size_t)capacity);
+    entities = LINEAR_ALLOCATOR_PUSH(allocator, entities, 0);
 
-    entity_list_t list = { .entities = entities, .count = 0 };
+    entity_list_t list = { .entities = entities };
     return list;
 }
 
@@ -16,13 +14,14 @@ void entity_list_deinit(linear_allocator_t *allocator, entity_list_t list) {
     LINEAR_ALLOCATOR_POP(allocator, list.entities);
 }
 
-entity_id_t entity_spawn(entity_list_t *list, entity_team_t team, int x, int y, int hp, int ap, int mp) {
-    int capacity = (int)(list->entities.end - list->entities.begin);
-    assert_debug(list->count < capacity);
+entity_t* entity_spawn(linear_allocator_t *allocator, entity_list_t *list, entity_team_t team, int x, int y, int hp, int ap, int mp) {
+    // We are allowed to push an entity only at the same time where the list is created. For now.
+    assert_debug(allocator->cursor == list->entities.end);
 
-    entity_id_t id = (entity_id_t)list->count;
-
-    SLICE_AT(list->entities, id) = (entity_t){
+    slice_entity_t entity_s;
+    entity_s = LINEAR_ALLOCATOR_PUSH(allocator, entity_s, 1);
+    
+    SLICE_DEREF(entity_s) = (entity_t){
         .x = x,
         .y = y,
         .team = team,
@@ -35,30 +34,23 @@ entity_id_t entity_spawn(entity_list_t *list, entity_team_t team, int x, int y, 
         .alive = true,
     };
 
-    list->count++;
+    list->entities.end = entity_s.end;
 
-    return id;
+    return &SLICE_DEREF(entity_s);
 }
 
-entity_t *entity_at(entity_list_t list, entity_id_t id) {
-    assert_debug(id >= 0 && id < list.count);
-    return &SLICE_AT(list.entities, id);
-}
-
-entity_id_t entity_find_at(entity_list_t list, int x, int y) {
-    for (int i = 0; i < list.count; i++) {
-        entity_t *entity = &SLICE_AT(list.entities, i);
+entity_t *entity_find_at(entity_list_t list, int x, int y) {
+    for (SLICE_FOREACH(list.entities, entity_s)) {
+        entity_t *entity = &SLICE_DEREF(entity_s);
         if (entity->alive && entity->x == x && entity->y == y) {
-            return (entity_id_t)i;
+            return entity;
         }
     }
 
-    return ENTITY_ID_NONE;
+    return 0;
 }
 
-void entity_damage(entity_list_t list, entity_id_t id, int amount) {
-    entity_t *entity = entity_at(list, id);
-
+void entity_damage(entity_t* entity, int amount) {
     entity->hp -= amount;
     if (entity->hp <= 0) {
         entity->hp = 0;
@@ -77,8 +69,8 @@ bool entity_is_adjacent(entity_t a, entity_t b) {
 
 int entity_alive_count(entity_list_t list, entity_team_t team) {
     int count = 0;
-    for (int i = 0; i < list.count; i++) {
-        entity_t *entity = &SLICE_AT(list.entities, i);
+    for ( SLICE_FOREACH(list.entities, entity_s) ) {
+        entity_t *entity = &SLICE_DEREF(entity_s);
         if (entity->alive && entity->team == team) {
             count++;
         }

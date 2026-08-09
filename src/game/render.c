@@ -34,8 +34,8 @@ static void render_draw_outline(slice_rgba_t fb, int fb_width, int x, int y, int
 }
 
 static void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
-    bool has_reachable_overlay = game.selected_entity != ENTITY_ID_NONE;
-    entity_t *selected = has_reachable_overlay ? entity_at(game.entities, game.selected_entity) : 0;
+    bool has_reachable_overlay = game.selected_entity != 0;
+    entity_t *selected = has_reachable_overlay ? game.selected_entity : 0;
     has_reachable_overlay = has_reachable_overlay && selected->mp > 0;
 
     if (has_reachable_overlay) {
@@ -92,8 +92,8 @@ static void render_hp_bar(slice_rgba_t fb, int fb_width, int px, int py, int ts,
 }
 
 static void render_entities(slice_rgba_t fb, int fb_width, game_state_t game) {
-    for (int i = 0; i < game.entities.count; i++) {
-        entity_t *entity = entity_at(game.entities, (entity_id_t)i);
+    for ( SLICE_FOREACH(game.entities.entities, entity_s) ) {
+        entity_t *entity = &SLICE_DEREF(entity_s);
         if (!entity->alive) {
             continue;
         }
@@ -116,7 +116,7 @@ static void render_entities(slice_rgba_t fb, int fb_width, game_state_t game) {
         rgba_t color = entity->team == ENTITY_TEAM_PLAYER ? COLOR_PLAYER : COLOR_ENEMY;
         graphics_draw_rectangle(fb, fb_width, square_x, square_top, square_width, square_height, color);
 
-        if ((entity_id_t)i == game.selected_entity) {
+        if (entity == game.selected_entity) {
             render_draw_outline(fb, fb_width, px, py, ts, ts, COLOR_WHITE);
         }
     }
@@ -130,10 +130,10 @@ static void render_hud(slice_rgba_t fb, int fb_width, game_state_t game) {
     rgba_t button_color = game.turn.phase == TURN_PHASE_PLAYER ? COLOR_END_TURN_ACTIVE : COLOR_END_TURN_INACTIVE;
     graphics_draw_rectangle(fb, fb_width, button.x, button.y, button.width, button.height, button_color);
 
-    if (game.selected_entity == ENTITY_ID_NONE) {
+    if (game.selected_entity == 0) {
         return;
     }
-    entity_t *selected = entity_at(game.entities, game.selected_entity);
+    entity_t *selected = game.selected_entity;
 
     int pip_size = 10;
     int pip_gap = 4;

@@ -22,7 +22,7 @@ void pathing_deinit(linear_allocator_t *allocator, pathing_state_t state) {
     LINEAR_ALLOCATOR_POP(allocator, state.dist);
 }
 
-void pathing_compute_distances(pathing_state_t state, grid_t grid, entity_list_t entities, entity_id_t skip_entity, int from_x, int from_y, int max_steps) {
+void pathing_compute_distances(pathing_state_t state, grid_t grid, entity_list_t entities, entity_t* entity, int from_x, int from_y, int max_steps) {
     assert_debug(grid_in_bounds(grid, from_x, from_y));
 
     int count = grid.width * grid.height;
@@ -70,8 +70,8 @@ void pathing_compute_distances(pathing_state_t state, grid_t grid, entity_list_t
                 continue;
             }
 
-            entity_id_t occupant = entity_find_at(entities, nx, ny);
-            if (occupant != ENTITY_ID_NONE && occupant != skip_entity) {
+            entity_t* occupant = entity_find_at(entities, nx, ny);
+            if (occupant != 0 && occupant != entity) {
                 continue;
             }
 
