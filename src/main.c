@@ -59,9 +59,8 @@ app_state_t *init(uint32_t memory_size, uint32_t now_ms) {
 
     state->window = create_window(FB_WIDTH, FB_HEIGHT);
 
-    // TODO: use slice
-    const char message[] = "Application initialized";
-    debug_log((void*)message, byteoffset((void*)message, sizeof(message)));
+    slice_t message = STR("Application initialized");
+    debug_log(message.begin, message.end);
 
     return state;
 }
