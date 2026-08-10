@@ -34,11 +34,6 @@ viewport_t layout_compute(int fb_width, int fb_height, int grid_width, int grid_
     return viewport;
 }
 
-// TODO: move this to a generic module
-bool point_in_rect(rect_t r, int x, int y) {
-    return x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height;
-}
-
 bool screen_to_grid(viewport_t v, int screen_x, int screen_y, int *out_tx, int *out_ty) {
     int viewport_width = v.grid_width * v.tile_size;
     int viewport_height = v.grid_height * v.tile_size;

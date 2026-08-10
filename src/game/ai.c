@@ -6,18 +6,14 @@
     Iterate over the adjacent tiles of (x,y).
     Return the nearest tile.
 */
-static int ai_distance_to_adjacency(pathing_state_t pathing, grid_t grid, int x, int y) {
-    static const int dx[4] = { 0, 1, 0, -1 };  // up, right, down, left
-    static const int dy[4] = { -1, 0, 1, 0 };
-
+static int ai_distance_to_adjacency(pathing_state_t pathing, grid_t grid, position_t position) {
     int best = -1;
     for (int dir = 0; dir < 4; dir++) {
-        int nx = x + dx[dir];
-        int ny = y + dy[dir];
-        if (!grid_in_bounds(grid, nx, ny)) {
+        position_t neighbor = position_add(position, POSITION_DIRECTIONS[dir]);
+        if (!grid_in_bounds(grid, neighbor)) {
             continue;
         }
-        int d = pathing_distance_at(pathing, grid, nx, ny);
+        int d = pathing_distance_at(pathing, grid, neighbor);
         if (d < 0) {
             continue;
         }
@@ -31,7 +27,7 @@ static int ai_distance_to_adjacency(pathing_state_t pathing, grid_t grid, int x,
 
 static entity_t* ai_find_nearest_player(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* enemy) {
     int max_steps = grid.width * grid.height;
-    pathing_state_t pathing = pathing_compute_distances(allocator, grid, entities, enemy, enemy->x, enemy->y, max_steps);
+    pathing_state_t pathing = pathing_compute_distances(allocator, grid, entities, enemy, enemy->position, max_steps);
 
     entity_t* best_entity = 0;
     int best_dist = -1;
@@ -42,7 +38,7 @@ static entity_t* ai_find_nearest_player(linear_allocator_t *allocator, grid_t gr
             continue;
         }
 
-        int dist = ai_distance_to_adjacency(pathing, grid, candidate->x, candidate->y);
+        int dist = ai_distance_to_adjacency(pathing, grid, candidate->position);
         if (dist < 0) {
             continue;
         }
@@ -62,24 +58,19 @@ static bool ai_step_toward(linear_allocator_t *allocator, grid_t grid, slice_ent
     int max_steps = grid.width * grid.height;
     // We compute the distance from the target.
     // The smallest distance of ennemy neighbor is the tile we are going to move towards.
-    pathing_state_t pathing = pathing_compute_distances(allocator, grid, entities, target, target->x, target->y, max_steps);
-
-    // TODO: this pattern appears at a lot of places
-    static const int dx[4] = { 0, 1, 0, -1 };  // up, right, down, left
-    static const int dy[4] = { -1, 0, 1, 0 };
+    pathing_state_t pathing = pathing_compute_distances(allocator, grid, entities, target, target->position, max_steps);
 
     bool found = false;
     int best_dist = -1;
-    int best_x = 0, best_y = 0;
+    position_t best_position = { 0, 0 };
 
     for (int dir = 0; dir < 4; dir++) {
-        int nx = enemy->x + dx[dir];
-        int ny = enemy->y + dy[dir];
-        if (!grid_in_bounds(grid, nx, ny)) {
+        position_t neighbor = position_add(enemy->position, POSITION_DIRECTIONS[dir]);
+        if (!grid_in_bounds(grid, neighbor)) {
             continue;
         }
 
-        int dist = pathing_distance_at(pathing, grid, nx, ny);
+        int dist = pathing_distance_at(pathing, grid, neighbor);
         if (dist < 0) {
             continue;
         }
@@ -87,8 +78,7 @@ static bool ai_step_toward(linear_allocator_t *allocator, grid_t grid, slice_ent
         if (!found || dist < best_dist) {
             found = true;
             best_dist = dist;
-            best_x = nx;
-            best_y = ny;
+            best_position = neighbor;
         }
     }
 
@@ -98,7 +88,7 @@ static bool ai_step_toward(linear_allocator_t *allocator, grid_t grid, slice_ent
         return false;
     }
 
-    return action_try_move(allocator, grid, entities, enemy, best_x, best_y);
+    return action_try_move(allocator, grid, entities, enemy, best_position);
 }
 
 // For every ALIVE enemy (ascending entity_id): find nearest ALIVE player

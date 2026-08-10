@@ -39,9 +39,11 @@ set(APP_SOURCES
     src/game/input.c
     src/game/layout.c
     src/game/pathing.c
+    src/game/position.c
     src/game/render.c
     src/game/scenario.c
     src/game/turn.c
+    src/game/ui.c
 
     src/main.c
 )

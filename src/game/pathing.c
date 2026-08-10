@@ -7,8 +7,8 @@ void pathing_deinit(linear_allocator_t *allocator, pathing_state_t state) {
     linear_allocator_pop(allocator, state.align);
 }
 
-pathing_state_t  pathing_compute_distances(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* excluded, int from_x, int from_y, int max_steps) {
-    assert_debug(grid_in_bounds(grid, from_x, from_y));
+pathing_state_t  pathing_compute_distances(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* excluded, position_t from, int max_steps) {
+    assert_debug(grid_in_bounds(grid, from));
 
     size_t count = (size_t)(grid.width * grid.height);
 
@@ -27,20 +27,16 @@ pathing_state_t  pathing_compute_distances(linear_allocator_t *allocator, grid_t
     int head = 0;
     int tail = 0;
 
-    int start_index = from_y * grid.width + from_x;
+    int start_index = from.y * grid.width + from.x;
     SLICE_AT(dist, start_index) = 0;
     SLICE_AT(frontier, tail) = start_index;
     tail++;
-
-    static const int dx[4] = { 1, -1, 0, 0 };
-    static const int dy[4] = { 0, 0, 1, -1 };
 
     while (head < tail) {
         int index = SLICE_AT(frontier, head);
         head++;
 
-        int x = index % grid.width;
-        int y = index / grid.width;
+        position_t current = { index % grid.width, index / grid.width };
         int d = SLICE_AT(dist, index);
 
         if (d >= max_steps) {
@@ -48,24 +44,23 @@ pathing_state_t  pathing_compute_distances(linear_allocator_t *allocator, grid_t
         }
 
         for (int dir = 0; dir < 4; dir++) {
-            int nx = x + dx[dir];
-            int ny = y + dy[dir];
+            position_t neighbor = position_add(current, POSITION_DIRECTIONS[dir]);
 
-            if (!grid_in_bounds(grid, nx, ny)) {
+            if (!grid_in_bounds(grid, neighbor)) {
                 continue;
             }
 
-            if (!grid_is_walkable(grid, nx, ny)) {
+            if (!grid_is_walkable(grid, neighbor)) {
                 continue;
             }
 
-            int neighbor_index = ny * grid.width + nx;
+            int neighbor_index = neighbor.y * grid.width + neighbor.x;
             // If already visited
             if (SLICE_AT(dist, neighbor_index) != -1) {
                 continue;
             }
 
-            entity_t* occupant = entity_find_at(entities, nx, ny);
+            entity_t* occupant = entity_find_at(entities, neighbor);
             if (occupant != 0 && occupant != excluded) {
                 continue;
             }
@@ -84,7 +79,7 @@ pathing_state_t  pathing_compute_distances(linear_allocator_t *allocator, grid_t
     };
 }
 
-int pathing_distance_at(pathing_state_t state, grid_t grid, int x, int y) {
-    assert_debug(grid_in_bounds(grid, x, y));
-    return SLICE_AT(state.dist, y * grid.width + x);
+int pathing_distance_at(pathing_state_t state, grid_t grid, position_t position) {
+    assert_debug(grid_in_bounds(grid, position));
+    return SLICE_AT(state.dist, position.y * grid.width + position.x);
 }
