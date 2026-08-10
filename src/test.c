@@ -1260,9 +1260,11 @@ static void test_game_entity_pressed_selects_own_and_switches_selection(void) {
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
 
+    slice_t grid_padding = grid_align(&allocator);
     grid_t grid = grid_init(&allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT);
+    slice_t entity_list_align = linear_allocator_push_alignment(&allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(&allocator);
-    game_state_t game = game_init(grid, entities, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+    game_state_t game = game_init(grid_padding, grid, entity_list_align, entities, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     entity_t* p1 = entity_spawn(&allocator, &game.entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
     entity_t* p2 = entity_spawn(&allocator, &game.entities, ENTITY_TEAM_PLAYER, (position_t){1, 0}, 10, 2, 3);
@@ -1281,9 +1283,11 @@ static void test_game_entity_pressed_enemy_with_none_selected_noops(void) {
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
 
+    slice_t grid_padding = grid_align(&allocator);
     grid_t grid = grid_init(&allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT);
+    slice_t entity_list_align = linear_allocator_push_alignment(&allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(&allocator);
-    game_state_t game = game_init(grid, entities, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+    game_state_t game = game_init(grid_padding, grid, entity_list_align, entities, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     entity_t* e1 = entity_spawn(&allocator, &game.entities, ENTITY_TEAM_ENEMY, (position_t){5, 5}, 10, 2, 3);
 
@@ -1298,9 +1302,11 @@ static void test_game_entity_pressed_adjacent_enemy_attacks_then_noops_when_ap_z
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
 
+    slice_t grid_padding = grid_align(&allocator);
     grid_t grid = grid_init(&allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT);
+    slice_t entity_list_align = linear_allocator_push_alignment(&allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(&allocator);
-    game_state_t game = game_init(grid, entities, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+    game_state_t game = game_init(grid_padding, grid, entity_list_align, entities, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     entity_t* p = entity_spawn(&allocator, &game.entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 1, 3);
     entity_t* e = entity_spawn(&allocator, &game.entities, ENTITY_TEAM_ENEMY, (position_t){1, 0}, 10, 2, 3);
@@ -1325,9 +1331,11 @@ static void test_game_tile_pressed_moves_within_reach_and_consumes_mp(void) {
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
 
+    slice_t grid_padding = grid_align(&allocator);
     grid_t grid = grid_init(&allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT);
+    slice_t entity_list_align = linear_allocator_push_alignment(&allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(&allocator);
-    game_state_t game = game_init(grid, entities, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+    game_state_t game = game_init(grid_padding, grid, entity_list_align, entities, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     entity_t* p = entity_spawn(&allocator, &game.entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
 
@@ -1346,9 +1354,11 @@ static void test_game_tile_pressed_noops_on_unreachable_tile(void) {
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
 
+    slice_t grid_padding = grid_align(&allocator);
     grid_t grid = grid_init(&allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT);
+    slice_t entity_list_align = linear_allocator_push_alignment(&allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(&allocator);
-    game_state_t game = game_init(grid, entities, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+    game_state_t game = game_init(grid_padding, grid, entity_list_align, entities, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     entity_t* p = entity_spawn(&allocator, &game.entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 1);
 
@@ -1367,9 +1377,11 @@ static void test_game_end_turn_resets_player_phase_and_deselects(void) {
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
 
+    slice_t grid_padding = grid_align(&allocator);
     grid_t grid = grid_init(&allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT);
+    slice_t entity_list_align = linear_allocator_push_alignment(&allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(&allocator);
-    game_state_t game = game_init(grid, entities, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+    game_state_t game = game_init(grid_padding, grid, entity_list_align, entities, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     entity_t* p = entity_spawn(&allocator, &game.entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
     entity_spawn(&allocator, &game.entities, ENTITY_TEAM_ENEMY, (position_t){15, 9}, 10, 2, 0); // far away, zero mp: can't reach or attack
@@ -1398,9 +1410,11 @@ static void test_game_1v1_enemy_death_sets_win_and_freezes_input(void) {
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
 
+    slice_t grid_padding = grid_align(&allocator);
     grid_t grid = grid_init(&allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT);
+    slice_t entity_list_align = linear_allocator_push_alignment(&allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(&allocator);
-    game_state_t game = game_init(grid, entities, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+    game_state_t game = game_init(grid_padding, grid, entity_list_align, entities, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     entity_t* p = entity_spawn(&allocator, &game.entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
     entity_t* e = entity_spawn(&allocator, &game.entities, ENTITY_TEAM_ENEMY, (position_t){1, 0}, 5, 2, 3);
@@ -1430,9 +1444,11 @@ static void test_game_ai_kills_last_player_during_end_turn_sets_lose(void) {
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
 
+    slice_t grid_padding = grid_align(&allocator);
     grid_t grid = grid_init(&allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT);
+    slice_t entity_list_align = linear_allocator_push_alignment(&allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(&allocator);
-    game_state_t game = game_init(grid, entities, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+    game_state_t game = game_init(grid_padding, grid, entity_list_align, entities, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     entity_t* p = entity_spawn(&allocator, &game.entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 5, 2, 3);
     entity_spawn(&allocator, &game.entities, ENTITY_TEAM_ENEMY, (position_t){1, 0}, 10, 2, 3);
@@ -1457,9 +1473,11 @@ static void test_game_on_input_event_click_in_end_turn_button_behaves_like_end_t
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
 
+    slice_t grid_padding = grid_align(&allocator);
     grid_t grid = grid_init(&allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT);
+    slice_t entity_list_align = linear_allocator_push_alignment(&allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(&allocator);
-    game_state_t game = game_init(grid, entities, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+    game_state_t game = game_init(grid_padding, grid, entity_list_align, entities, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     entity_t* p = entity_spawn(&allocator, &game.entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
     entity_spawn(&allocator, &game.entities, ENTITY_TEAM_ENEMY, (position_t){15, 9}, 10, 2, 0); // far away, zero mp: can't reach or attack
@@ -1488,9 +1506,11 @@ static void test_game_on_input_event_click_on_entity_tile_behaves_like_entity_pr
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
 
+    slice_t grid_padding = grid_align(&allocator);
     grid_t grid = grid_init(&allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT);
+    slice_t entity_list_align = linear_allocator_push_alignment(&allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(&allocator);
-    game_state_t game = game_init(grid, entities, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+    game_state_t game = game_init(grid_padding, grid, entity_list_align, entities, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     entity_spawn(&allocator, &game.entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
     entity_t* p2 = entity_spawn(&allocator, &game.entities, ENTITY_TEAM_PLAYER, (position_t){3, 3}, 10, 2, 3);

@@ -19,13 +19,15 @@ static void game_check_game_over(game_state_t *game) {
     }
 }
 
-game_state_t game_init(grid_t grid, slice_entity_t entities, int fb_width, int fb_height, int hud_height) {
+game_state_t game_init(slice_t grid_align, grid_t grid, slice_t entity_list_align, slice_entity_t entities, int fb_width, int fb_height, int hud_height) {
     assert_debug((void*)entities.begin >= (void*)grid.tiles.end);
 
     viewport_t viewport = layout_compute(fb_width, fb_height, grid.width, grid.height, hud_height);
 
     game_state_t game = {
+        .grid_align = grid_align,
         .grid = grid,
+        .entity_list_align = entity_list_align,
         .entities = entities,
         .turn = turn_init(),
         .viewport = viewport,
@@ -38,8 +40,10 @@ game_state_t game_init(grid_t grid, slice_entity_t entities, int fb_width, int f
 }
 
 void game_deinit(linear_allocator_t *allocator, game_state_t state) {
-    slice_t region = { state.grid.tiles.begin, state.entities.end };
-    linear_allocator_pop(allocator, region);
+    entity_list_deinit(allocator, state.entities);
+    linear_allocator_pop(allocator, state.entity_list_align);
+    grid_deinit(allocator, state.grid);
+    linear_allocator_pop(allocator, state.grid_align);
 }
 
 void game_on_entity_pressed(game_state_t *game, entity_t* entity) {

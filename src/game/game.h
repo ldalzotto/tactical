@@ -17,7 +17,9 @@ typedef enum {
 } game_over_t;
 
 typedef struct {
+    slice_t grid_align;
     grid_t grid;
+    slice_t entity_list_align;
     slice_entity_t entities;
     turn_state_t turn;
     viewport_t viewport;
@@ -28,11 +30,12 @@ typedef struct {
 } game_state_t;
 
 // Assembles game state from an already-allocated grid and entity list.
-// The caller owns allocation (grid must be pushed before entities, so the
-// whole region can be popped as one block in game_deinit).
-game_state_t game_init(grid_t grid, slice_entity_t entities, int fb_width, int fb_height, int hud_height);
+// The caller owns allocation: push grid_align() before grid_init, then push
+// an entity_t alignment before entity_list_init, and pass both markers here
+// so game_deinit can pop everything in reverse order.
+game_state_t game_init(slice_t grid_align, grid_t grid, slice_t entity_list_align, slice_entity_t entities, int fb_width, int fb_height, int hud_height);
 
-// Pops the grid+entities region in one shot (grid.tiles.begin..entities.end).
+// Pops the grid+entities region, including the alignment padding pushed before each.
 void game_deinit(linear_allocator_t *allocator, game_state_t state);
 
 void game_on_entity_pressed(game_state_t *game, entity_t* entity);
