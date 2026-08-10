@@ -694,11 +694,10 @@ static void test_pathing_max_steps_caps_distance(void) {
     grid_deinit(&allocator, grid);
 }
 
-static void test_turn_init_starts_player_turn_one(void) {
+static void test_turn_init_starts_player_phase(void) {
     turn_state_t state = turn_init();
 
     assert_test(state.phase == TURN_PHASE_PLAYER);
-    assert_test(state.turn_number == 1);
 }
 
 static void test_turn_reset_team_points_ignores_dead_entities(void) {
@@ -786,7 +785,6 @@ static void test_turn_begin_enemy_phase_resets_only_enemy_team(void) {
     state = turn_begin_enemy_phase(state, list);
 
     assert_test(state.phase == TURN_PHASE_ENEMY);
-    assert_test(state.turn_number == 1);
 
     entity_t *player = player_id;
     entity_t *enemy = enemy_id;
@@ -800,7 +798,7 @@ static void test_turn_begin_enemy_phase_resets_only_enemy_team(void) {
     linear_allocator_pop(&allocator, entity_align);
 }
 
-static void test_turn_begin_player_phase_resets_only_player_team_and_increments_turn(void) {
+static void test_turn_begin_player_phase_resets_only_player_team(void) {
     static char buffer[1024];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -822,7 +820,6 @@ static void test_turn_begin_player_phase_resets_only_player_team_and_increments_
     state = turn_begin_player_phase(state, list);
 
     assert_test(state.phase == TURN_PHASE_PLAYER);
-    assert_test(state.turn_number == 2);
 
     entity_t *player = player_id;
     entity_t *enemy = enemy_id;
@@ -1386,7 +1383,6 @@ static void test_game_end_turn_resets_player_phase_and_deselects(void) {
     game_on_end_turn_pressed(&game, &allocator);
 
     assert_test(game.turn.phase == TURN_PHASE_PLAYER);
-    assert_test(game.turn.turn_number == 2);
     assert_test(game.selected_entity == 0);
 
     entity_t *player = p;
@@ -1421,10 +1417,8 @@ static void test_game_1v1_enemy_death_sets_win_and_freezes_input(void) {
     assert_test(player->position.x == 0 && player->position.y == 0);
 
     turn_phase_t phase_before = game.turn.phase;
-    int turn_number_before = game.turn.turn_number;
     game_on_end_turn_pressed(&game, &allocator);
     assert_test(game.turn.phase == phase_before);
-    assert_test(game.turn.turn_number == turn_number_before);
 
     assert_test(game.game_over == GAME_OVER_WIN);
 
@@ -1480,7 +1474,6 @@ static void test_game_on_input_event_click_in_end_turn_button_behaves_like_end_t
     game_on_input_event(&game, &allocator, click);
 
     assert_test(game.turn.phase == TURN_PHASE_PLAYER);
-    assert_test(game.turn.turn_number == 2);
     assert_test(game.selected_entity == 0);
 
     entity_t *player = p;
@@ -1607,11 +1600,11 @@ static const test_case_t g_tests[] = {
     { TEST_NAME("pathing_occupied_tile_blocks_corridor"), test_pathing_occupied_tile_blocks_corridor },
     { TEST_NAME("pathing_skip_entity_allows_own_start_tile"), test_pathing_skip_entity_allows_own_start_tile },
     { TEST_NAME("pathing_max_steps_caps_distance"), test_pathing_max_steps_caps_distance },
-    { TEST_NAME("turn_init_starts_player_turn_one"), test_turn_init_starts_player_turn_one },
+    { TEST_NAME("turn_init_starts_player_phase"), test_turn_init_starts_player_phase },
     { TEST_NAME("turn_reset_team_points_ignores_dead_entities"), test_turn_reset_team_points_ignores_dead_entities },
     { TEST_NAME("turn_reset_team_points_only_affects_matching_team"), test_turn_reset_team_points_only_affects_matching_team },
     { TEST_NAME("turn_begin_enemy_phase_resets_only_enemy_team"), test_turn_begin_enemy_phase_resets_only_enemy_team },
-    { TEST_NAME("turn_begin_player_phase_resets_only_player_team_and_increments_turn"), test_turn_begin_player_phase_resets_only_player_team_and_increments_turn },
+    { TEST_NAME("turn_begin_player_phase_resets_only_player_team"), test_turn_begin_player_phase_resets_only_player_team },
     { TEST_NAME("action_try_move_succeeds_within_mp"), test_action_try_move_succeeds_within_mp },
     { TEST_NAME("action_try_move_fails_beyond_mp"), test_action_try_move_fails_beyond_mp },
     { TEST_NAME("action_try_move_fails_onto_obstacle"), test_action_try_move_fails_onto_obstacle },
