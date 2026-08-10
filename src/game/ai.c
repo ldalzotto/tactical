@@ -2,13 +2,10 @@
 
 #include "action.h"
 
-// Distance from an entity to a candidate tile, via a BFS field rooted at the
-// entity itself: occupied tiles (including the candidate's own tile, since
-// it's occupied by the candidate) block passage except at the BFS root, so
-// the candidate's own tile is never reachable in that field. Instead take
-// the minimum distance among the candidate's four orthogonal neighbor
-// tiles -- this is 0 exactly when the candidate is already adjacent to the
-// BFS root (one of those neighbors *is* the root tile).
+/*
+    Iterate over the adjacent tiles of (x,y).
+    Return the nearest tile.
+*/
 static int ai_distance_to_adjacency(pathing_state_t pathing, grid_t grid, int x, int y) {
     static const int dx[4] = { 0, 1, 0, -1 };  // up, right, down, left
     static const int dy[4] = { -1, 0, 1, 0 };
@@ -58,7 +55,9 @@ static entity_t* ai_find_nearest_player(linear_allocator_t *allocator, grid_t gr
 
 static bool ai_step_toward(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* enemy, entity_t *target) {
     int max_steps = grid.width * grid.height;
-    pathing_state_t pathing = pathing_compute_distances(allocator, grid, entities, 0, target->x, target->y, max_steps);
+    // We compute the distance from the target.
+    // The smallest distance of ennemy neighbor is the tile we are going to move towards.
+    pathing_state_t pathing = pathing_compute_distances(allocator, grid, entities, target, target->x, target->y, max_steps);
 
     static const int dx[4] = { 0, 1, 0, -1 };  // up, right, down, left
     static const int dy[4] = { -1, 0, 1, 0 };
@@ -93,6 +92,15 @@ static bool ai_step_toward(linear_allocator_t *allocator, grid_t grid, slice_ent
     return action_try_move(allocator, grid, entities, enemy, best_x, best_y);
 }
 
+// For every ALIVE enemy (ascending entity_id): find nearest ALIVE player
+// entity via BFS rooted at the enemy's own tile (skip_entity=enemy). If
+// already orthogonally adjacent and ap>0, action_try_attack. Otherwise, while
+// mp>0 and not yet adjacent: BFS rooted at the TARGET's tile
+// (skip_entity=ENTITY_ID_NONE) to get a distance-to-target field, step to
+// whichever orthogonal neighbor (checked in order: up, right, down, left) of
+// the enemy's current tile has the smallest distance-to-target via
+// action_try_move (one tile at a time), then re-check adjacency/attack. If no
+// alive player entities remain, no-op for all enemies.
 void ai_run_enemy_phase(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities) {
     for ( SLICE_FOREACH(entities, ennemy_s) ) {
         entity_t *enemy = &SLICE_DEREF(ennemy_s);
