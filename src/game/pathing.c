@@ -85,10 +85,6 @@ pathing_state_t  pathing_compute_distances(linear_allocator_t *allocator, grid_t
 }
 
 int pathing_distance_at(pathing_state_t state, grid_t grid, int x, int y) {
-    // TODO: remove
-    if (!grid_in_bounds(grid, x, y)) {
-        return -1;
-    }
-
+    assert_debug(grid_in_bounds(grid, x, y));
     return SLICE_AT(state.dist, y * grid.width + x);
 }
