@@ -3,8 +3,10 @@
 #include "action.h"
 
 /*
-    Iterate over the adjacent tiles of (x,y).
-    Return the nearest tile.
+    Distance from the BFS root to a tile adjacent to `position`.
+    (`position` itself is unreachable in the field — the candidate
+    occupies it — so take the min over its four neighbors instead.
+    0 means the candidate is already adjacent to the root.)
 */
 static int ai_distance_to_adjacency(pathing_state_t pathing, grid_t grid, position_t position) {
     int best = -1;
