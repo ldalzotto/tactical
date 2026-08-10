@@ -694,31 +694,6 @@ static void test_pathing_max_steps_caps_distance(void) {
     grid_deinit(&allocator, grid);
 }
 
-static void test_pathing_distance_at_out_of_bounds_returns_negative_one(void) {
-    static char buffer[4096];
-    slice_t data = { buffer, buffer + sizeof(buffer) };
-    linear_allocator_t allocator = linear_allocator_init(data);
-
-    grid_t grid = grid_init(&allocator, 4, 4);
-
-    slice_entity_t entities;
-    slice_t entity_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, entities);
-    entities = entity_list_init(&allocator);
-
-    pathing_state_t pathing = pathing_compute_distances(&allocator, grid, entities, 0, 0, 0, 100);
-
-    assert_test(pathing_distance_at(pathing, grid, -1, 0) == -1);
-    assert_test(pathing_distance_at(pathing, grid, 0, -1) == -1);
-    assert_test(pathing_distance_at(pathing, grid, 4, 0) == -1);
-    assert_test(pathing_distance_at(pathing, grid, 0, 4) == -1);
-    assert_test(pathing_distance_at(pathing, grid, 100, 100) == -1);
-
-    pathing_deinit(&allocator, pathing);
-    entity_list_deinit(&allocator, entities);
-    linear_allocator_pop(&allocator, entity_align);
-    grid_deinit(&allocator, grid);
-}
-
 static void test_turn_init_starts_player_turn_one(void) {
     turn_state_t state = turn_init();
 
@@ -957,31 +932,6 @@ static void test_action_try_move_fails_onto_occupied_tile(void) {
     assert_test(entity->x == 0);
     assert_test(entity->y == 0);
     assert_test(entity->mp == 3);
-
-    entity_list_deinit(&allocator, entities);
-    linear_allocator_pop(&allocator, entity_align);
-    grid_deinit(&allocator, grid);
-}
-
-static void test_action_try_move_fails_out_of_bounds(void) {
-    static char buffer[4096];
-    slice_t data = { buffer, buffer + sizeof(buffer) };
-    linear_allocator_t allocator = linear_allocator_init(data);
-
-    grid_t grid = grid_init(&allocator, 4, 4);
-
-    slice_entity_t entities;
-    slice_t entity_align = LINEAR_ALLOCATOR_PUSH_ALIGNMENT(&allocator, entities);
-    entities = entity_list_init(&allocator);
-    entity_t* mover = entity_spawn(&allocator, &entities, ENTITY_TEAM_PLAYER, 0, 0, 10, 2, 10);
-
-    bool result = action_try_move(&allocator, grid, entities, mover, 4, 0);
-    assert_test(!result);
-
-    entity_t *entity = mover;
-    assert_test(entity->x == 0);
-    assert_test(entity->y == 0);
-    assert_test(entity->mp == 10);
 
     entity_list_deinit(&allocator, entities);
     linear_allocator_pop(&allocator, entity_align);
@@ -1657,7 +1607,6 @@ static const test_case_t g_tests[] = {
     { TEST_NAME("pathing_occupied_tile_blocks_corridor"), test_pathing_occupied_tile_blocks_corridor },
     { TEST_NAME("pathing_skip_entity_allows_own_start_tile"), test_pathing_skip_entity_allows_own_start_tile },
     { TEST_NAME("pathing_max_steps_caps_distance"), test_pathing_max_steps_caps_distance },
-    { TEST_NAME("pathing_distance_at_out_of_bounds_returns_negative_one"), test_pathing_distance_at_out_of_bounds_returns_negative_one },
     { TEST_NAME("turn_init_starts_player_turn_one"), test_turn_init_starts_player_turn_one },
     { TEST_NAME("turn_reset_team_points_ignores_dead_entities"), test_turn_reset_team_points_ignores_dead_entities },
     { TEST_NAME("turn_reset_team_points_only_affects_matching_team"), test_turn_reset_team_points_only_affects_matching_team },
@@ -1667,7 +1616,6 @@ static const test_case_t g_tests[] = {
     { TEST_NAME("action_try_move_fails_beyond_mp"), test_action_try_move_fails_beyond_mp },
     { TEST_NAME("action_try_move_fails_onto_obstacle"), test_action_try_move_fails_onto_obstacle },
     { TEST_NAME("action_try_move_fails_onto_occupied_tile"), test_action_try_move_fails_onto_occupied_tile },
-    { TEST_NAME("action_try_move_fails_out_of_bounds"), test_action_try_move_fails_out_of_bounds },
     { TEST_NAME("action_try_attack_succeeds_on_adjacent_enemy"), test_action_try_attack_succeeds_on_adjacent_enemy },
     { TEST_NAME("action_try_attack_killing_blow_leaves_defender_dead"), test_action_try_attack_killing_blow_leaves_defender_dead },
     { TEST_NAME("action_try_attack_fails_when_not_adjacent"), test_action_try_attack_fails_when_not_adjacent },

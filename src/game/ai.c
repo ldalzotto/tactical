@@ -12,7 +12,12 @@ static int ai_distance_to_adjacency(pathing_state_t pathing, grid_t grid, int x,
 
     int best = -1;
     for (int dir = 0; dir < 4; dir++) {
-        int d = pathing_distance_at(pathing, grid, x + dx[dir], y + dy[dir]);
+        int nx = x + dx[dir];
+        int ny = y + dy[dir];
+        if (!grid_in_bounds(grid, nx, ny)) {
+            continue;
+        }
+        int d = pathing_distance_at(pathing, grid, nx, ny);
         if (d < 0) {
             continue;
         }
@@ -69,6 +74,9 @@ static bool ai_step_toward(linear_allocator_t *allocator, grid_t grid, slice_ent
     for (int dir = 0; dir < 4; dir++) {
         int nx = enemy->x + dx[dir];
         int ny = enemy->y + dy[dir];
+        if (!grid_in_bounds(grid, nx, ny)) {
+            continue;
+        }
 
         int dist = pathing_distance_at(pathing, grid, nx, ny);
         if (dist < 0) {
