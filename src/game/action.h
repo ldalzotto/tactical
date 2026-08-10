@@ -12,7 +12,7 @@
 // mutation, if: tile not walkable, tile occupied, or unreachable within
 // mover's current mp (via pathing_compute_distances rooted at the mover,
 // skip_entity = mover).
-bool action_try_move(linear_allocator_t *allocator, grid_t grid, entity_list_t entities, entity_t* entity, int tx, int ty);
+bool action_try_move(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* entity, int tx, int ty);
 
 // True on success (attacker ap -= 1, defender takes ACTION_ATTACK_DAMAGE via
 // entity_damage). False, no mutation, if either is dead, same team, not

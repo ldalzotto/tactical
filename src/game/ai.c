@@ -27,14 +27,14 @@ static int ai_distance_to_adjacency(pathing_state_t pathing, grid_t grid, int x,
     return best;
 }
 
-static entity_t* ai_find_nearest_player(linear_allocator_t *allocator, grid_t grid, entity_list_t entities, entity_t* enemy) {
+static entity_t* ai_find_nearest_player(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* enemy) {
     int max_steps = grid.width * grid.height;
     pathing_state_t pathing = pathing_compute_distances(allocator, grid, entities, enemy, enemy->x, enemy->y, max_steps);
 
     entity_t* best_entity = 0;
     int best_dist = -1;
 
-    for ( SLICE_FOREACH(entities.entities, candidate_s) ) {
+    for ( SLICE_FOREACH(entities, candidate_s) ) {
         entity_t *candidate = &SLICE_DEREF(candidate_s);
         if (!candidate->alive || candidate->team != ENTITY_TEAM_PLAYER) {
             continue;
@@ -56,7 +56,7 @@ static entity_t* ai_find_nearest_player(linear_allocator_t *allocator, grid_t gr
     return best_entity;
 }
 
-static bool ai_step_toward(linear_allocator_t *allocator, grid_t grid, entity_list_t entities, entity_t* enemy, entity_t *target) {
+static bool ai_step_toward(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* enemy, entity_t *target) {
     int max_steps = grid.width * grid.height;
     pathing_state_t pathing = pathing_compute_distances(allocator, grid, entities, 0, target->x, target->y, max_steps);
 
@@ -93,8 +93,8 @@ static bool ai_step_toward(linear_allocator_t *allocator, grid_t grid, entity_li
     return action_try_move(allocator, grid, entities, enemy, best_x, best_y);
 }
 
-void ai_run_enemy_phase(linear_allocator_t *allocator, grid_t grid, entity_list_t entities) {
-    for ( SLICE_FOREACH(entities.entities, ennemy_s) ) {
+void ai_run_enemy_phase(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities) {
+    for ( SLICE_FOREACH(entities, ennemy_s) ) {
         entity_t *enemy = &SLICE_DEREF(ennemy_s);
 
         if (!enemy->alive || enemy->team != ENTITY_TEAM_ENEMY) {

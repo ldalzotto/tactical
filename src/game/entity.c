@@ -2,21 +2,19 @@
 
 #include "../lib/assert.h"
 
-entity_list_t entity_list_init(linear_allocator_t *allocator) {
+slice_entity_t entity_list_init(linear_allocator_t *allocator) {
     slice_entity_t entities;
     entities = LINEAR_ALLOCATOR_PUSH(allocator, entities, 0);
-
-    entity_list_t list = { .entities = entities };
-    return list;
+    return entities;
 }
 
-void entity_list_deinit(linear_allocator_t *allocator, entity_list_t list) {
-    LINEAR_ALLOCATOR_POP(allocator, list.entities);
+void entity_list_deinit(linear_allocator_t *allocator, slice_entity_t list) {
+    LINEAR_ALLOCATOR_POP(allocator, list);
 }
 
-entity_t* entity_spawn(linear_allocator_t *allocator, entity_list_t *list, entity_team_t team, int x, int y, int hp, int ap, int mp) {
+entity_t* entity_spawn(linear_allocator_t *allocator, slice_entity_t *entities, entity_team_t team, int x, int y, int hp, int ap, int mp) {
     // We are allowed to push an entity only at the same time where the list is created. For now.
-    assert_debug(allocator->cursor == list->entities.end);
+    assert_debug(allocator->cursor == entities->end);
 
     slice_entity_t entity_s;
     entity_s = LINEAR_ALLOCATOR_PUSH(allocator, entity_s, 1);
@@ -34,13 +32,13 @@ entity_t* entity_spawn(linear_allocator_t *allocator, entity_list_t *list, entit
         .alive = true,
     };
 
-    list->entities.end = entity_s.end;
+    entities->end = entity_s.end;
 
     return &SLICE_DEREF(entity_s);
 }
 
-entity_t *entity_find_at(entity_list_t list, int x, int y) {
-    for (SLICE_FOREACH(list.entities, entity_s)) {
+entity_t *entity_find_at(slice_entity_t list, int x, int y) {
+    for (SLICE_FOREACH(list, entity_s)) {
         entity_t *entity = &SLICE_DEREF(entity_s);
         if (entity->alive && entity->x == x && entity->y == y) {
             return entity;
@@ -67,9 +65,9 @@ bool entity_is_adjacent(entity_t a, entity_t b) {
     return (dx + dy) == 1;
 }
 
-int entity_alive_count(entity_list_t list, entity_team_t team) {
+int entity_alive_count(slice_entity_t list, entity_team_t team) {
     int count = 0;
-    for ( SLICE_FOREACH(list.entities, entity_s) ) {
+    for ( SLICE_FOREACH(list, entity_s) ) {
         entity_t *entity = &SLICE_DEREF(entity_s);
         if (entity->alive && entity->team == team) {
             count++;

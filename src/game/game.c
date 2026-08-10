@@ -22,7 +22,7 @@ game_state_t game_init(linear_allocator_t *allocator, int grid_width, int grid_h
     grid_t grid = grid_init(allocator, grid_width, grid_height);
 
     linear_allocator_push_alignment(allocator, _Alignof(entity_t));
-    entity_list_t entities = entity_list_init(allocator);
+    slice_entity_t entities = entity_list_init(allocator);
 
     viewport_t viewport = layout_compute(fb_width, fb_height, grid_width, grid_height, hud_height);
 
@@ -46,7 +46,7 @@ void game_deinit(linear_allocator_t *allocator, game_state_t state) {
     // Padding pushed between the grid allocation and the entities
     // allocation sits exactly between grid.tiles.end and
     // entities.entities.begin (see game_init's push order).
-    slice_t entity_align_marker = { state.grid.tiles.end, state.entities.entities.begin };
+    slice_t entity_align_marker = { state.grid.tiles.end, state.entities.begin };
     linear_allocator_pop(allocator, entity_align_marker);
 
     grid_deinit(allocator, state.grid);

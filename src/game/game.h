@@ -7,7 +7,6 @@
 #include "entity.h"
 #include "grid.h"
 #include "layout.h"
-#include "pathing.h"
 #include "turn.h"
 
 typedef enum {
@@ -18,7 +17,7 @@ typedef enum {
 
 typedef struct {
     grid_t grid;
-    entity_list_t entities;
+    slice_entity_t entities;
     turn_state_t turn;
     viewport_t viewport;
     entity_t* selected_entity; // 0 if none
