@@ -51,6 +51,7 @@ void *slice_at(slice_t s, size_t index, size_t alignment) {
     assert_debug((alignment & (alignment - 1)) == 0);
     void *result = byteoffset(s.begin, (ptrdiff_t)index);
     assert_debug(result <= s.end);
+    assert_debug(result >= s.begin);
     assert_debug(((uintptr_t)result & (alignment - 1)) == 0);
     return result;
 }
