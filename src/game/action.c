@@ -1,44 +1,42 @@
 #include "action.h"
 
-bool action_try_move(grid_t grid, entity_list_t entities, pathing_state_t pathing, entity_id_t mover, int tx, int ty) {
-    entity_t *entity = entity_at(entities, mover);
+bool action_try_move(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* entity, position_t target) {
+    pathing_state_t pathing = pathing_compute_distances(allocator, grid, entities, entity, entity->position, entity->mp);
 
-    pathing_compute_distances(pathing, grid, entities, mover, entity->x, entity->y, entity->mp);
+    int distance = pathing_distance_at(pathing, grid, target);
 
-    int distance = pathing_distance_at(pathing, grid, tx, ty);
+    pathing_deinit(allocator, pathing);
+
     if (distance < 0 || distance > entity->mp) {
         return false;
     }
 
     entity->mp -= distance;
-    entity->x = tx;
-    entity->y = ty;
+    entity->position = target;
 
     return true;
 }
 
-bool action_try_attack(entity_list_t entities, entity_id_t attacker, entity_id_t defender) {
-    entity_t *attacker_entity = entity_at(entities, attacker);
-    entity_t *defender_entity = entity_at(entities, defender);
+bool action_try_attack(entity_t* attacker, entity_t* defender) {
 
-    if (!attacker_entity->alive || !defender_entity->alive) {
+    if (!attacker->alive || !defender->alive) {
         return false;
     }
 
-    if (attacker_entity->team == defender_entity->team) {
+    if (attacker->team == defender->team) {
         return false;
     }
 
-    if (!entity_is_adjacent(*attacker_entity, *defender_entity)) {
+    if (!entity_is_adjacent(*attacker, *defender)) {
         return false;
     }
 
-    if (attacker_entity->ap == 0) {
+    if (attacker->ap == 0) {
         return false;
     }
 
-    attacker_entity->ap -= 1;
-    entity_damage(entities, defender, ACTION_ATTACK_DAMAGE);
+    attacker->ap -= 1;
+    entity_damage(defender, ACTION_ATTACK_DAMAGE);
 
     return true;
 }

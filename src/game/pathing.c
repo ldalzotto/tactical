@@ -2,90 +2,85 @@
 
 #include "../lib/assert.h"
 
-pathing_state_t pathing_init(linear_allocator_t *allocator, int grid_width, int grid_height) {
-    assert_debug(grid_width > 0 && grid_height > 0);
+void pathing_deinit(linear_allocator_t *allocator, pathing_state_t state) {
+    LINEAR_ALLOCATOR_POP(allocator, state.dist);
+    linear_allocator_pop(allocator, state.align);
+}
 
-    size_t count = (size_t)(grid_width * grid_height);
+pathing_state_t  pathing_compute_distances(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* excluded, position_t from, int max_steps) {
+    assert_debug(grid_in_bounds(grid, from));
+
+    size_t count = (size_t)(grid.width * grid.height);
+
+    slice_t align = linear_allocator_push_alignment(allocator, _Alignof(int32_t));
 
     slice_int32_t dist;
     dist = LINEAR_ALLOCATOR_PUSH(allocator, dist, count);
 
-    slice_int32_t queue;
-    queue = LINEAR_ALLOCATOR_PUSH(allocator, queue, count);
+    slice_int32_t frontier;
+    frontier = LINEAR_ALLOCATOR_PUSH(allocator, frontier, count);
 
-    pathing_state_t state = { .dist = dist, .queue = queue };
-    return state;
-}
-
-void pathing_deinit(linear_allocator_t *allocator, pathing_state_t state) {
-    LINEAR_ALLOCATOR_POP(allocator, state.queue);
-    LINEAR_ALLOCATOR_POP(allocator, state.dist);
-}
-
-void pathing_compute_distances(pathing_state_t state, grid_t grid, entity_list_t entities, entity_id_t skip_entity, int from_x, int from_y, int max_steps) {
-    assert_debug(grid_in_bounds(grid, from_x, from_y));
-
-    int count = grid.width * grid.height;
-    for (int i = 0; i < count; i++) {
-        SLICE_AT(state.dist, i) = -1;
+    for (size_t i = 0; i < count; i++) {
+        SLICE_AT(dist, i) = -1;
     }
 
     int head = 0;
     int tail = 0;
 
-    int start_index = from_y * grid.width + from_x;
-    SLICE_AT(state.dist, start_index) = 0;
-    SLICE_AT(state.queue, tail) = start_index;
+    int start_index = from.y * grid.width + from.x;
+    SLICE_AT(dist, start_index) = 0;
+    SLICE_AT(frontier, tail) = start_index;
     tail++;
 
-    static const int dx[4] = { 1, -1, 0, 0 };
-    static const int dy[4] = { 0, 0, 1, -1 };
-
     while (head < tail) {
-        int index = SLICE_AT(state.queue, head);
+        int index = SLICE_AT(frontier, head);
         head++;
 
-        int x = index % grid.width;
-        int y = index / grid.width;
-        int d = SLICE_AT(state.dist, index);
+        position_t current = { index % grid.width, index / grid.width };
+        int d = SLICE_AT(dist, index);
 
         if (d >= max_steps) {
             continue;
         }
 
-        for (int dir = 0; dir < 4; dir++) {
-            int nx = x + dx[dir];
-            int ny = y + dy[dir];
+        for ( SLICE_FOREACH(POSITION_DIRECTIONS, dir_s)) {
+            position_t dir = SLICE_DEREF(dir_s);
+            position_t neighbor = position_add(current, dir);
 
-            if (!grid_in_bounds(grid, nx, ny)) {
+            if (!grid_in_bounds(grid, neighbor)) {
                 continue;
             }
 
-            if (!grid_is_walkable(grid, nx, ny)) {
+            if (!grid_is_walkable(grid, neighbor)) {
                 continue;
             }
 
-            int neighbor_index = ny * grid.width + nx;
-            if (SLICE_AT(state.dist, neighbor_index) != -1) {
+            int neighbor_index = neighbor.y * grid.width + neighbor.x;
+            // If already visited
+            if (SLICE_AT(dist, neighbor_index) != -1) {
                 continue;
             }
 
-            entity_id_t occupant = entity_find_at(entities, nx, ny);
-            if (occupant != ENTITY_ID_NONE && occupant != skip_entity) {
+            entity_t* occupant = entity_find_at(entities, neighbor);
+            if (occupant != 0 && occupant != excluded) {
                 continue;
             }
 
-            SLICE_AT(state.dist, neighbor_index) = d + 1;
-            SLICE_AT(state.queue, tail) = neighbor_index;
+            SLICE_AT(dist, neighbor_index) = d + 1;
+            SLICE_AT(frontier, tail) = neighbor_index;
             tail++;
         }
     }
+
+    linear_allocator_pop(allocator, frontier.slice);
+
+    return (pathing_state_t) {
+        .align = align,
+        .dist = dist,
+    };
 }
 
-int pathing_distance_at(pathing_state_t state, grid_t grid, int x, int y) {
-    if (!grid_in_bounds(grid, x, y)) {
-        return -1;
-    }
-
-    return SLICE_AT(state.dist, y * grid.width + x);
+int pathing_distance_at(pathing_state_t state, grid_t grid, position_t position) {
+    assert_debug(grid_in_bounds(grid, position));
+    return SLICE_AT(state.dist, position.y * grid.width + position.x);
 }

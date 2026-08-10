@@ -37,6 +37,7 @@ void *byteoffset(void *pointer, ptrdiff_t by);
 void *slice_at(slice_t s, size_t index, size_t alignment);
 slice_t slice_advance(slice_t s, size_t by);
 ptrdiff_t bytesize(void *begin, void *end);
+#define typesize(begin, end) bytesize(begin, end) / sizeof(*begin)
 
 #define SLICE_DEFINE(type) \
     typedef union { slice_t slice; struct { type *begin; type *end; }; } slice_##type
@@ -49,6 +50,9 @@ ptrdiff_t bytesize(void *begin, void *end);
 #define SLICE_ADVANCE(s, by) \
     ((typeof(s)){ .slice = slice_advance((s).slice, (size_t)(by) * sizeof(*(s).begin)) })
 
+#define SLICE_FOREACH(s, var) typeof(s) var = s; SLICE_BYTESIZE(var) != 0; var = SLICE_ADVANCE(var, 1)
+
 #define SLICE_BYTESIZE(s) bytesize((s).begin, (s).end)
+#define SLICE_TYPESIZE(s) typesize((s).begin, (s).end)
 
 #define STR(litteral) (slice_t){.begin = litteral, .end = byteoffset(litteral, sizeof(litteral) - 1)}

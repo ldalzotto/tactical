@@ -1,5 +1,6 @@
 #include "game.h"
 
+#include "../lib/assert.h"
 #include "action.h"
 #include "ai.h"
 
@@ -18,26 +19,20 @@ static void game_check_game_over(game_state_t *game) {
     }
 }
 
-game_state_t game_init(linear_allocator_t *allocator, int grid_width, int grid_height, int fb_width, int fb_height, int hud_height) {
-    grid_t grid = grid_init(allocator, grid_width, grid_height);
+game_state_t game_init(slice_t grid_align, grid_t grid, slice_t entity_list_align, slice_entity_t entities, int fb_width, int fb_height, int hud_height) {
+    assert_debug((void*)entities.begin >= (void*)grid.tiles.end);
 
-    linear_allocator_push_alignment(allocator, _Alignof(entity_t));
-    entity_list_t entities = entity_list_init(allocator, GAME_MAX_ENTITIES);
-
-    linear_allocator_push_alignment(allocator, _Alignof(int32_t));
-    pathing_state_t pathing = pathing_init(allocator, grid_width, grid_height);
-
-    viewport_t viewport = layout_compute(fb_width, fb_height, grid_width, grid_height, hud_height);
+    viewport_t viewport = layout_compute(fb_width, fb_height, grid.width, grid.height, hud_height);
 
     game_state_t game = {
+        .grid_align = grid_align,
         .grid = grid,
+        .entity_list_align = entity_list_align,
         .entities = entities,
-        .pathing = pathing,
         .turn = turn_init(),
         .viewport = viewport,
-        .selected_entity = ENTITY_ID_NONE,
-        .hover_x = 0,
-        .hover_y = 0,
+        .selected_entity = 0,
+        .hover = { 0, 0 },
         .hover_valid = false,
         .game_over = GAME_OVER_NONE,
     };
@@ -45,36 +40,24 @@ game_state_t game_init(linear_allocator_t *allocator, int grid_width, int grid_h
 }
 
 void game_deinit(linear_allocator_t *allocator, game_state_t state) {
-    pathing_deinit(allocator, state.pathing);
-
-    // Padding pushed between the entities allocation and the pathing
-    // allocation sits exactly between entities.entities.end and
-    // pathing.dist.begin (see game_init's push order).
-    slice_t pathing_align_marker = { state.entities.entities.end, state.pathing.dist.begin };
-    linear_allocator_pop(allocator, pathing_align_marker);
-
     entity_list_deinit(allocator, state.entities);
-
-    // Same reasoning for the padding pushed between the grid allocation and
-    // the entities allocation.
-    slice_t entity_align_marker = { state.grid.tiles.end, state.entities.entities.begin };
-    linear_allocator_pop(allocator, entity_align_marker);
-
+    linear_allocator_pop(allocator, state.entity_list_align);
     grid_deinit(allocator, state.grid);
+    linear_allocator_pop(allocator, state.grid_align);
 }
 
-void game_on_entity_pressed(game_state_t *game, entity_id_t entity) {
+void game_on_entity_pressed(game_state_t *game, entity_t* entity) {
     if (game->game_over != GAME_OVER_NONE) {
         return;
     }
     if (game->turn.phase != TURN_PHASE_PLAYER) {
         return;
     }
-    if (entity == ENTITY_ID_NONE) {
+    if (entity == 0) {
         return;
     }
 
-    entity_t *pressed = entity_at(game->entities, entity);
+    entity_t *pressed = entity;
     if (!pressed->alive) {
         return;
     }
@@ -84,11 +67,11 @@ void game_on_entity_pressed(game_state_t *game, entity_id_t entity) {
         return;
     }
 
-    if (game->selected_entity == ENTITY_ID_NONE) {
+    if (game->selected_entity == 0) {
         return;
     }
 
-    entity_t *selected = entity_at(game->entities, game->selected_entity);
+    entity_t *selected = game->selected_entity;
     if (!entity_is_adjacent(*selected, *pressed)) {
         return;
     }
@@ -96,30 +79,30 @@ void game_on_entity_pressed(game_state_t *game, entity_id_t entity) {
         return;
     }
 
-    if (action_try_attack(game->entities, game->selected_entity, entity)) {
+    if (action_try_attack(game->selected_entity, entity)) {
         game_check_game_over(game);
     }
 }
 
-void game_on_tile_pressed(game_state_t *game, int tx, int ty) {
+void game_on_tile_pressed(game_state_t *game, linear_allocator_t *allocator, position_t target) {
     if (game->game_over != GAME_OVER_NONE) {
         return;
     }
     if (game->turn.phase != TURN_PHASE_PLAYER) {
         return;
     }
-    if (game->selected_entity == ENTITY_ID_NONE) {
+    if (game->selected_entity == 0) {
         return;
     }
 
-    if (entity_find_at(game->entities, tx, ty) != ENTITY_ID_NONE) {
+    if (entity_find_at(game->entities, target) != 0) {
         return;
     }
 
-    action_try_move(game->grid, game->entities, game->pathing, game->selected_entity, tx, ty);
+    action_try_move(allocator, game->grid, game->entities, game->selected_entity, target);
 }
 
-void game_on_end_turn_pressed(game_state_t *game) {
+void game_on_end_turn_pressed(game_state_t *game, linear_allocator_t *allocator) {
     if (game->game_over != GAME_OVER_NONE) {
         return;
     }
@@ -128,9 +111,9 @@ void game_on_end_turn_pressed(game_state_t *game) {
     }
 
     game->turn = turn_begin_enemy_phase(game->turn, game->entities);
-    game->selected_entity = ENTITY_ID_NONE;
+    game->selected_entity = 0;
 
-    ai_run_enemy_phase(game->grid, game->entities, game->pathing);
+    ai_run_enemy_phase(allocator, game->grid, game->entities);
 
     game_check_game_over(game);
 
@@ -139,14 +122,14 @@ void game_on_end_turn_pressed(game_state_t *game) {
     }
 }
 
-void game_on_input_event(game_state_t *game, input_event_t event) {
+void game_on_input_event(game_state_t *game, linear_allocator_t *allocator, input_event_t event) {
     if (game->game_over != GAME_OVER_NONE) {
         return;
     }
 
     if (event.type == INPUT_EVENT_MOUSE_CLICK) {
         if (point_in_rect(game->viewport.end_turn_button, event.x, event.y)) {
-            game_on_end_turn_pressed(game);
+            game_on_end_turn_pressed(game, allocator);
             return;
         }
 
@@ -155,19 +138,19 @@ void game_on_input_event(game_state_t *game, input_event_t event) {
             return;
         }
 
-        entity_id_t found = entity_find_at(game->entities, tx, ty);
-        if (found != ENTITY_ID_NONE) {
+        position_t target = { tx, ty };
+        entity_t* found = entity_find_at(game->entities, target);
+        if (found != 0) {
             game_on_entity_pressed(game, found);
         } else {
-            game_on_tile_pressed(game, tx, ty);
+            game_on_tile_pressed(game, allocator, target);
         }
     } else if (event.type == INPUT_EVENT_MOUSE_MOVE) {
         int tx, ty;
         bool valid = screen_to_grid(game->viewport, event.x, event.y, &tx, &ty);
         game->hover_valid = valid;
         if (valid) {
-            game->hover_x = tx;
-            game->hover_y = ty;
+            game->hover = (position_t){ tx, ty };
         }
     }
 }

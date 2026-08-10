@@ -1,4 +1,5 @@
 #include "render.h"
+#include "pathing.h"
 
 // Colors -- see the T12 ticket's drawing spec for the exact values below;
 // anything not explicitly pinned there (the "lighter" gridline fill, entity
@@ -26,25 +27,26 @@ static const rgba_t COLOR_LOSE = { 200, 0, 0, 255 };
 
 // Draws a 2px-thick white rectangular outline as 4 thin edge rects, since
 // graphics.h has no dedicated outline/stroke primitive.
-static void render_draw_outline(slice_rgba_t fb, int fb_width, int x, int y, int width, int height, rgba_t color) {
-    graphics_draw_rectangle(fb, fb_width, x, y, width, OUTLINE_THICKNESS, color);
-    graphics_draw_rectangle(fb, fb_width, x, y + height - OUTLINE_THICKNESS, width, OUTLINE_THICKNESS, color);
-    graphics_draw_rectangle(fb, fb_width, x, y, OUTLINE_THICKNESS, height, color);
-    graphics_draw_rectangle(fb, fb_width, x + width - OUTLINE_THICKNESS, y, OUTLINE_THICKNESS, height, color);
+static void render_draw_outline(slice_rgba_t fb, int fb_width, rect_t r, rgba_t color) {
+    graphics_draw_rectangle(fb, fb_width, r.x, r.y, r.width, OUTLINE_THICKNESS, color);
+    graphics_draw_rectangle(fb, fb_width, r.x, r.y + r.height - OUTLINE_THICKNESS, r.width, OUTLINE_THICKNESS, color);
+    graphics_draw_rectangle(fb, fb_width, r.x, r.y, OUTLINE_THICKNESS, r.height, color);
+    graphics_draw_rectangle(fb, fb_width, r.x + r.width - OUTLINE_THICKNESS, r.y, OUTLINE_THICKNESS, r.height, color);
 }
 
-static void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
-    bool has_reachable_overlay = game.selected_entity != ENTITY_ID_NONE;
-    entity_t *selected = has_reachable_overlay ? entity_at(game.entities, game.selected_entity) : 0;
+static void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game, linear_allocator_t *allocator) {
+    bool has_reachable_overlay = game.selected_entity != 0;
+    entity_t *selected = has_reachable_overlay ? game.selected_entity : 0;
     has_reachable_overlay = has_reachable_overlay && selected->mp > 0;
 
+    pathing_state_t pathing;
     if (has_reachable_overlay) {
-        pathing_compute_distances(game.pathing, game.grid, game.entities, game.selected_entity, selected->x, selected->y, selected->mp);
+        pathing = pathing_compute_distances(allocator, game.grid, game.entities, game.selected_entity, selected->position, selected->mp);
     }
 
     for (int ty = 0; ty < game.grid.height; ty++) {
         for (int tx = 0; tx < game.grid.width; tx++) {
-            bool walkable = grid_is_walkable(game.grid, tx, ty);
+            bool walkable = grid_is_walkable(game.grid, (position_t){tx, ty});
             rgba_t outer = walkable ? COLOR_TILE_WALKABLE : COLOR_TILE_OBSTACLE;
             rgba_t inset = walkable ? COLOR_TILE_WALKABLE_INSET : COLOR_TILE_OBSTACLE_INSET;
 
@@ -56,7 +58,7 @@ static void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
             graphics_draw_rectangle(fb, fb_width, px + 2, py + 2, ts - 4, ts - 4, inset);
 
             if (has_reachable_overlay) {
-                int dist = pathing_distance_at(game.pathing, game.grid, tx, ty);
+                int dist = pathing_distance_at(pathing, game.grid, (position_t){tx, ty});
                 if (dist > 0 && dist <= selected->mp) {
                     graphics_draw_rectangle(fb, fb_width, px, py, ts, ts, COLOR_REACHABLE_TINT);
                 }
@@ -66,9 +68,13 @@ static void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
 
     if (game.hover_valid) {
         int px, py;
-        grid_to_screen(game.viewport, game.hover_x, game.hover_y, &px, &py);
+        grid_to_screen(game.viewport, game.hover.x, game.hover.y, &px, &py);
         int ts = game.viewport.tile_size;
-        render_draw_outline(fb, fb_width, px, py, ts, ts, COLOR_WHITE);
+        render_draw_outline(fb, fb_width, (rect_t){px, py, ts, ts}, COLOR_WHITE);
+    }
+
+    if (has_reachable_overlay) {
+        pathing_deinit(allocator, pathing);
     }
 }
 
@@ -92,14 +98,14 @@ static void render_hp_bar(slice_rgba_t fb, int fb_width, int px, int py, int ts,
 }
 
 static void render_entities(slice_rgba_t fb, int fb_width, game_state_t game) {
-    for (int i = 0; i < game.entities.count; i++) {
-        entity_t *entity = entity_at(game.entities, (entity_id_t)i);
+    for ( SLICE_FOREACH(game.entities, entity_s) ) {
+        entity_t *entity = &SLICE_DEREF(entity_s);
         if (!entity->alive) {
             continue;
         }
 
         int px, py;
-        grid_to_screen(game.viewport, entity->x, entity->y, &px, &py);
+        grid_to_screen(game.viewport, entity->position.x, entity->position.y, &px, &py);
         int ts = game.viewport.tile_size;
 
         render_hp_bar(fb, fb_width, px, py, ts, entity);
@@ -116,8 +122,8 @@ static void render_entities(slice_rgba_t fb, int fb_width, game_state_t game) {
         rgba_t color = entity->team == ENTITY_TEAM_PLAYER ? COLOR_PLAYER : COLOR_ENEMY;
         graphics_draw_rectangle(fb, fb_width, square_x, square_top, square_width, square_height, color);
 
-        if ((entity_id_t)i == game.selected_entity) {
-            render_draw_outline(fb, fb_width, px, py, ts, ts, COLOR_WHITE);
+        if (entity == game.selected_entity) {
+            render_draw_outline(fb, fb_width, (rect_t){px, py, ts, ts}, COLOR_WHITE);
         }
     }
 }
@@ -130,10 +136,10 @@ static void render_hud(slice_rgba_t fb, int fb_width, game_state_t game) {
     rgba_t button_color = game.turn.phase == TURN_PHASE_PLAYER ? COLOR_END_TURN_ACTIVE : COLOR_END_TURN_INACTIVE;
     graphics_draw_rectangle(fb, fb_width, button.x, button.y, button.width, button.height, button_color);
 
-    if (game.selected_entity == ENTITY_ID_NONE) {
+    if (game.selected_entity == 0) {
         return;
     }
-    entity_t *selected = entity_at(game.entities, game.selected_entity);
+    entity_t *selected = game.selected_entity;
 
     int pip_size = 10;
     int pip_gap = 4;
@@ -153,7 +159,7 @@ static void render_hud(slice_rgba_t fb, int fb_width, game_state_t game) {
     }
 }
 
-void render_frame(slice_rgba_t framebuffer, int fb_width, game_state_t game) {
+void render_frame(slice_rgba_t framebuffer, int fb_width, game_state_t game, linear_allocator_t *allocator) {
     if (game.game_over != GAME_OVER_NONE) {
         int pixel_count = (int)(framebuffer.end - framebuffer.begin);
         int fb_height = fb_width > 0 ? pixel_count / fb_width : 0;
@@ -162,7 +168,7 @@ void render_frame(slice_rgba_t framebuffer, int fb_width, game_state_t game) {
         return;
     }
 
-    render_tiles(framebuffer, fb_width, game);
+    render_tiles(framebuffer, fb_width, game, allocator);
     render_entities(framebuffer, fb_width, game);
     render_hud(framebuffer, fb_width, game);
 }

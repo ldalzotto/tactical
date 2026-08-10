@@ -22,7 +22,6 @@ typedef struct {
     uint32_t now_ms;
     uint32_t last_frame_ms;
     window_handle_t window;
-    input_state_t input;
     game_state_t game;
 } app_state_t;
 
@@ -45,9 +44,7 @@ app_state_t *init(uint32_t memory_size, uint32_t now_ms) {
     state->framebuffer = LINEAR_ALLOCATOR_PUSH(&state->allocator, state->framebuffer, FB_WIDTH * FB_HEIGHT);
 
     state->window = create_window(FB_WIDTH, FB_HEIGHT);
-    state->input = input_init(&state->allocator, state->window);
-    state->game = game_init(&state->allocator, GRID_WIDTH, GRID_HEIGHT, FB_WIDTH, FB_HEIGHT, HUD_HEIGHT);
-    scenario_setup_default(&state->game);
+    state->game = scenario_setup_default(&state->allocator, GRID_WIDTH, GRID_HEIGHT, FB_WIDTH, FB_HEIGHT, HUD_HEIGHT);
 
     debug_log(STR("Application initialized"));
 
@@ -57,7 +54,6 @@ app_state_t *init(uint32_t memory_size, uint32_t now_ms) {
 __attribute__((export_name("deinit")))
 void deinit(app_state_t *state) {
     game_deinit(&state->allocator, state->game);
-    input_deinit(&state->allocator, state->input);
     LINEAR_ALLOCATOR_POP(&state->allocator, state->framebuffer);
     linear_allocator_pop(&state->allocator, state->framebuffer_align);
     linear_allocator_pop(&state->allocator, (slice_t){state, typeoffset(state, 1)});
@@ -73,11 +69,13 @@ uint32_t onNextFrame(app_state_t *state, uint32_t now_ms) {
 
     state->last_frame_ms = now_ms;
 
-    slice_input_event_t events = input_poll(state->input);
+    slice_input_event_t events = input_poll(&state->allocator, state->window);
     for (input_event_t *event = events.begin; event != events.end; event++) {
-        game_on_input_event(&state->game, *event);
+        game_on_input_event(&state->game, &state->allocator, *event);
     }
-    render_frame(state->framebuffer, FB_WIDTH, state->game);
+    linear_allocator_pop(&state->allocator, events.slice);
+
+    render_frame(state->framebuffer, FB_WIDTH, state->game, &state->allocator);
     present_window(state->window, state->framebuffer.slice);
     return 0;
 }

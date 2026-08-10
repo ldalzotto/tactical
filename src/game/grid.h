@@ -3,10 +3,9 @@
 #include <stdbool.h>
 
 #include "../lib/memory.h"
+#include "position.h"
 
-typedef struct {
-    bool walkable;
-} tile_t;
+typedef struct tile tile_t;
 
 SLICE_DEFINE(tile_t);
 
@@ -15,9 +14,9 @@ typedef struct {
     slice_tile_t tiles;
 } grid_t;
 
+slice_t grid_align(linear_allocator_t *allocator);
 grid_t grid_init(linear_allocator_t *allocator, int width, int height);
 void grid_deinit(linear_allocator_t *allocator, grid_t grid);
-bool grid_in_bounds(grid_t grid, int x, int y);
-tile_t *grid_tile_at(grid_t grid, int x, int y);
-void grid_set_walkable(grid_t grid, int x, int y, bool walkable);
-bool grid_is_walkable(grid_t grid, int x, int y);
+bool grid_in_bounds(grid_t grid, position_t position);
+void grid_set_walkable(grid_t grid, position_t position, bool walkable);
+bool grid_is_walkable(grid_t grid, position_t position);

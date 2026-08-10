@@ -33,16 +33,11 @@ viewport_t layout_compute(int fb_width, int fb_height, int grid_width, int grid_
     return viewport;
 }
 
-bool point_in_rect(rect_t r, int x, int y) {
-    return x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height;
-}
-
 bool screen_to_grid(viewport_t v, int screen_x, int screen_y, int *out_tx, int *out_ty) {
     int viewport_width = v.grid_width * v.tile_size;
     int viewport_height = v.grid_height * v.tile_size;
-
-    if (screen_x < v.origin_x || screen_x >= v.origin_x + viewport_width ||
-        screen_y < v.origin_y || screen_y >= v.origin_y + viewport_height) {
+    rect_t viewport_rect = (rect_t){v.origin_x, v.origin_y, viewport_width, viewport_height};
+    if (!point_in_rect(viewport_rect, screen_x, screen_y)) {
         return false;
     }
 
