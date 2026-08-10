@@ -64,6 +64,7 @@ static bool ai_step_toward(linear_allocator_t *allocator, grid_t grid, slice_ent
     // The smallest distance of ennemy neighbor is the tile we are going to move towards.
     pathing_state_t pathing = pathing_compute_distances(allocator, grid, entities, target, target->x, target->y, max_steps);
 
+    // TODO: this pattern appears at a lot of places
     static const int dx[4] = { 0, 1, 0, -1 };  // up, right, down, left
     static const int dy[4] = { -1, 0, 1, 0 };
 
