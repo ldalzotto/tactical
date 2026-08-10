@@ -9,8 +9,6 @@ typedef enum {
 
 typedef struct {
     turn_phase_t phase;
-    // TODO: not needed
-    int turn_number;
 } turn_state_t;
 
 turn_state_t turn_init(void);

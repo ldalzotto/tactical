@@ -1,7 +1,7 @@
 #include "turn.h"
 
 turn_state_t turn_init(void) {
-    return (turn_state_t){ .phase = TURN_PHASE_PLAYER, .turn_number = 1 };
+    return (turn_state_t){ .phase = TURN_PHASE_PLAYER };
 }
 
 void turn_reset_team_points(slice_entity_t entities, entity_team_t team) {
@@ -16,7 +16,6 @@ void turn_reset_team_points(slice_entity_t entities, entity_team_t team) {
 
 turn_state_t turn_begin_player_phase(turn_state_t state, slice_entity_t entities) {
     state.phase = TURN_PHASE_PLAYER;
-    state.turn_number++;
     turn_reset_team_points(entities, ENTITY_TEAM_PLAYER);
     return state;
 }
