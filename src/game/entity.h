@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "../lib/memory.h"
+#include "position.h"
 
 typedef enum {
     ENTITY_TEAM_PLAYER = 0,
@@ -11,7 +12,7 @@ typedef enum {
 } entity_team_t;
 
 typedef struct {
-    int x, y;
+    position_t position;
     entity_team_t team;
     int hp, max_hp, ap, max_ap, mp, max_mp;
     bool alive;
@@ -21,8 +22,8 @@ SLICE_DEFINE(entity_t);
 
 slice_entity_t entity_list_init(linear_allocator_t *allocator);
 void entity_list_deinit(linear_allocator_t *allocator, slice_entity_t list);
-entity_t* entity_spawn(linear_allocator_t *allocator, slice_entity_t* list, entity_team_t team, int x, int y, int hp, int ap, int mp);
-entity_t *entity_find_at(slice_entity_t list, int x, int y);
+entity_t* entity_spawn(linear_allocator_t *allocator, slice_entity_t* list, entity_team_t team, position_t position, int hp, int ap, int mp);
+entity_t *entity_find_at(slice_entity_t list, position_t position);
 void entity_damage(entity_t* entity, int amount);
 bool entity_is_adjacent(entity_t a, entity_t b);
 int entity_alive_count(slice_entity_t list, entity_team_t team);

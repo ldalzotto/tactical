@@ -1,9 +1,9 @@
 #include "action.h"
 
-bool action_try_move(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* entity, int tx, int ty) {
-    pathing_state_t pathing = pathing_compute_distances(allocator, grid, entities, entity, entity->x, entity->y, entity->mp);
+bool action_try_move(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* entity, position_t target) {
+    pathing_state_t pathing = pathing_compute_distances(allocator, grid, entities, entity, entity->position, entity->mp);
 
-    int distance = pathing_distance_at(pathing, grid, tx, ty);
+    int distance = pathing_distance_at(pathing, grid, target);
 
     pathing_deinit(allocator, pathing);
 
@@ -12,8 +12,7 @@ bool action_try_move(linear_allocator_t *allocator, grid_t grid, slice_entity_t 
     }
 
     entity->mp -= distance;
-    entity->x = tx;
-    entity->y = ty;
+    entity->position = target;
 
     return true;
 }

@@ -24,18 +24,18 @@ void grid_deinit(linear_allocator_t *allocator, grid_t grid) {
     LINEAR_ALLOCATOR_POP(allocator, grid.tiles);
 }
 
-bool grid_in_bounds(grid_t grid, int x, int y) {
-    return x >= 0 && y >= 0 && x < grid.width && y < grid.height;
+bool grid_in_bounds(grid_t grid, position_t position) {
+    return position.x >= 0 && position.y >= 0 && position.x < grid.width && position.y < grid.height;
 }
 
-static tile_t *grid_tile_at(grid_t grid, int x, int y) {
-    return &SLICE_AT(grid.tiles, y * grid.width + x);
+static tile_t *grid_tile_at(grid_t grid, position_t position) {
+    return &SLICE_AT(grid.tiles, position.y * grid.width + position.x);
 }
 
-void grid_set_walkable(grid_t grid, int x, int y, bool walkable) {
-    grid_tile_at(grid, x, y)->walkable = walkable;
+void grid_set_walkable(grid_t grid, position_t position, bool walkable) {
+    grid_tile_at(grid, position)->walkable = walkable;
 }
 
-bool grid_is_walkable(grid_t grid, int x, int y) {
-    return grid_tile_at(grid, x, y)->walkable;
+bool grid_is_walkable(grid_t grid, position_t position) {
+    return grid_tile_at(grid, position)->walkable;
 }

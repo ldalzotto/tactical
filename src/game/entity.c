@@ -12,16 +12,15 @@ void entity_list_deinit(linear_allocator_t *allocator, slice_entity_t list) {
     LINEAR_ALLOCATOR_POP(allocator, list);
 }
 
-entity_t* entity_spawn(linear_allocator_t *allocator, slice_entity_t *entities, entity_team_t team, int x, int y, int hp, int ap, int mp) {
+entity_t* entity_spawn(linear_allocator_t *allocator, slice_entity_t *entities, entity_team_t team, position_t position, int hp, int ap, int mp) {
     // We are allowed to push an entity only at the same time where the list is created. For now.
     assert_debug(allocator->cursor == entities->end);
 
     slice_entity_t entity_s;
     entity_s = LINEAR_ALLOCATOR_PUSH(allocator, entity_s, 1);
-    
+
     SLICE_DEREF(entity_s) = (entity_t){
-        .x = x,
-        .y = y,
+        .position = position,
         .team = team,
         .hp = hp,
         .max_hp = hp,
@@ -37,10 +36,10 @@ entity_t* entity_spawn(linear_allocator_t *allocator, slice_entity_t *entities, 
     return &SLICE_DEREF(entity_s);
 }
 
-entity_t *entity_find_at(slice_entity_t list, int x, int y) {
+entity_t *entity_find_at(slice_entity_t list, position_t position) {
     for (SLICE_FOREACH(list, entity_s)) {
         entity_t *entity = &SLICE_DEREF(entity_s);
-        if (entity->alive && entity->x == x && entity->y == y) {
+        if (entity->alive && position_equals(entity->position, position)) {
             return entity;
         }
     }
@@ -57,10 +56,12 @@ void entity_damage(entity_t* entity, int amount) {
 }
 
 bool entity_is_adjacent(entity_t a, entity_t b) {
-    return (a.x == b.x + 1 && a.y == b.y)
-        || (a.x == b.x - 1 && a.y == b.y)
-        || (a.x == b.x && a.y == b.y + 1)
-        || (a.x == b.x && a.y == b.y - 1);
+    for (int dir = 0; dir < 4; dir++) {
+        if (position_equals(a.position, position_add(b.position, POSITION_DIRECTIONS[dir]))) {
+            return true;
+        }
+    }
+    return false;
 }
 
 int entity_alive_count(slice_entity_t list, entity_team_t team) {

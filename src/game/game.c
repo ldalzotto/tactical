@@ -30,8 +30,7 @@ game_state_t game_init(grid_t grid, slice_entity_t entities, int fb_width, int f
         .turn = turn_init(),
         .viewport = viewport,
         .selected_entity = 0,
-        .hover_x = 0,
-        .hover_y = 0,
+        .hover = { 0, 0 },
         .hover_valid = false,
         .game_over = GAME_OVER_NONE,
     };
@@ -81,7 +80,7 @@ void game_on_entity_pressed(game_state_t *game, entity_t* entity) {
     }
 }
 
-void game_on_tile_pressed(game_state_t *game, linear_allocator_t *allocator, int tx, int ty) {
+void game_on_tile_pressed(game_state_t *game, linear_allocator_t *allocator, position_t target) {
     if (game->game_over != GAME_OVER_NONE) {
         return;
     }
@@ -92,11 +91,11 @@ void game_on_tile_pressed(game_state_t *game, linear_allocator_t *allocator, int
         return;
     }
 
-    if (entity_find_at(game->entities, tx, ty) != 0) {
+    if (entity_find_at(game->entities, target) != 0) {
         return;
     }
 
-    action_try_move(allocator, game->grid, game->entities, game->selected_entity, tx, ty);
+    action_try_move(allocator, game->grid, game->entities, game->selected_entity, target);
 }
 
 void game_on_end_turn_pressed(game_state_t *game, linear_allocator_t *allocator) {
@@ -135,19 +134,19 @@ void game_on_input_event(game_state_t *game, linear_allocator_t *allocator, inpu
             return;
         }
 
-        entity_t* found = entity_find_at(game->entities, tx, ty);
+        position_t target = { tx, ty };
+        entity_t* found = entity_find_at(game->entities, target);
         if (found != 0) {
             game_on_entity_pressed(game, found);
         } else {
-            game_on_tile_pressed(game, allocator, tx, ty);
+            game_on_tile_pressed(game, allocator, target);
         }
     } else if (event.type == INPUT_EVENT_MOUSE_MOVE) {
         int tx, ty;
         bool valid = screen_to_grid(game->viewport, event.x, event.y, &tx, &ty);
         game->hover_valid = valid;
         if (valid) {
-            game->hover_x = tx;
-            game->hover_y = ty;
+            game->hover = (position_t){ tx, ty };
         }
     }
 }
