@@ -1,5 +1,6 @@
 #include "game.h"
 
+#include "../lib/assert.h"
 #include "action.h"
 #include "ai.h"
 
@@ -18,13 +19,10 @@ static void game_check_game_over(game_state_t *game) {
     }
 }
 
-game_state_t game_init(linear_allocator_t *allocator, int grid_width, int grid_height, int fb_width, int fb_height, int hud_height) {
-    grid_t grid = grid_init(allocator, grid_width, grid_height);
+game_state_t game_init(grid_t grid, slice_entity_t entities, int fb_width, int fb_height, int hud_height) {
+    assert_debug((void*)entities.begin >= (void*)grid.tiles.end);
 
-    linear_allocator_push_alignment(allocator, _Alignof(entity_t));
-    slice_entity_t entities = entity_list_init(allocator);
-
-    viewport_t viewport = layout_compute(fb_width, fb_height, grid_width, grid_height, hud_height);
+    viewport_t viewport = layout_compute(fb_width, fb_height, grid.width, grid.height, hud_height);
 
     game_state_t game = {
         .grid = grid,
@@ -41,15 +39,8 @@ game_state_t game_init(linear_allocator_t *allocator, int grid_width, int grid_h
 }
 
 void game_deinit(linear_allocator_t *allocator, game_state_t state) {
-    entity_list_deinit(allocator, state.entities);
-
-    // Padding pushed between the grid allocation and the entities
-    // allocation sits exactly between grid.tiles.end and
-    // entities.entities.begin (see game_init's push order).
-    slice_t entity_align_marker = { state.grid.tiles.end, state.entities.begin };
-    linear_allocator_pop(allocator, entity_align_marker);
-
-    grid_deinit(allocator, state.grid);
+    slice_t region = { state.grid.tiles.begin, state.entities.end };
+    linear_allocator_pop(allocator, region);
 }
 
 void game_on_entity_pressed(game_state_t *game, entity_t* entity) {
