@@ -19,14 +19,10 @@ typedef struct {
 
 SLICE_DEFINE(entity_t);
 
-typedef struct {
-    slice_entity_t entities;
-} entity_list_t;
-
-entity_list_t entity_list_init(linear_allocator_t *allocator);
-void entity_list_deinit(linear_allocator_t *allocator, entity_list_t list);
-entity_t* entity_spawn(linear_allocator_t *allocator, entity_list_t *list, entity_team_t team, int x, int y, int hp, int ap, int mp);
-entity_t *entity_find_at(entity_list_t list, int x, int y);
+slice_entity_t entity_list_init(linear_allocator_t *allocator);
+void entity_list_deinit(linear_allocator_t *allocator, slice_entity_t list);
+entity_t* entity_spawn(linear_allocator_t *allocator, slice_entity_t* list, entity_team_t team, int x, int y, int hp, int ap, int mp);
+entity_t *entity_find_at(slice_entity_t list, int x, int y);
 void entity_damage(entity_t* entity, int amount);
 bool entity_is_adjacent(entity_t a, entity_t b);
-int entity_alive_count(entity_list_t list, entity_team_t team);
+int entity_alive_count(slice_entity_t list, entity_team_t team);

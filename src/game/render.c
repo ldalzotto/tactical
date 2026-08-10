@@ -1,4 +1,5 @@
 #include "render.h"
+#include "pathing.h"
 
 // Colors -- see the T12 ticket's drawing spec for the exact values below;
 // anything not explicitly pinned there (the "lighter" gridline fill, entity
@@ -97,7 +98,7 @@ static void render_hp_bar(slice_rgba_t fb, int fb_width, int px, int py, int ts,
 }
 
 static void render_entities(slice_rgba_t fb, int fb_width, game_state_t game) {
-    for ( SLICE_FOREACH(game.entities.entities, entity_s) ) {
+    for ( SLICE_FOREACH(game.entities, entity_s) ) {
         entity_t *entity = &SLICE_DEREF(entity_s);
         if (!entity->alive) {
             continue;

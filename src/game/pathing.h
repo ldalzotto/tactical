@@ -27,6 +27,6 @@ void pathing_deinit(linear_allocator_t *allocator, pathing_state_t state);
 // Distances beyond max_steps are left -1. Standard array-queue BFS,
 // 4-directional neighbors, capacity width*height (can't overflow). Caller
 // must pathing_deinit the result when done with it.
-pathing_state_t pathing_compute_distances(linear_allocator_t *allocator, grid_t grid, entity_list_t entities, entity_t* entity, int from_x, int from_y, int max_steps);
+pathing_state_t pathing_compute_distances(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* entity, int from_x, int from_y, int max_steps);
 
 int pathing_distance_at(pathing_state_t state, grid_t grid, int x, int y); // -1 if unreached OR out of bounds -- this is a defensive query (arbitrary coords from clicks later), do NOT make it panic like grid_tile_at does

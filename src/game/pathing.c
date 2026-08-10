@@ -8,7 +8,7 @@ void pathing_deinit(linear_allocator_t *allocator, pathing_state_t state) {
     linear_allocator_pop(allocator, state.align);
 }
 
-pathing_state_t pathing_compute_distances(linear_allocator_t *allocator, grid_t grid, entity_list_t entities, entity_t* entity, int from_x, int from_y, int max_steps) {
+pathing_state_t pathing_compute_distances(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* entity, int from_x, int from_y, int max_steps) {
     assert_debug(grid_in_bounds(grid, from_x, from_y));
 
     size_t count = (size_t)(grid.width * grid.height);
