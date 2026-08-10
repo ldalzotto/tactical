@@ -62,9 +62,6 @@ bool entity_is_adjacent(entity_t a, entity_t b) {
             return true;
         }
     }
-    for (int dir = 0; dir < 4; dir++) {
-        
-    }
     return false;
 }
 
