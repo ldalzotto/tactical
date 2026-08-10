@@ -6,6 +6,10 @@ struct tile {
     bool walkable;
 };
 
+slice_t grid_align(linear_allocator_t *allocator) {
+    return linear_allocator_push_alignment(allocator, _Alignof(tile_t));
+}
+
 grid_t grid_init(linear_allocator_t *allocator, int width, int height) {
     assert_debug(width > 0 && height > 0);
 

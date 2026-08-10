@@ -1,10 +1,12 @@
 #include "scenario.h"
 
 game_state_t scenario_setup_default(linear_allocator_t* allocator, int grid_width, int grid_height, int fb_width, int fb_height, int hud_height) {
+    slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, grid_width, grid_height);
     grid_set_walkable(grid, (position_t){7, 4}, false);
     grid_set_walkable(grid, (position_t){7, 5}, false);
 
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
     entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){1, 2}, 10, 1, 3);
     entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){1, 5}, 10, 1, 3);
@@ -14,5 +16,5 @@ game_state_t scenario_setup_default(linear_allocator_t* allocator, int grid_widt
     entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){14, 5}, 10, 1, 3);
     entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){14, 8}, 10, 1, 3);
 
-    return game_init(grid, entities, fb_width, fb_height, hud_height);
+    return game_init(grid_padding, grid, entity_list_align, entities, fb_width, fb_height, hud_height);
 }

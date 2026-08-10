@@ -14,6 +14,7 @@ typedef struct {
     slice_tile_t tiles;
 } grid_t;
 
+slice_t grid_align(linear_allocator_t *allocator);
 grid_t grid_init(linear_allocator_t *allocator, int width, int height);
 void grid_deinit(linear_allocator_t *allocator, grid_t grid);
 bool grid_in_bounds(grid_t grid, position_t position);
