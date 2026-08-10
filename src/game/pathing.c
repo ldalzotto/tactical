@@ -43,8 +43,9 @@ pathing_state_t  pathing_compute_distances(linear_allocator_t *allocator, grid_t
             continue;
         }
 
-        for (int dir = 0; dir < 4; dir++) {
-            position_t neighbor = position_add(current, POSITION_DIRECTIONS[dir]);
+        for ( SLICE_FOREACH(POSITION_DIRECTIONS, dir_s)) {
+            position_t dir = SLICE_DEREF(dir_s);
+            position_t neighbor = position_add(current, dir);
 
             if (!grid_in_bounds(grid, neighbor)) {
                 continue;

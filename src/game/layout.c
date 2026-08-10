@@ -1,6 +1,5 @@
 #include "layout.h"
 
-// TODO: move this to a generic module
 static int layout_min(int a, int b) {
     return a < b ? a : b;
 }

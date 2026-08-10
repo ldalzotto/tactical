@@ -56,10 +56,14 @@ void entity_damage(entity_t* entity, int amount) {
 }
 
 bool entity_is_adjacent(entity_t a, entity_t b) {
-    for (int dir = 0; dir < 4; dir++) {
-        if (position_equals(a.position, position_add(b.position, POSITION_DIRECTIONS[dir]))) {
+    for (SLICE_FOREACH(POSITION_DIRECTIONS, dir_s)) {
+        position_t dir = SLICE_DEREF(dir_s);
+        if (position_equals(a.position, position_add(b.position, dir))) {
             return true;
         }
+    }
+    for (int dir = 0; dir < 4; dir++) {
+        
     }
     return false;
 }

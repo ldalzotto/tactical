@@ -8,8 +8,9 @@
 */
 static int ai_distance_to_adjacency(pathing_state_t pathing, grid_t grid, position_t position) {
     int best = -1;
-    for (int dir = 0; dir < 4; dir++) {
-        position_t neighbor = position_add(position, POSITION_DIRECTIONS[dir]);
+    for (SLICE_FOREACH(POSITION_DIRECTIONS, dir_s)) {
+        position_t dir = SLICE_DEREF(dir_s);
+        position_t neighbor = position_add(position, dir);
         if (!grid_in_bounds(grid, neighbor)) {
             continue;
         }
@@ -64,8 +65,9 @@ static bool ai_step_toward(linear_allocator_t *allocator, grid_t grid, slice_ent
     int best_dist = -1;
     position_t best_position = { 0, 0 };
 
-    for (int dir = 0; dir < 4; dir++) {
-        position_t neighbor = position_add(enemy->position, POSITION_DIRECTIONS[dir]);
+    for (SLICE_FOREACH(POSITION_DIRECTIONS, dir_s)) {
+        position_t dir = SLICE_DEREF(dir_s);
+        position_t neighbor = position_add(enemy->position, dir);
         if (!grid_in_bounds(grid, neighbor)) {
             continue;
         }
