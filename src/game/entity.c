@@ -57,12 +57,10 @@ void entity_damage(entity_t* entity, int amount) {
 }
 
 bool entity_is_adjacent(entity_t a, entity_t b) {
-    int dx = a.x - b.x;
-    if (dx < 0) dx = -dx;
-    int dy = a.y - b.y;
-    if (dy < 0) dy = -dy;
-
-    return (dx + dy) == 1;
+    return (a.x == b.x + 1 && a.y == b.y)
+        || (a.x == b.x - 1 && a.y == b.y)
+        || (a.x == b.x && a.y == b.y + 1)
+        || (a.x == b.x && a.y == b.y - 1);
 }
 
 int entity_alive_count(slice_entity_t list, entity_team_t team) {
