@@ -1,5 +1,4 @@
 #include "render.h"
-#include "pathing.h"
 
 // Colors -- see the T12 ticket's drawing spec for the exact values below;
 // anything not explicitly pinned there (the "lighter" gridline fill, entity
@@ -34,17 +33,7 @@ static void render_draw_outline(slice_rgba_t fb, int fb_width, rect_t r, rgba_t 
     graphics_draw_rectangle(fb, fb_width, r.x + r.width - OUTLINE_THICKNESS, r.y, OUTLINE_THICKNESS, r.height, color);
 }
 
-static void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game, linear_allocator_t *allocator) {
-    bool has_reachable_overlay = game.selected_entity != 0;
-    entity_t *selected = has_reachable_overlay ? game.selected_entity : 0;
-    has_reachable_overlay = has_reachable_overlay && selected->mp > 0;
-
-    // TODO: Can we avoid computing path every frame here?
-    pathing_state_t pathing;
-    if (has_reachable_overlay) {
-        pathing = pathing_compute_distances(allocator, game.grid, game.entities, game.selected_entity, selected->position, selected->mp);
-    }
-
+static void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
     for (int ty = 0; ty < game.grid.height; ty++) {
         for (int tx = 0; tx < game.grid.width; tx++) {
             bool walkable = grid_is_walkable(game.grid, (position_t){tx, ty});
@@ -57,14 +46,15 @@ static void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game, linea
 
             graphics_draw_rectangle(fb, fb_width, px, py, ts, ts, outer);
             graphics_draw_rectangle(fb, fb_width, px + 2, py + 2, ts - 4, ts - 4, inset);
-
-            if (has_reachable_overlay) {
-                int dist = pathing_distance_at(pathing, game.grid, (position_t){tx, ty});
-                if (dist > 0 && dist <= selected->mp) {
-                    graphics_draw_rectangle(fb, fb_width, px, py, ts, ts, COLOR_REACHABLE_TINT);
-                }
-            }
         }
+    }
+
+    for (SLICE_FOREACH(game.reachable_tiles, tile_s)) {
+        position_t tile = SLICE_DEREF(tile_s);
+        int px, py;
+        grid_to_screen(game.viewport, tile.x, tile.y, &px, &py);
+        int ts = game.viewport.tile_size;
+        graphics_draw_rectangle(fb, fb_width, px, py, ts, ts, COLOR_REACHABLE_TINT);
     }
 
     if (game.hover_valid) {
@@ -72,10 +62,6 @@ static void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game, linea
         grid_to_screen(game.viewport, game.hover.x, game.hover.y, &px, &py);
         int ts = game.viewport.tile_size;
         render_draw_outline(fb, fb_width, (rect_t){px, py, ts, ts}, COLOR_WHITE);
-    }
-
-    if (has_reachable_overlay) {
-        pathing_deinit(allocator, pathing);
     }
 }
 
@@ -183,7 +169,7 @@ static void render_hud(slice_rgba_t fb, int fb_width, game_state_t game) {
     }
 }
 
-void render_frame(slice_rgba_t framebuffer, int fb_width, game_state_t game, linear_allocator_t *allocator) {
+void render_frame(slice_rgba_t framebuffer, int fb_width, game_state_t game) {
     if (game.game_over != GAME_OVER_NONE) {
         int pixel_count = (int)(framebuffer.end - framebuffer.begin);
         int fb_height = fb_width > 0 ? pixel_count / fb_width : 0;
@@ -192,7 +178,7 @@ void render_frame(slice_rgba_t framebuffer, int fb_width, game_state_t game, lin
         return;
     }
 
-    render_tiles(framebuffer, fb_width, game, allocator);
+    render_tiles(framebuffer, fb_width, game);
     render_entities(framebuffer, fb_width, game);
     render_hud(framebuffer, fb_width, game);
 }
