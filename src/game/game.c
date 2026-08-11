@@ -59,11 +59,14 @@ static void game_advance_turn(game_state_t *game, linear_allocator_t *allocator)
 
     entity_t *active = turn_active_entity(game->turn);
     while (game->game_over == GAME_OVER_NONE && active->team == ENTITY_TEAM_ENEMY) {
-        ai_run_ennemy_turn(allocator, game->grid, game->entities, active);
-        // TODO: should turn_remove_dead_entities and game_check_game_over
-        // be called conditionally based on some return of ai_run_ennemy_turn.
-        game->turn = turn_remove_dead_entities(game->turn);
-        game_check_game_over(game);
+        entity_t *attacked = ai_run_ennemy_turn(allocator, game->grid, game->entities, active);
+        if (attacked != 0) {
+            // If the entity just died, we remove dead entities
+            if (!attacked->alive) {
+                game->turn = turn_remove_dead_entities(game->turn);
+            }
+            game_check_game_over(game);
+        }
 
         game->turn = turn_advance(game->turn);
         active = turn_active_entity(game->turn);
