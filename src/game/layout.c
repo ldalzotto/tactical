@@ -4,7 +4,6 @@ static int layout_min(int a, int b) {
     return a < b ? a : b;
 }
 
-// TODO: Why do we have magic numbers here?
 viewport_t layout_compute(int fb_width, int fb_height, int grid_width, int grid_height, int hud_height) {
     int tile_size = layout_min(fb_width / grid_width, (fb_height - hud_height) / grid_height);
 
@@ -15,18 +14,22 @@ viewport_t layout_compute(int fb_width, int fb_height, int grid_width, int grid_
         .height = fb_height - grid_height * tile_size,
     };
 
+    // HUD chrome scales with hud_rect.height so it stays proportional across framebuffer sizes.
+    int hud_padding = hud_rect.height / 4;
+    int button_width = hud_rect.height * 3 / 2;
+
     rect_t end_turn_button = {
-        .x = hud_rect.x + hud_rect.width - 70,
-        .y = hud_rect.y + 10,
-        .width = 60,
-        .height = hud_rect.height - 20,
+        .x = hud_rect.x + hud_rect.width - button_width - hud_padding,
+        .y = hud_rect.y + hud_padding,
+        .width = button_width,
+        .height = hud_rect.height - 2 * hud_padding,
     };
 
     rect_t timeline_rect = {
-        .x = hud_rect.x + 10,
-        .y = hud_rect.y + 1,
-        .width = hud_rect.width - end_turn_button.width - 20,
-        .height = 5,
+        .x = hud_rect.x + hud_padding,
+        .y = hud_rect.y + hud_padding / 10,
+        .width = hud_rect.width - end_turn_button.width - 2 * hud_padding,
+        .height = hud_rect.height / 8,
     };
 
     viewport_t viewport = {

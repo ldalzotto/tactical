@@ -79,7 +79,6 @@ static void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game, linea
     }
 }
 
-// TODO: Why do we have magic numbers here?
 static void render_hp_bar(slice_rgba_t fb, int fb_width, int px, int py, int ts, entity_t *entity) {
     int margin = ts / 6;
     if (margin < 1) margin = 1;
