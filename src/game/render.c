@@ -79,6 +79,7 @@ static void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game, linea
     }
 }
 
+// TODO: Why do we have magic numbers here?
 static void render_hp_bar(slice_rgba_t fb, int fb_width, int px, int py, int ts, entity_t *entity) {
     int margin = ts / 6;
     if (margin < 1) margin = 1;
@@ -135,9 +136,9 @@ static void render_timeline(slice_rgba_t fb, int fb_width, game_state_t game) {
     int gap = 2;
     entity_t *active = turn_active_entity(game.turn);
 
-    int i = 0;
     for (SLICE_FOREACH(game.turn.order, entity_ptr_s)) {
         entity_t *entity = SLICE_DEREF(entity_ptr_s);
+        int i = typesize(game.turn.order.begin, entity_ptr_s.begin);
         int x = area.x + i * (square + gap);
 
         rgba_t color = entity->team == ENTITY_TEAM_PLAYER ? COLOR_PLAYER : COLOR_ENEMY;
@@ -146,8 +147,6 @@ static void render_timeline(slice_rgba_t fb, int fb_width, game_state_t game) {
         if (entity == active) {
             render_draw_outline(fb, fb_width, (rect_t){x, area.y, square, square}, COLOR_WHITE);
         }
-
-        i++;
     }
 }
 

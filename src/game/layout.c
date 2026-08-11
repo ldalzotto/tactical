@@ -4,6 +4,7 @@ static int layout_min(int a, int b) {
     return a < b ? a : b;
 }
 
+// TODO: Why do we have magic numbers here?
 viewport_t layout_compute(int fb_width, int fb_height, int grid_width, int grid_height, int hud_height) {
     int tile_size = layout_min(fb_width / grid_width, (fb_height - hud_height) / grid_height);
 

@@ -61,6 +61,8 @@ static void game_advance_turn(game_state_t *game, linear_allocator_t *allocator)
     entity_t *active = turn_active_entity(game->turn);
     while (game->game_over == GAME_OVER_NONE && active->team == ENTITY_TEAM_ENEMY) {
         ai_run_ennemy_turn(allocator, game->grid, game->entities, active);
+        // TODO: should turn_remove_dead_entities and game_check_game_over
+        // be called conditionally based on some return of ai_run_ennemy_turn.
         game->turn = turn_remove_dead_entities(game->turn);
         game_check_game_over(game);
 
@@ -70,22 +72,16 @@ static void game_advance_turn(game_state_t *game, linear_allocator_t *allocator)
 }
 
 void game_on_entity_pressed(game_state_t *game, entity_t* entity) {
-    if (game->game_over != GAME_OVER_NONE) {
-        return;
-    }
+    assert_debug(game->game_over == GAME_OVER_NONE);
+    assert_debug(entity != 0);
+    assert_debug(entity->alive);
+    
     entity_t *active = turn_active_entity(game->turn);
     if (active->team != ENTITY_TEAM_PLAYER) {
         return;
     }
-    if (entity == 0) {
-        return;
-    }
 
     entity_t *pressed = entity;
-    if (!pressed->alive) {
-        return;
-    }
-
     if (pressed == active) {
         game->selected_entity = entity;
         return;
@@ -104,6 +100,7 @@ void game_on_entity_pressed(game_state_t *game, entity_t* entity) {
     }
 
     if (action_try_attack(game->selected_entity, entity)) {
+        // If the entity just died, we remove dead entities
         if (!entity->alive) {
             game->turn = turn_remove_dead_entities(game->turn);
         }
@@ -112,6 +109,7 @@ void game_on_entity_pressed(game_state_t *game, entity_t* entity) {
 }
 
 void game_on_tile_pressed(game_state_t *game, linear_allocator_t *allocator, position_t target) {
+    // TODO: we have to be able to assert_debug(game->game_over == GAME_OVER_NONE);
     if (game->game_over != GAME_OVER_NONE) {
         return;
     }

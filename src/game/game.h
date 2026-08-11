@@ -22,6 +22,7 @@ typedef struct {
     slice_t entity_list_align;
     slice_entity_t entities;
     slice_t turn_order_align;
+    // TODO: this should be included in the turn_state_t
     slice_entity_ptr_t turn_order_capacity; // full allocation turn.order was seeded from; turn.order shrinks as entities die, this doesn't
     turn_state_t turn;
     viewport_t viewport;
