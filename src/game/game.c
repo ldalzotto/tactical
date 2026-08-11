@@ -19,8 +19,9 @@ static void game_check_game_over(game_state_t *game) {
     }
 }
 
-game_state_t game_init(slice_t grid_align, grid_t grid, slice_t entity_list_align, slice_entity_t entities, int fb_width, int fb_height, int hud_height) {
+game_state_t game_init(slice_t grid_align, grid_t grid, slice_t entity_list_align, slice_entity_t entities, slice_t turn_order_align, slice_entity_ptr_t turn_order, int fb_width, int fb_height, int hud_height) {
     assert_debug((void*)entities.begin >= (void*)grid.tiles.end);
+    assert_debug((void*)turn_order.begin >= (void*)entities.end);
 
     viewport_t viewport = layout_compute(fb_width, fb_height, grid.width, grid.height, hud_height);
 
@@ -29,7 +30,9 @@ game_state_t game_init(slice_t grid_align, grid_t grid, slice_t entity_list_alig
         .grid = grid,
         .entity_list_align = entity_list_align,
         .entities = entities,
-        .turn = turn_init(),
+        .turn_order_align = turn_order_align,
+        .turn_order_capacity = turn_order,
+        .turn = turn_init(turn_order),
         .viewport = viewport,
         .selected_entity = 0,
         .hover = { 0, 0 },
@@ -40,17 +43,38 @@ game_state_t game_init(slice_t grid_align, grid_t grid, slice_t entity_list_alig
 }
 
 void game_deinit(linear_allocator_t *allocator, game_state_t state) {
+    turn_order_deinit(allocator, state.turn_order_capacity);
+    linear_allocator_pop(allocator, state.turn_order_align);
     entity_list_deinit(allocator, state.entities);
     linear_allocator_pop(allocator, state.entity_list_align);
     grid_deinit(allocator, state.grid);
     linear_allocator_pop(allocator, state.grid_align);
 }
 
+// Advances the cursor past the entity that just finished acting, then lets
+// the AI play out every consecutive enemy turn until either a player entity
+// becomes active or the game ends.
+static void game_advance_turn(game_state_t *game, linear_allocator_t *allocator) {
+    game->turn = turn_advance(game->turn);
+    game->selected_entity = 0;
+
+    entity_t *active = turn_active_entity(game->turn);
+    while (game->game_over == GAME_OVER_NONE && active != 0 && active->team == ENTITY_TEAM_ENEMY) {
+        ai_run_entity_turn(allocator, game->grid, game->entities, active);
+        game->turn = turn_compact(game->turn);
+        game_check_game_over(game);
+
+        game->turn = turn_advance(game->turn);
+        active = turn_active_entity(game->turn);
+    }
+}
+
 void game_on_entity_pressed(game_state_t *game, entity_t* entity) {
     if (game->game_over != GAME_OVER_NONE) {
         return;
     }
-    if (game->turn.phase != TURN_PHASE_PLAYER) {
+    entity_t *active = turn_active_entity(game->turn);
+    if (active == 0 || active->team != ENTITY_TEAM_PLAYER) {
         return;
     }
     if (entity == 0) {
@@ -62,7 +86,7 @@ void game_on_entity_pressed(game_state_t *game, entity_t* entity) {
         return;
     }
 
-    if (pressed->team == ENTITY_TEAM_PLAYER) {
+    if (pressed == active) {
         game->selected_entity = entity;
         return;
     }
@@ -80,6 +104,9 @@ void game_on_entity_pressed(game_state_t *game, entity_t* entity) {
     }
 
     if (action_try_attack(game->selected_entity, entity)) {
+        if (!entity->alive) {
+            game->turn = turn_compact(game->turn);
+        }
         game_check_game_over(game);
     }
 }
@@ -88,7 +115,8 @@ void game_on_tile_pressed(game_state_t *game, linear_allocator_t *allocator, pos
     if (game->game_over != GAME_OVER_NONE) {
         return;
     }
-    if (game->turn.phase != TURN_PHASE_PLAYER) {
+    entity_t *active = turn_active_entity(game->turn);
+    if (active == 0 || active->team != ENTITY_TEAM_PLAYER) {
         return;
     }
     if (game->selected_entity == 0) {
@@ -106,20 +134,12 @@ void game_on_end_turn_pressed(game_state_t *game, linear_allocator_t *allocator)
     if (game->game_over != GAME_OVER_NONE) {
         return;
     }
-    if (game->turn.phase != TURN_PHASE_PLAYER) {
+    entity_t *active = turn_active_entity(game->turn);
+    if (active == 0 || active->team != ENTITY_TEAM_PLAYER) {
         return;
     }
 
-    game->turn = turn_begin_enemy_phase(game->turn, game->entities);
-    game->selected_entity = 0;
-
-    ai_run_enemy_phase(allocator, game->grid, game->entities);
-
-    game_check_game_over(game);
-
-    if (game->game_over == GAME_OVER_NONE) {
-        game->turn = turn_begin_player_phase(game->turn, game->entities);
-    }
+    game_advance_turn(game, allocator);
 }
 
 void game_on_input_event(game_state_t *game, linear_allocator_t *allocator, input_event_t event) {

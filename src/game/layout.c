@@ -21,6 +21,13 @@ viewport_t layout_compute(int fb_width, int fb_height, int grid_width, int grid_
         .height = hud_rect.height - 20,
     };
 
+    rect_t timeline_rect = {
+        .x = hud_rect.x + 10,
+        .y = hud_rect.y + 1,
+        .width = hud_rect.width - end_turn_button.width - 20,
+        .height = 5,
+    };
+
     viewport_t viewport = {
         .origin_x = 0,
         .origin_y = 0,
@@ -29,6 +36,7 @@ viewport_t layout_compute(int fb_width, int fb_height, int grid_width, int grid_
         .grid_height = grid_height,
         .hud_rect = hud_rect,
         .end_turn_button = end_turn_button,
+        .timeline_rect = timeline_rect,
     };
     return viewport;
 }
