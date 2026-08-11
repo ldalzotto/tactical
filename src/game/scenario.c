@@ -8,13 +8,24 @@ game_state_t scenario_setup_default(linear_allocator_t* allocator, int grid_widt
 
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
-    entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){1, 2}, 10, 1, 3);
-    entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){1, 5}, 10, 1, 3);
-    entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){1, 8}, 10, 1, 3);
+    entity_t *p1 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){1, 2}, 10, 1, 3);
+    entity_t *p2 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){1, 5}, 10, 1, 3);
+    entity_t *p3 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){1, 8}, 10, 1, 3);
 
-    entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){14, 2}, 10, 1, 3);
-    entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){14, 5}, 10, 1, 3);
-    entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){14, 8}, 10, 1, 3);
+    entity_t *e1 = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){14, 2}, 10, 1, 3);
+    entity_t *e2 = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){14, 5}, 10, 1, 3);
+    entity_t *e3 = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){14, 8}, 10, 1, 3);
 
-    return game_init(grid_padding, grid, entity_list_align, entities, fb_width, fb_height, hud_height);
+    // Turn order is authored here, the same way the roster above is: one
+    // call per entity, in the exact sequence it should act.
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p1);
+    turn_order_add(allocator, &order, e1);
+    turn_order_add(allocator, &order, p2);
+    turn_order_add(allocator, &order, e2);
+    turn_order_add(allocator, &order, p3);
+    turn_order_add(allocator, &order, e3);
+
+    return game_init(grid_padding, grid, entity_list_align, entities, turn_order_align, order, fb_width, fb_height, hud_height);
 }

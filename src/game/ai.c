@@ -95,41 +95,34 @@ static bool ai_step_toward(linear_allocator_t *allocator, grid_t grid, slice_ent
     return action_try_move(allocator, grid, entities, enemy, best_position);
 }
 
-// For every ALIVE enemy (ascending entity_id): find nearest ALIVE player
-// entity via BFS rooted at the enemy's own tile (skip_entity=enemy). If
-// already orthogonally adjacent and ap>0, action_try_attack. Otherwise, while
-// mp>0 and not yet adjacent: BFS rooted at the TARGET's tile
-// (skip_entity=ENTITY_ID_NONE) to get a distance-to-target field, step to
-// whichever orthogonal neighbor (checked in order: up, right, down, left) of
-// the enemy's current tile has the smallest distance-to-target via
-// action_try_move (one tile at a time), then re-check adjacency/attack. If no
-// alive player entities remain, no-op for all enemies.
-void ai_run_enemy_phase(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities) {
-    for ( SLICE_FOREACH(entities, ennemy_s) ) {
-        entity_t *enemy = &SLICE_DEREF(ennemy_s);
+// Runs one enemy's turn: find nearest ALIVE player entity via BFS rooted at
+// the enemy's own tile (skip_entity=enemy). If already orthogonally adjacent
+// and ap>0, action_try_attack. Otherwise, while mp>0 and not yet adjacent:
+// BFS rooted at the TARGET's tile (skip_entity=ENTITY_ID_NONE) to get a
+// distance-to-target field, step to whichever orthogonal neighbor (checked in
+// order: up, right, down, left) of the enemy's current tile has the smallest
+// distance-to-target via action_try_move (one tile at a time), then re-check
+// adjacency/attack. If no alive player entities remain, no-op. Returns the
+// attacked entity, or 0 if no attack landed.
+entity_t* ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *enemy) {
+    entity_t* target = ai_find_nearest_player(allocator, grid, entities, enemy);
+    if (target == 0) {
+        return 0;
+    }
 
-        if (!enemy->alive || enemy->team != ENTITY_TEAM_ENEMY) {
-            continue;
-        }
+    if (entity_is_adjacent(*enemy, *target)) {
+        return action_try_attack(enemy, target) ? target : 0;
+    }
 
-        entity_t* target = ai_find_nearest_player(allocator, grid, entities, enemy);
-        if (target == 0) {
-            continue;
-        }
-
-        if (entity_is_adjacent(*enemy, *target)) {
-            action_try_attack(enemy, target);
-            continue;
-        }
-
-        while (enemy->mp > 0 && !entity_is_adjacent(*enemy, *target)) {
-            if (!ai_step_toward(allocator, grid, entities, enemy, target)) {
-                break;
-            }
-        }
-
-        if (entity_is_adjacent(*enemy, *target)) {
-            action_try_attack(enemy, target);
+    while (enemy->mp > 0 && !entity_is_adjacent(*enemy, *target)) {
+        if (!ai_step_toward(allocator, grid, entities, enemy, target)) {
+            break;
         }
     }
+
+    if (entity_is_adjacent(*enemy, *target)) {
+        return action_try_attack(enemy, target) ? target : 0;
+    }
+
+    return 0;
 }

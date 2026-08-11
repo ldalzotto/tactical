@@ -39,6 +39,7 @@ static void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game, linea
     entity_t *selected = has_reachable_overlay ? game.selected_entity : 0;
     has_reachable_overlay = has_reachable_overlay && selected->mp > 0;
 
+    // TODO: Can we avoid computing path every frame here?
     pathing_state_t pathing;
     if (has_reachable_overlay) {
         pathing = pathing_compute_distances(allocator, game.grid, game.entities, game.selected_entity, selected->position, selected->mp);
@@ -128,12 +129,35 @@ static void render_entities(slice_rgba_t fb, int fb_width, game_state_t game) {
     }
 }
 
+static void render_timeline(slice_rgba_t fb, int fb_width, game_state_t game) {
+    rect_t area = game.viewport.timeline_rect;
+    int square = area.height;
+    int gap = 2;
+    entity_t *active = turn_active_entity(game.turn);
+
+    for (SLICE_FOREACH(game.turn.order, entity_ptr_s)) {
+        entity_t *entity = SLICE_DEREF(entity_ptr_s);
+        int i = typesize(game.turn.order.begin, entity_ptr_s.begin);
+        int x = area.x + i * (square + gap);
+
+        rgba_t color = entity->team == ENTITY_TEAM_PLAYER ? COLOR_PLAYER : COLOR_ENEMY;
+        graphics_draw_rectangle(fb, fb_width, x, area.y, square, square, color);
+
+        if (entity == active) {
+            render_draw_outline(fb, fb_width, (rect_t){x, area.y, square, square}, COLOR_WHITE);
+        }
+    }
+}
+
 static void render_hud(slice_rgba_t fb, int fb_width, game_state_t game) {
     rect_t hud = game.viewport.hud_rect;
     graphics_draw_rectangle(fb, fb_width, hud.x, hud.y, hud.width, hud.height, COLOR_HUD_BG);
 
+    render_timeline(fb, fb_width, game);
+
+    entity_t *active = turn_active_entity(game.turn);
     rect_t button = game.viewport.end_turn_button;
-    rgba_t button_color = game.turn.phase == TURN_PHASE_PLAYER ? COLOR_END_TURN_ACTIVE : COLOR_END_TURN_INACTIVE;
+    rgba_t button_color = (active->team == ENTITY_TEAM_PLAYER) ? COLOR_END_TURN_ACTIVE : COLOR_END_TURN_INACTIVE;
     graphics_draw_rectangle(fb, fb_width, button.x, button.y, button.width, button.height, button_color);
 
     if (game.selected_entity == 0) {

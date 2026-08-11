@@ -2,16 +2,25 @@
 
 #include "entity.h"
 
-typedef enum {
-    TURN_PHASE_PLAYER = 0,
-    TURN_PHASE_ENEMY = 1,
-} turn_phase_t;
+typedef entity_t* entity_ptr_t;
+SLICE_DEFINE(entity_ptr_t);
 
 typedef struct {
-    turn_phase_t phase;
+    slice_entity_ptr_t order; // fixed turn sequence, authored by the scenario
+    slice_entity_ptr_t capacity;
+    int cursor;                // index into order of the entity currently acting
 } turn_state_t;
 
-turn_state_t turn_init(void);
-void turn_reset_team_points(slice_entity_t entities, entity_team_t team);
-turn_state_t turn_begin_player_phase(turn_state_t state, slice_entity_t entities);
-turn_state_t turn_begin_enemy_phase(turn_state_t state, slice_entity_t entities);
+slice_entity_ptr_t turn_order_init(linear_allocator_t *allocator);
+void turn_order_deinit(linear_allocator_t *allocator, slice_entity_ptr_t order);
+void turn_order_add(linear_allocator_t *allocator, slice_entity_ptr_t *order, entity_t *entity);
+
+turn_state_t turn_init(slice_entity_ptr_t order);
+
+entity_t* turn_active_entity(turn_state_t state);
+
+// Moves the cursor to the next entry, wrapping back to the start, and resets
+// the newly active entity's ap/mp.
+turn_state_t turn_advance(turn_state_t state);
+
+turn_state_t turn_remove_dead_entities(turn_state_t state);
