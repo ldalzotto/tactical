@@ -816,7 +816,7 @@ static void test_turn_compact_removes_dead_and_preserves_active_entity(void) {
     state = turn_advance(state); // active is now b
 
     entity_damage(c, 10);
-    state = turn_compact(state);
+    state = turn_remove_dead_entities(state);
 
     assert_test(SLICE_TYPESIZE(state.order) == 2);
     assert_test(SLICE_AT(state.order, 0) == a);
@@ -1073,7 +1073,7 @@ static void test_ai_adjacent_enemy_attacks_without_moving(void) {
     entity_t* player = entity_spawn(&allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
     entity_t* enemy = entity_spawn(&allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){1, 0}, 10, 2, 3);
 
-    ai_run_entity_turn(&allocator, grid, entities, enemy);
+    ai_run_ennemy_turn(&allocator, grid, entities, enemy);
 
     entity_t *enemy_entity = enemy;
     entity_t *player_entity = player;
@@ -1101,7 +1101,7 @@ static void test_ai_far_enemy_with_enough_mp_closes_and_attacks(void) {
     entity_t* player = entity_spawn(&allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
     entity_t* enemy = entity_spawn(&allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){4, 0}, 10, 2, 4);
 
-    ai_run_entity_turn(&allocator, grid, entities, enemy);
+    ai_run_ennemy_turn(&allocator, grid, entities, enemy);
 
     entity_t *enemy_entity = enemy;
     entity_t *player_entity = player;
@@ -1130,7 +1130,7 @@ static void test_ai_insufficient_mp_moves_partial_no_attack(void) {
     entity_t* player = entity_spawn(&allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
     entity_t* enemy = entity_spawn(&allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){4, 0}, 10, 2, 1);
 
-    ai_run_entity_turn(&allocator, grid, entities, enemy);
+    ai_run_ennemy_turn(&allocator, grid, entities, enemy);
 
     entity_t *enemy_entity = enemy;
     entity_t *player_entity = player;
@@ -1161,7 +1161,7 @@ static void test_ai_obstacle_forces_detour(void) {
     entity_t* player = entity_spawn(&allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){4, 1}, 10, 2, 3);
     entity_t* enemy = entity_spawn(&allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){0, 1}, 10, 2, 8);
 
-    ai_run_entity_turn(&allocator, grid, entities, enemy);
+    ai_run_ennemy_turn(&allocator, grid, entities, enemy);
 
     entity_t *enemy_entity = enemy;
     entity_t *player_entity = player;
@@ -1191,8 +1191,8 @@ static void test_ai_multiple_enemies_act_independently_in_ascending_id_order(voi
 
     assert_test(enemy_a < enemy_b);
 
-    ai_run_entity_turn(&allocator, grid, entities, enemy_a);
-    ai_run_entity_turn(&allocator, grid, entities, enemy_b);
+    ai_run_ennemy_turn(&allocator, grid, entities, enemy_a);
+    ai_run_ennemy_turn(&allocator, grid, entities, enemy_b);
 
     entity_t *player_entity = player;
     entity_t *a_entity = enemy_a;
@@ -1227,7 +1227,7 @@ static void test_ai_zero_mp_not_adjacent_does_nothing(void) {
     entity_t* player = entity_spawn(&allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
     entity_t* enemy = entity_spawn(&allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 3}, 10, 2, 0);
 
-    ai_run_entity_turn(&allocator, grid, entities, enemy);
+    ai_run_ennemy_turn(&allocator, grid, entities, enemy);
 
     entity_t *enemy_entity = enemy;
     entity_t *player_entity = player;

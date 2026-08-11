@@ -103,7 +103,7 @@ static bool ai_step_toward(linear_allocator_t *allocator, grid_t grid, slice_ent
 // order: up, right, down, left) of the enemy's current tile has the smallest
 // distance-to-target via action_try_move (one tile at a time), then re-check
 // adjacency/attack. If no alive player entities remain, no-op.
-void ai_run_entity_turn(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *enemy) {
+void ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *enemy) {
     entity_t* target = ai_find_nearest_player(allocator, grid, entities, enemy);
     if (target == 0) {
         return;

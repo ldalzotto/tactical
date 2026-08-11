@@ -14,16 +14,12 @@ slice_entity_ptr_t turn_order_init(linear_allocator_t *allocator);
 void turn_order_deinit(linear_allocator_t *allocator, slice_entity_ptr_t order);
 void turn_order_add(linear_allocator_t *allocator, slice_entity_ptr_t *order, entity_t *entity);
 
-// Starts the turn state at the first entry of order, resetting its ap/mp.
 turn_state_t turn_init(slice_entity_ptr_t order);
 
-// 0 if order is empty.
 entity_t* turn_active_entity(turn_state_t state);
 
 // Moves the cursor to the next entry, wrapping back to the start, and resets
 // the newly active entity's ap/mp.
 turn_state_t turn_advance(turn_state_t state);
 
-// Drops every dead entity from order in place, keeping the currently active
-// entity active (it cannot have died from its own turn).
-turn_state_t turn_compact(turn_state_t state);
+turn_state_t turn_remove_dead_entities(turn_state_t state);

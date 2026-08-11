@@ -159,7 +159,7 @@ static void render_hud(slice_rgba_t fb, int fb_width, game_state_t game) {
 
     entity_t *active = turn_active_entity(game.turn);
     rect_t button = game.viewport.end_turn_button;
-    rgba_t button_color = (active != 0 && active->team == ENTITY_TEAM_PLAYER) ? COLOR_END_TURN_ACTIVE : COLOR_END_TURN_INACTIVE;
+    rgba_t button_color = (active->team == ENTITY_TEAM_PLAYER) ? COLOR_END_TURN_ACTIVE : COLOR_END_TURN_INACTIVE;
     graphics_draw_rectangle(fb, fb_width, button.x, button.y, button.width, button.height, button_color);
 
     if (game.selected_entity == 0) {

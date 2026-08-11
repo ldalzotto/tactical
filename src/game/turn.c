@@ -25,9 +25,6 @@ void turn_order_add(linear_allocator_t *allocator, slice_entity_ptr_t *order, en
 }
 
 static void turn_reset_points(entity_t *entity) {
-    if (entity == 0) {
-        return;
-    }
     entity->ap = entity->max_ap;
     entity->mp = entity->max_mp;
 }
@@ -39,40 +36,35 @@ turn_state_t turn_init(slice_entity_ptr_t order) {
 }
 
 entity_t* turn_active_entity(turn_state_t state) {
-    if (SLICE_TYPESIZE(state.order) == 0) {
-        return 0;
-    }
     return SLICE_AT(state.order, state.cursor);
 }
 
 turn_state_t turn_advance(turn_state_t state) {
     int count = (int)SLICE_TYPESIZE(state.order);
-    if (count == 0) {
-        return state;
-    }
-
+    assert_debug(count > 0);
     state.cursor = (state.cursor + 1) % count;
     turn_reset_points(turn_active_entity(state));
     return state;
 }
 
-turn_state_t turn_compact(turn_state_t state) {
+turn_state_t turn_remove_dead_entities(turn_state_t state) {
     entity_t *active = turn_active_entity(state);
 
-    entity_t **write = state.order.begin;
-    for (entity_t **read = state.order.begin; read != state.order.end; read++) {
-        if ((*read)->alive) {
-            *write = *read;
-            write++;
+    slice_entity_ptr_t write = state.order;
+    for ( SLICE_FOREACH(state.order, read) ) {
+        // If the entity is dead, we remove it.
+        if ( SLICE_DEREF(read)->alive ) {
+            SLICE_DEREF(write) = SLICE_DEREF(read);
+            write = SLICE_ADVANCE(write, 1);
         }
     }
-    state.order.end = write;
+    state.order.end = write.begin;
 
-    int count = (int)SLICE_TYPESIZE(state.order);
+    // reposition the cursor
     state.cursor = 0;
-    for (int i = 0; i < count; i++) {
-        if (state.order.begin[i] == active) {
-            state.cursor = i;
+    for ( SLICE_FOREACH(state.order, entity_p) ) {
+        if ( SLICE_DEREF(entity_p) == active ) {
+            state.cursor = typesize(state.order.begin, entity_p.begin);
             break;
         }
     }

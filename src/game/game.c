@@ -59,9 +59,9 @@ static void game_advance_turn(game_state_t *game, linear_allocator_t *allocator)
     game->selected_entity = 0;
 
     entity_t *active = turn_active_entity(game->turn);
-    while (game->game_over == GAME_OVER_NONE && active != 0 && active->team == ENTITY_TEAM_ENEMY) {
-        ai_run_entity_turn(allocator, game->grid, game->entities, active);
-        game->turn = turn_compact(game->turn);
+    while (game->game_over == GAME_OVER_NONE && active->team == ENTITY_TEAM_ENEMY) {
+        ai_run_ennemy_turn(allocator, game->grid, game->entities, active);
+        game->turn = turn_remove_dead_entities(game->turn);
         game_check_game_over(game);
 
         game->turn = turn_advance(game->turn);
@@ -74,7 +74,7 @@ void game_on_entity_pressed(game_state_t *game, entity_t* entity) {
         return;
     }
     entity_t *active = turn_active_entity(game->turn);
-    if (active == 0 || active->team != ENTITY_TEAM_PLAYER) {
+    if (active->team != ENTITY_TEAM_PLAYER) {
         return;
     }
     if (entity == 0) {
@@ -105,7 +105,7 @@ void game_on_entity_pressed(game_state_t *game, entity_t* entity) {
 
     if (action_try_attack(game->selected_entity, entity)) {
         if (!entity->alive) {
-            game->turn = turn_compact(game->turn);
+            game->turn = turn_remove_dead_entities(game->turn);
         }
         game_check_game_over(game);
     }
@@ -116,7 +116,7 @@ void game_on_tile_pressed(game_state_t *game, linear_allocator_t *allocator, pos
         return;
     }
     entity_t *active = turn_active_entity(game->turn);
-    if (active == 0 || active->team != ENTITY_TEAM_PLAYER) {
+    if (active->team != ENTITY_TEAM_PLAYER) {
         return;
     }
     if (game->selected_entity == 0) {
@@ -135,7 +135,7 @@ void game_on_end_turn_pressed(game_state_t *game, linear_allocator_t *allocator)
         return;
     }
     entity_t *active = turn_active_entity(game->turn);
-    if (active == 0 || active->team != ENTITY_TEAM_PLAYER) {
+    if (active->team != ENTITY_TEAM_PLAYER) {
         return;
     }
 
