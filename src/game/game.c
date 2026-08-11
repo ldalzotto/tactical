@@ -73,7 +73,7 @@ static void game_advance_turn(game_state_t *game, linear_allocator_t *allocator)
     }
 }
 
-void game_on_entity_pressed(game_state_t *game, entity_t* entity) {
+static void game_on_entity_pressed(game_state_t *game, entity_t* entity) {
     assert_debug(game->game_over == GAME_OVER_NONE);
     assert_debug(entity != 0);
     assert_debug(entity->alive);
@@ -110,11 +110,8 @@ void game_on_entity_pressed(game_state_t *game, entity_t* entity) {
     }
 }
 
-void game_on_tile_pressed(game_state_t *game, linear_allocator_t *allocator, position_t target) {
-    // TODO: we have to be able to assert_debug(game->game_over == GAME_OVER_NONE);
-    if (game->game_over != GAME_OVER_NONE) {
-        return;
-    }
+static void game_on_tile_pressed(game_state_t *game, linear_allocator_t *allocator, position_t target) {
+    assert_debug(game->game_over == GAME_OVER_NONE);
     entity_t *active = turn_active_entity(game->turn);
     if (active->team != ENTITY_TEAM_PLAYER) {
         return;
@@ -130,10 +127,8 @@ void game_on_tile_pressed(game_state_t *game, linear_allocator_t *allocator, pos
     action_try_move(allocator, game->grid, game->entities, game->selected_entity, target);
 }
 
-void game_on_end_turn_pressed(game_state_t *game, linear_allocator_t *allocator) {
-    if (game->game_over != GAME_OVER_NONE) {
-        return;
-    }
+static void game_on_end_turn_pressed(game_state_t *game, linear_allocator_t *allocator) {
+    assert_debug(game->game_over == GAME_OVER_NONE);
     entity_t *active = turn_active_entity(game->turn);
     if (active->team != ENTITY_TEAM_PLAYER) {
         return;

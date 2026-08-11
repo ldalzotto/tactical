@@ -41,7 +41,4 @@ game_state_t game_init(slice_t grid_align, grid_t grid, slice_t entity_list_alig
 // Pops the grid+entities+turn-order region, including the alignment padding pushed before each.
 void game_deinit(linear_allocator_t *allocator, game_state_t state);
 
-void game_on_entity_pressed(game_state_t *game, entity_t* entity);
-void game_on_tile_pressed(game_state_t *game, linear_allocator_t *allocator, position_t target);
-void game_on_end_turn_pressed(game_state_t *game, linear_allocator_t *allocator);
 void game_on_input_event(game_state_t *game, linear_allocator_t *allocator, input_event_t event);

@@ -1259,6 +1259,22 @@ static void test_ai_zero_mp_not_adjacent_does_nothing(void) {
 #define GAME_TEST_FB_HEIGHT 240
 #define GAME_TEST_HUD_HEIGHT 40
 
+// game_on_entity_pressed/game_on_tile_pressed/game_on_end_turn_pressed are
+// private to game.c: drive them the same way real input does, through
+// game_on_input_event.
+static void test_click_tile(game_state_t *game, linear_allocator_t *allocator, position_t target) {
+    int px, py;
+    grid_to_screen(game->viewport, target.x, target.y, &px, &py);
+    input_event_t click = { .type = INPUT_EVENT_MOUSE_CLICK, .x = px + 1, .y = py + 1 };
+    game_on_input_event(game, allocator, click);
+}
+
+static void test_click_end_turn(game_state_t *game, linear_allocator_t *allocator) {
+    rect_t button = game->viewport.end_turn_button;
+    input_event_t click = { .type = INPUT_EVENT_MOUSE_CLICK, .x = button.x + 1, .y = button.y + 1 };
+    game_on_input_event(game, allocator, click);
+}
+
 static void test_game_entity_pressed_selects_only_the_active_entity(void) {
     static char buffer[8192];
     slice_t data = { buffer, buffer + sizeof(buffer) };
@@ -1279,11 +1295,11 @@ static void test_game_entity_pressed_selects_only_the_active_entity(void) {
     game_state_t game = game_init(grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
     assert_test(turn_active_entity(game.turn) == p1);
 
-    game_on_entity_pressed(&game, p1);
+    test_click_tile(&game, &allocator, p1->position);
     assert_test(game.selected_entity == p1);
 
     // p2 isn't the active entity: pressing it is a no-op.
-    game_on_entity_pressed(&game, p2);
+    test_click_tile(&game, &allocator, p2->position);
     assert_test(game.selected_entity == p1);
 
     game_deinit(&allocator, game);
@@ -1306,7 +1322,7 @@ static void test_game_entity_pressed_enemy_active_noops(void) {
 
     game_state_t game = game_init(grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
-    game_on_entity_pressed(&game, e1);
+    test_click_tile(&game, &allocator, e1->position);
     assert_test(game.selected_entity == 0);
 
     game_deinit(&allocator, game);
@@ -1331,15 +1347,15 @@ static void test_game_entity_pressed_adjacent_enemy_attacks_then_noops_when_ap_z
 
     game_state_t game = game_init(grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
-    game_on_entity_pressed(&game, p);
+    test_click_tile(&game, &allocator, p->position);
     assert_test(game.selected_entity == p);
 
-    game_on_entity_pressed(&game, e);
+    test_click_tile(&game, &allocator, e->position);
     assert_test(p->ap == 0);
     assert_test(e->hp == 5);
     assert_test(e->alive);
 
-    game_on_entity_pressed(&game, e);
+    test_click_tile(&game, &allocator, e->position);
     assert_test(p->ap == 0);
     assert_test(e->hp == 5);
 
@@ -1363,8 +1379,8 @@ static void test_game_tile_pressed_moves_within_reach_and_consumes_mp(void) {
 
     game_state_t game = game_init(grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
-    game_on_entity_pressed(&game, p);
-    game_on_tile_pressed(&game, &allocator, (position_t){2, 0});
+    test_click_tile(&game, &allocator, p->position);
+    test_click_tile(&game, &allocator, (position_t){2, 0});
 
     entity_t *entity = p;
     assert_test(entity->position.x == 2 && entity->position.y == 0);
@@ -1390,8 +1406,8 @@ static void test_game_tile_pressed_noops_on_unreachable_tile(void) {
 
     game_state_t game = game_init(grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
-    game_on_entity_pressed(&game, p);
-    game_on_tile_pressed(&game, &allocator, (position_t){5, 0});
+    test_click_tile(&game, &allocator, p->position);
+    test_click_tile(&game, &allocator, (position_t){5, 0});
 
     entity_t *entity = p;
     assert_test(entity->position.x == 0 && entity->position.y == 0);
@@ -1422,10 +1438,10 @@ static void test_game_end_turn_advances_past_a_harmless_enemy_and_deselects(void
     p->ap = 0;
     p->mp = 0;
 
-    game_on_entity_pressed(&game, p);
+    test_click_tile(&game, &allocator, p->position);
     assert_test(game.selected_entity == p);
 
-    game_on_end_turn_pressed(&game, &allocator);
+    test_click_end_turn(&game, &allocator);
 
     // e's turn happened (harmlessly) and the cursor wrapped back to p.
     assert_test(turn_active_entity(game.turn) == p);
@@ -1458,19 +1474,19 @@ static void test_game_1v1_enemy_death_sets_win_and_freezes_input(void) {
 
     game_state_t game = game_init(grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
-    game_on_entity_pressed(&game, p);
-    game_on_entity_pressed(&game, e);
+    test_click_tile(&game, &allocator, p->position);
+    test_click_tile(&game, &allocator, e->position);
 
     assert_test(!e->alive);
     assert_test(game.game_over == GAME_OVER_WIN);
 
     // Further presses of any kind must now be frozen no-ops.
-    game_on_tile_pressed(&game, &allocator, (position_t){2, 0});
+    test_click_tile(&game, &allocator, (position_t){2, 0});
     entity_t *player = p;
     assert_test(player->position.x == 0 && player->position.y == 0);
 
     entity_t *active_before = turn_active_entity(game.turn);
-    game_on_end_turn_pressed(&game, &allocator);
+    test_click_end_turn(&game, &allocator);
     assert_test(turn_active_entity(game.turn) == active_before);
 
     assert_test(game.game_over == GAME_OVER_WIN);
@@ -1499,14 +1515,14 @@ static void test_game_ai_kills_last_player_during_end_turn_sets_lose(void) {
 
     assert_test(turn_active_entity(game.turn) == p);
 
-    game_on_end_turn_pressed(&game, &allocator);
+    test_click_end_turn(&game, &allocator);
 
     assert_test(!p->alive);
     assert_test(game.game_over == GAME_OVER_LOSE);
 
     // Further presses must be frozen no-ops.
     entity_t *active_before = turn_active_entity(game.turn);
-    game_on_end_turn_pressed(&game, &allocator);
+    test_click_end_turn(&game, &allocator);
     assert_test(turn_active_entity(game.turn) == active_before);
 
     game_deinit(&allocator, game);
@@ -1534,7 +1550,7 @@ static void test_game_on_input_event_click_in_end_turn_button_behaves_like_end_t
     p->ap = 0;
     p->mp = 0;
 
-    game_on_entity_pressed(&game, p);
+    test_click_tile(&game, &allocator, p->position);
     assert_test(game.selected_entity == p);
 
     assert_test(point_in_rect(game.viewport.end_turn_button, 260, 215));
