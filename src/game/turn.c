@@ -30,7 +30,7 @@ static void turn_reset_points(entity_t *entity) {
 }
 
 turn_state_t turn_init(slice_entity_ptr_t order) {
-    turn_state_t state = { .order = order, .cursor = 0 };
+    turn_state_t state = { .order = order, .capacity = order, .cursor = 0 };
     turn_reset_points(turn_active_entity(state));
     return state;
 }

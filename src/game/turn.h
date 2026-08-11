@@ -7,6 +7,7 @@ SLICE_DEFINE(entity_ptr_t);
 
 typedef struct {
     slice_entity_ptr_t order; // fixed turn sequence, authored by the scenario
+    slice_entity_ptr_t capacity;
     int cursor;                // index into order of the entity currently acting
 } turn_state_t;
 

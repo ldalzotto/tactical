@@ -31,7 +31,6 @@ game_state_t game_init(slice_t grid_align, grid_t grid, slice_t entity_list_alig
         .entity_list_align = entity_list_align,
         .entities = entities,
         .turn_order_align = turn_order_align,
-        .turn_order_capacity = turn_order,
         .turn = turn_init(turn_order),
         .viewport = viewport,
         .selected_entity = 0,
@@ -43,7 +42,7 @@ game_state_t game_init(slice_t grid_align, grid_t grid, slice_t entity_list_alig
 }
 
 void game_deinit(linear_allocator_t *allocator, game_state_t state) {
-    turn_order_deinit(allocator, state.turn_order_capacity);
+    turn_order_deinit(allocator, state.turn.capacity);
     linear_allocator_pop(allocator, state.turn_order_align);
     entity_list_deinit(allocator, state.entities);
     linear_allocator_pop(allocator, state.entity_list_align);
