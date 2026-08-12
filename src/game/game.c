@@ -48,15 +48,17 @@ game_state_t game_init(linear_allocator_t *allocator, slice_t grid_align, grid_t
         .hover_valid = false,
         .game_over = GAME_OVER_NONE,
         .scratch = scratch,
-        .reachable_align = reachable_align,
-        .reachable_tiles = reachable_tiles,
+        .render = {
+            .reachable_align = reachable_align,
+            .reachable_tiles = reachable_tiles,
+        },
     };
     return game;
 }
 
 void game_deinit(linear_allocator_t *allocator, game_state_t state) {
-    LINEAR_ALLOCATOR_POP(&state.scratch, state.reachable_tiles);
-    linear_allocator_pop(&state.scratch, state.reachable_align);
+    LINEAR_ALLOCATOR_POP(&state.scratch, state.render.reachable_tiles);
+    linear_allocator_pop(&state.scratch, state.render.reachable_align);
     linear_allocator_deinit(&state.scratch);
     linear_allocator_pop(allocator, state.scratch.data);
     turn_order_deinit(allocator, state.turn.capacity);
@@ -80,14 +82,14 @@ static bool game_tile_is_reachable(pathing_state_t pathing, grid_t grid, positio
 // the new one needs (counted in a first pass over the grid, filled in a
 // second), aligning right before that push -- so no alignment padding sits
 // in scratch while nothing is selected.
-static void game_refresh_reachable(game_state_t *game, linear_allocator_t *allocator) {
-    LINEAR_ALLOCATOR_POP(&game->scratch, game->reachable_tiles);
-    linear_allocator_pop(&game->scratch, game->reachable_align);
+static void game_refresh_reachable_render(game_state_t *game, linear_allocator_t *allocator) {
+    LINEAR_ALLOCATOR_POP(&game->scratch, game->render.reachable_tiles);
+    linear_allocator_pop(&game->scratch, game->render.reachable_align);
 
     entity_t *selected = game->selected_entity;
     if (selected == 0 || selected->mp <= 0) {
-        game->reachable_align = linear_allocator_push(&game->scratch, 0);
-        game->reachable_tiles = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->reachable_tiles, 0);
+        game->render.reachable_align = linear_allocator_push(&game->scratch, 0);
+        game->render.reachable_tiles = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.reachable_tiles, 0);
         return;
     }
 
@@ -102,15 +104,15 @@ static void game_refresh_reachable(game_state_t *game, linear_allocator_t *alloc
         }
     }
 
-    game->reachable_align = linear_allocator_push_alignment(&game->scratch, _Alignof(position_t));
-    game->reachable_tiles = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->reachable_tiles, count);
+    game->render.reachable_align = linear_allocator_push_alignment(&game->scratch, _Alignof(position_t));
+    game->render.reachable_tiles = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.reachable_tiles, count);
 
     int i = 0;
     for (int ty = 0; ty < game->grid.height; ty++) {
         for (int tx = 0; tx < game->grid.width; tx++) {
             position_t position = { tx, ty };
             if (game_tile_is_reachable(pathing, game->grid, position, selected->mp)) {
-                SLICE_AT(game->reachable_tiles, i) = position;
+                SLICE_AT(game->render.reachable_tiles, i) = position;
                 i++;
             }
         }
@@ -125,7 +127,7 @@ static void game_refresh_reachable(game_state_t *game, linear_allocator_t *alloc
 static void game_advance_turn(game_state_t *game, linear_allocator_t *allocator) {
     game->turn = turn_advance(game->turn);
     game->selected_entity = 0;
-    game_refresh_reachable(game, allocator);
+    game_refresh_reachable_render(game, allocator);
 
     entity_t *active = turn_active_entity(game->turn);
     while (game->game_over == GAME_OVER_NONE && active->team == ENTITY_TEAM_ENEMY) {
@@ -156,7 +158,7 @@ static void game_on_entity_pressed(game_state_t *game, linear_allocator_t *alloc
     entity_t *pressed = entity;
     if (pressed == active) {
         game->selected_entity = entity;
-        game_refresh_reachable(game, allocator);
+        game_refresh_reachable_render(game, allocator);
         return;
     }
 
@@ -196,7 +198,7 @@ static void game_on_tile_pressed(game_state_t *game, linear_allocator_t *allocat
     }
 
     if (action_try_move(allocator, game->grid, game->entities, game->selected_entity, target)) {
-        game_refresh_reachable(game, allocator);
+        game_refresh_reachable_render(game, allocator);
     }
 }
 

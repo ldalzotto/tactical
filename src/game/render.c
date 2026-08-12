@@ -49,7 +49,7 @@ static void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
         }
     }
 
-    for (SLICE_FOREACH(game.reachable_tiles, tile_s)) {
+    for (SLICE_FOREACH(game.render.reachable_tiles, tile_s)) {
         position_t tile = SLICE_DEREF(tile_s);
         int px, py;
         grid_to_screen(game.viewport, tile.x, tile.y, &px, &py);
