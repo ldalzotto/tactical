@@ -4,7 +4,6 @@
 
 #include "entity.h"
 #include "grid.h"
-#include "pathing.h"
 
 #define ACTION_ATTACK_DAMAGE 5
 
