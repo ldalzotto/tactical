@@ -1292,7 +1292,7 @@ static void test_game_entity_pressed_selects_only_the_active_entity(void) {
     turn_order_add(&allocator, &order, p1);
     turn_order_add(&allocator, &order, p2);
 
-    game_state_t game = game_init(grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+    game_state_t game = game_init(&allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
     assert_test(turn_active_entity(game.turn) == p1);
 
     test_click_tile(&game, &allocator, p1->position);
@@ -1320,7 +1320,7 @@ static void test_game_entity_pressed_enemy_active_noops(void) {
     slice_entity_ptr_t order = turn_order_init(&allocator);
     turn_order_add(&allocator, &order, e1);
 
-    game_state_t game = game_init(grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+    game_state_t game = game_init(&allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     test_click_tile(&game, &allocator, e1->position);
     assert_test(game.selected_entity == 0);
@@ -1345,7 +1345,7 @@ static void test_game_entity_pressed_adjacent_enemy_attacks_then_noops_when_ap_z
     turn_order_add(&allocator, &order, p);
     turn_order_add(&allocator, &order, e);
 
-    game_state_t game = game_init(grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+    game_state_t game = game_init(&allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     test_click_tile(&game, &allocator, p->position);
     assert_test(game.selected_entity == p);
@@ -1377,7 +1377,7 @@ static void test_game_tile_pressed_moves_within_reach_and_consumes_mp(void) {
     slice_entity_ptr_t order = turn_order_init(&allocator);
     turn_order_add(&allocator, &order, p);
 
-    game_state_t game = game_init(grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+    game_state_t game = game_init(&allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     test_click_tile(&game, &allocator, p->position);
     test_click_tile(&game, &allocator, (position_t){2, 0});
@@ -1404,7 +1404,7 @@ static void test_game_tile_pressed_noops_on_unreachable_tile(void) {
     slice_entity_ptr_t order = turn_order_init(&allocator);
     turn_order_add(&allocator, &order, p);
 
-    game_state_t game = game_init(grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+    game_state_t game = game_init(&allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     test_click_tile(&game, &allocator, p->position);
     test_click_tile(&game, &allocator, (position_t){5, 0});
@@ -1433,7 +1433,7 @@ static void test_game_end_turn_advances_past_a_harmless_enemy_and_deselects(void
     turn_order_add(&allocator, &order, p);
     turn_order_add(&allocator, &order, e);
 
-    game_state_t game = game_init(grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+    game_state_t game = game_init(&allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     p->ap = 0;
     p->mp = 0;
@@ -1472,7 +1472,7 @@ static void test_game_1v1_enemy_death_sets_win_and_freezes_input(void) {
     turn_order_add(&allocator, &order, p);
     turn_order_add(&allocator, &order, e);
 
-    game_state_t game = game_init(grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+    game_state_t game = game_init(&allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     test_click_tile(&game, &allocator, p->position);
     test_click_tile(&game, &allocator, e->position);
@@ -1511,7 +1511,7 @@ static void test_game_ai_kills_last_player_during_end_turn_sets_lose(void) {
     turn_order_add(&allocator, &order, p);
     turn_order_add(&allocator, &order, e);
 
-    game_state_t game = game_init(grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+    game_state_t game = game_init(&allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     assert_test(turn_active_entity(game.turn) == p);
 
@@ -1545,7 +1545,7 @@ static void test_game_on_input_event_click_in_end_turn_button_behaves_like_end_t
     turn_order_add(&allocator, &order, p);
     turn_order_add(&allocator, &order, e);
 
-    game_state_t game = game_init(grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+    game_state_t game = game_init(&allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     p->ap = 0;
     p->mp = 0;
@@ -1583,7 +1583,7 @@ static void test_game_on_input_event_click_on_entity_tile_behaves_like_entity_pr
     slice_entity_ptr_t order = turn_order_init(&allocator);
     turn_order_add(&allocator, &order, p1);
 
-    game_state_t game = game_init(grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+    game_state_t game = game_init(&allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     int px, py;
     grid_to_screen(game.viewport, 0, 0, &px, &py);

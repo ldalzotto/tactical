@@ -75,7 +75,7 @@ uint32_t onNextFrame(app_state_t *state, uint32_t now_ms) {
     }
     linear_allocator_pop(&state->allocator, events.slice);
 
-    render_frame(state->framebuffer, FB_WIDTH, state->game, &state->allocator);
+    render_frame(state->framebuffer, FB_WIDTH, state->game);
     present_window(state->window, state->framebuffer.slice);
     return 0;
 }

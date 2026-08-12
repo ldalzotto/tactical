@@ -27,5 +27,5 @@ game_state_t scenario_setup_default(linear_allocator_t* allocator, int grid_widt
     turn_order_add(allocator, &order, p3);
     turn_order_add(allocator, &order, e3);
 
-    return game_init(grid_padding, grid, entity_list_align, entities, turn_order_align, order, fb_width, fb_height, hud_height);
+    return game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, fb_width, fb_height, hud_height);
 }
