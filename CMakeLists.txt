@@ -24,48 +24,65 @@ message(STATUS "CONFIG: ${CMAKE_BUILD_TYPE}")
 option(APP_BUILD_TESTS "Build src/test.c's test-discovery/test-runner exports into app.wasm" ON)
 message(STATUS "APP_BUILD_TESTS: ${APP_BUILD_TESTS}")
 
-set(APP_SOURCES
-    src/lib/assert.c
-    src/lib/clock.c
-    src/lib/graphics.c
-    src/lib/memory.c
-    src/lib/runtime.c
+# In unity mode, every lib/*.h and game/*.h (and test*.h, when
+# APP_BUILD_TESTS is on) includes only main.c and, conditionally, test.h -- ends up dragging the
+# whole app (and test suite) into one translation unit. That, plus
+# -ffunction-sections/--gc-sections below, lets the linker drop any
+# function that isn't reachable from an export_name root, i.e. treat it
+# as if it were static.
+option(APP_UNITY_BUILD "Compile the whole app as a single translation unit" OFF)
+message(STATUS "APP_UNITY_BUILD: ${APP_UNITY_BUILD}")
 
-    src/game/action.c
-    src/game/ai.c
-    src/game/entity.c
-    src/game/game.c
-    src/game/grid.c
-    src/game/input.c
-    src/game/layout.c
-    src/game/pathing.c
-    src/game/position.c
-    src/game/render.c
-    src/game/scenario.c
-    src/game/turn.c
-    src/game/ui.c
+if(APP_UNITY_BUILD)
+    set(APP_SOURCES src/main.c)
+else()
+    set(APP_SOURCES
+        src/lib/assert.c
+        src/lib/clock.c
+        src/lib/graphics.c
+        src/lib/memory.c
+        src/lib/runtime.c
 
-    src/main.c
-)
+        src/game/action.c
+        src/game/ai.c
+        src/game/entity.c
+        src/game/game.c
+        src/game/grid.c
+        src/game/input.c
+        src/game/layout.c
+        src/game/pathing.c
+        src/game/position.c
+        src/game/render.c
+        src/game/scenario.c
+        src/game/turn.c
+        src/game/ui.c
 
-if(APP_BUILD_TESTS)
-    list(APPEND APP_SOURCES
-        src/test.c
-        src/test_runtime.c
-        src/test_memory.c
-        src/test_layout.c
-        src/test_game_movement.c
-        src/test_game_combat.c
-        src/test_game_ai.c
-        src/test_game_selection.c
-        src/test_scenario.c
+        src/main.c
     )
+
+    if(APP_BUILD_TESTS)
+        list(APPEND APP_SOURCES
+            src/test.c
+            src/test_runtime.c
+            src/test_memory.c
+            src/test_layout.c
+            src/test_game_movement.c
+            src/test_game_combat.c
+            src/test_game_ai.c
+            src/test_game_selection.c
+            src/test_scenario.c
+        )
+    endif()
 endif()
 
 add_executable(app ${APP_SOURCES})
 
 if(APP_BUILD_TESTS)
     target_compile_definitions(app PRIVATE APP_BUILD_TESTS)
+endif()
+
+if(APP_UNITY_BUILD)
+    target_compile_definitions(app PRIVATE APP_UNITY_BUILD)
 endif()
 
 target_compile_options(app PRIVATE -ffreestanding -fno-builtin)

@@ -26,14 +26,14 @@ static const rgba_t COLOR_LOSE = { 200, 0, 0, 255 };
 
 // Draws a 2px-thick white rectangular outline as 4 thin edge rects, since
 // graphics.h has no dedicated outline/stroke primitive.
-static void render_draw_outline(slice_rgba_t fb, int fb_width, rect_t r, rgba_t color) {
+PRIVATE void render_draw_outline(slice_rgba_t fb, int fb_width, rect_t r, rgba_t color) {
     graphics_draw_rectangle(fb, fb_width, r.x, r.y, r.width, OUTLINE_THICKNESS, color);
     graphics_draw_rectangle(fb, fb_width, r.x, r.y + r.height - OUTLINE_THICKNESS, r.width, OUTLINE_THICKNESS, color);
     graphics_draw_rectangle(fb, fb_width, r.x, r.y, OUTLINE_THICKNESS, r.height, color);
     graphics_draw_rectangle(fb, fb_width, r.x + r.width - OUTLINE_THICKNESS, r.y, OUTLINE_THICKNESS, r.height, color);
 }
 
-static void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
+PRIVATE void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
     for (int ty = 0; ty < game.grid.height; ty++) {
         for (int tx = 0; tx < game.grid.width; tx++) {
             bool walkable = grid_is_walkable(game.grid, (position_t){tx, ty});
@@ -65,7 +65,7 @@ static void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
     }
 }
 
-static void render_hp_bar(slice_rgba_t fb, int fb_width, int px, int py, int ts, entity_t *entity) {
+PRIVATE void render_hp_bar(slice_rgba_t fb, int fb_width, int px, int py, int ts, entity_t *entity) {
     int margin = ts / 6;
     if (margin < 1) margin = 1;
     int bar_height = ts / 8;
@@ -84,7 +84,7 @@ static void render_hp_bar(slice_rgba_t fb, int fb_width, int px, int py, int ts,
     graphics_draw_rectangle(fb, fb_width, bar_x, bar_y, fg_width, bar_height, COLOR_HP_FG);
 }
 
-static void render_entities(slice_rgba_t fb, int fb_width, game_state_t game) {
+PRIVATE void render_entities(slice_rgba_t fb, int fb_width, game_state_t game) {
     for ( SLICE_FOREACH(game.entities, entity_s) ) {
         entity_t *entity = &SLICE_DEREF(entity_s);
         if (!entity->alive) {
@@ -115,7 +115,7 @@ static void render_entities(slice_rgba_t fb, int fb_width, game_state_t game) {
     }
 }
 
-static void render_timeline(slice_rgba_t fb, int fb_width, game_state_t game) {
+PRIVATE void render_timeline(slice_rgba_t fb, int fb_width, game_state_t game) {
     rect_t area = game.viewport.timeline_rect;
     int square = area.height;
     int gap = 2;
@@ -135,7 +135,7 @@ static void render_timeline(slice_rgba_t fb, int fb_width, game_state_t game) {
     }
 }
 
-static void render_hud(slice_rgba_t fb, int fb_width, game_state_t game) {
+PRIVATE void render_hud(slice_rgba_t fb, int fb_width, game_state_t game) {
     rect_t hud = game.viewport.hud_rect;
     graphics_draw_rectangle(fb, fb_width, hud.x, hud.y, hud.width, hud.height, COLOR_HUD_BG);
 
@@ -169,7 +169,7 @@ static void render_hud(slice_rgba_t fb, int fb_width, game_state_t game) {
     }
 }
 
-void render_frame(slice_rgba_t framebuffer, int fb_width, game_state_t game) {
+PUBLIC void render_frame(slice_rgba_t framebuffer, int fb_width, game_state_t game) {
     if (game.game_over != GAME_OVER_NONE) {
         int pixel_count = (int)(framebuffer.end - framebuffer.begin);
         int fb_height = fb_width > 0 ? pixel_count / fb_width : 0;

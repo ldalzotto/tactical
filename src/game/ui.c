@@ -1,5 +1,5 @@
 #include "ui.h"
 
-bool point_in_rect(rect_t r, int x, int y) {
+PUBLIC bool point_in_rect(rect_t r, int x, int y) {
     return x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height;
 }

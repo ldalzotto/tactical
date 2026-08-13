@@ -5,7 +5,7 @@
 #include "game/turn.h"
 #include "test_game_helpers.h"
 
-static void test_game_attack_kills_defender_clamps_hp_and_frees_tile_for_movement(void) {
+PRIVATE void test_game_attack_kills_defender_clamps_hp_and_frees_tile_for_movement(void) {
     static char buffer[4096];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -47,7 +47,7 @@ static void test_game_attack_kills_defender_clamps_hp_and_frees_tile_for_movemen
     game_deinit(&allocator, game);
 }
 
-static void test_game_entity_pressed_diagonal_and_far_enemy_attack_noop(void) {
+PRIVATE void test_game_entity_pressed_diagonal_and_far_enemy_attack_noop(void) {
     static char buffer[4096];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -84,7 +84,7 @@ static void test_game_entity_pressed_diagonal_and_far_enemy_attack_noop(void) {
     game_deinit(&allocator, game);
 }
 
-static void test_game_turn_order_compacts_when_non_active_entity_dies_during_attack(void) {
+PRIVATE void test_game_turn_order_compacts_when_non_active_entity_dies_during_attack(void) {
     static char buffer[4096];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -117,7 +117,7 @@ static void test_game_turn_order_compacts_when_non_active_entity_dies_during_att
     game_deinit(&allocator, game);
 }
 
-static void test_game_entity_pressed_adjacent_enemy_attacks_then_noops_when_ap_zero(void) {
+PRIVATE void test_game_entity_pressed_adjacent_enemy_attacks_then_noops_when_ap_zero(void) {
     static char buffer[8192];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);

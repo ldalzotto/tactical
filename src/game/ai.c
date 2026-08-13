@@ -9,7 +9,7 @@
     occupies it — so take the min over its four neighbors instead.
     0 means the candidate is already adjacent to the root.)
 */
-static int ai_distance_to_adjacency(pathing_state_t pathing, grid_t grid, position_t position) {
+PRIVATE int ai_distance_to_adjacency(pathing_state_t pathing, grid_t grid, position_t position) {
     int best = -1;
     for (SLICE_FOREACH(POSITION_DIRECTIONS, dir_s)) {
         position_t dir = SLICE_DEREF(dir_s);
@@ -29,7 +29,7 @@ static int ai_distance_to_adjacency(pathing_state_t pathing, grid_t grid, positi
     return best;
 }
 
-static entity_t* ai_find_nearest_player(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* enemy) {
+PRIVATE entity_t* ai_find_nearest_player(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* enemy) {
     int max_steps = grid.width * grid.height;
     pathing_state_t pathing = pathing_compute_distances(allocator, grid, entities, enemy, enemy->position, max_steps);
 
@@ -58,7 +58,7 @@ static entity_t* ai_find_nearest_player(linear_allocator_t *allocator, grid_t gr
     return best_entity;
 }
 
-static bool ai_step_toward(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* enemy, entity_t *target) {
+PRIVATE bool ai_step_toward(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* enemy, entity_t *target) {
     int max_steps = grid.width * grid.height;
     // We compute the distance from the target.
     // The smallest distance of ennemy neighbor is the tile we are going to move towards.
@@ -105,7 +105,7 @@ static bool ai_step_toward(linear_allocator_t *allocator, grid_t grid, slice_ent
 // distance-to-target via action_try_move (one tile at a time), then re-check
 // adjacency/attack. If no alive player entities remain, no-op. Returns the
 // attacked entity, or 0 if no attack landed.
-entity_t* ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *enemy) {
+PUBLIC entity_t* ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *enemy) {
     entity_t* target = ai_find_nearest_player(allocator, grid, entities, enemy);
     if (target == 0) {
         return 0;

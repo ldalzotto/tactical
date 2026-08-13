@@ -10,6 +10,8 @@ const { symbolicate } = require('./symbolicate');
 
 const args = process.argv.slice(2);
 const RELEASE = args.includes('--release');
+const UNITY = args.includes('--unity');
+const TESTS = args.includes('--tests');
 const VERBOSE = args.includes('--verbose');
 
 const PORT = process.env.PORT || 8081;
@@ -109,7 +111,7 @@ const server = http.createServer((req, res) => {
 });
 
 const rebuild = debounce(() => {
-    runBuild({ cwd: ROOT, release: RELEASE, verbose: VERBOSE })
+    runBuild({ cwd: ROOT, release: RELEASE, unity: UNITY, tests: TESTS, verbose: VERBOSE })
         .catch((err) => {
             console.error('build failed:', err.message);
         })
@@ -125,7 +127,7 @@ const watcher = watchPaths(WATCH_ROOTS, WATCH_EXTENSIONS, (filename) => {
 
 server.listen(PORT, () => {
     console.log(`Serving at http://localhost:${PORT}`);
-    runBuild({ cwd: ROOT, release: RELEASE, verbose: VERBOSE }).catch((err) => {
+    runBuild({ cwd: ROOT, release: RELEASE, unity: UNITY, tests: TESTS, verbose: VERBOSE }).catch((err) => {
         console.error('initial build failed:', err.message);
     });
 });

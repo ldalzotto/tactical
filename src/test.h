@@ -18,3 +18,7 @@ const char *test_discovery_name_end(uint32_t index);
 test_fn_t test_discovery_fn_at(uint32_t index);
 
 void test_run(test_fn_t fn);
+
+#ifdef APP_UNITY_BUILD
+#include "test.c"
+#endif

@@ -3,7 +3,7 @@
 #include "game/scenario.h"
 #include "test_game_helpers.h"
 
-static void test_scenario_setup_default_populates_map_and_units(void) {
+PRIVATE void test_scenario_setup_default_populates_map_and_units(void) {
     static char buffer[8192];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);

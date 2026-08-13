@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../lib/linkage.h"
+
 #include <stdbool.h>
 #include "../lib/memory.h"
 
@@ -9,9 +11,9 @@ typedef struct {
 
 SLICE_DEFINE(position_t);
 
-position_t position_add(position_t a, position_t b);
-position_t position_sub(position_t a, position_t b);
-bool position_equals(position_t a, position_t b);
+PUBLIC position_t position_add(position_t a, position_t b);
+PUBLIC position_t position_sub(position_t a, position_t b);
+PUBLIC bool position_equals(position_t a, position_t b);
 
 // Orthogonal unit offsets: up, right, down, left.
 static const position_t __POSITION_DIRECTIONS[4] = {
@@ -25,3 +27,7 @@ static const position_t __POSITION_DIRECTIONS[4] = {
         (position_t*)__POSITION_DIRECTIONS, \
         typeoffset((position_t*)__POSITION_DIRECTIONS, sizeof(__POSITION_DIRECTIONS)/sizeof(__POSITION_DIRECTIONS[0])), \
     }
+
+#ifdef APP_UNITY_BUILD
+#include "position.c"
+#endif

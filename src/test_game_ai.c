@@ -5,7 +5,7 @@
 #include "game/turn.h"
 #include "test_game_helpers.h"
 
-static void test_game_ai_adjacent_enemy_attacks_without_moving_on_end_turn(void) {
+PRIVATE void test_game_ai_adjacent_enemy_attacks_without_moving_on_end_turn(void) {
     static char buffer[4096];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -35,7 +35,7 @@ static void test_game_ai_adjacent_enemy_attacks_without_moving_on_end_turn(void)
     game_deinit(&allocator, game);
 }
 
-static void test_game_ai_far_enemy_with_enough_mp_closes_and_attacks_on_end_turn(void) {
+PRIVATE void test_game_ai_far_enemy_with_enough_mp_closes_and_attacks_on_end_turn(void) {
     static char buffer[4096];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -66,7 +66,7 @@ static void test_game_ai_far_enemy_with_enough_mp_closes_and_attacks_on_end_turn
     game_deinit(&allocator, game);
 }
 
-static void test_game_ai_insufficient_mp_moves_partial_no_attack_on_end_turn(void) {
+PRIVATE void test_game_ai_insufficient_mp_moves_partial_no_attack_on_end_turn(void) {
     static char buffer[4096];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -97,7 +97,7 @@ static void test_game_ai_insufficient_mp_moves_partial_no_attack_on_end_turn(voi
     game_deinit(&allocator, game);
 }
 
-static void test_game_ai_obstacle_forces_detour_on_end_turn(void) {
+PRIVATE void test_game_ai_obstacle_forces_detour_on_end_turn(void) {
     static char buffer[4096];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -129,7 +129,7 @@ static void test_game_ai_obstacle_forces_detour_on_end_turn(void) {
     game_deinit(&allocator, game);
 }
 
-static void test_game_ai_multiple_enemies_act_independently_on_end_turn(void) {
+PRIVATE void test_game_ai_multiple_enemies_act_independently_on_end_turn(void) {
     static char buffer[4096];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -170,7 +170,7 @@ static void test_game_ai_multiple_enemies_act_independently_on_end_turn(void) {
     game_deinit(&allocator, game);
 }
 
-static void test_game_ai_zero_mp_not_adjacent_does_nothing_on_end_turn(void) {
+PRIVATE void test_game_ai_zero_mp_not_adjacent_does_nothing_on_end_turn(void) {
     static char buffer[4096];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
