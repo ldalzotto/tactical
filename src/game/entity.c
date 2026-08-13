@@ -12,7 +12,7 @@ PUBLIC void entity_list_deinit(linear_allocator_t *allocator, slice_entity_t lis
     LINEAR_ALLOCATOR_POP(allocator, list);
 }
 
-PUBLIC entity_t* entity_spawn(linear_allocator_t *allocator, slice_entity_t *entities, entity_team_t team, position_t position, int hp, int ap, int mp) {
+PUBLIC entity_t* entity_spawn(linear_allocator_t *allocator, slice_entity_t *entities, entity_team_t team, position_t position, int hp, int ap, int mp, skill_t skill) {
     // We are allowed to push an entity only at the same time where the list is created. For now.
     assert_debug(allocator->cursor == entities->end);
 
@@ -29,6 +29,7 @@ PUBLIC entity_t* entity_spawn(linear_allocator_t *allocator, slice_entity_t *ent
         .mp = mp,
         .max_mp = mp,
         .alive = true,
+        .skill = skill,
     };
 
     entities->end = entity_s.end;

@@ -1,6 +1,7 @@
 #include "test_game_combat.h"
 #include "lib/assert.h"
 #include "game/entity.h"
+#include "game/skill.h"
 #include "game/grid.h"
 #include "game/turn.h"
 #include "test_game_helpers.h"
@@ -10,9 +11,9 @@ PRIVATE void test_game_attack_kills_defender_clamps_hp_and_frees_tile_for_moveme
     grid_t grid = grid_init(allocator, 4, 4);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
-    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 5);
-    entity_t* e = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){1, 0}, 3, 2, 3);
-    entity_t* e2 = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 3}, 10, 2, 3);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 5, SKILL_MELEE);
+    entity_t* e = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){1, 0}, 3, 2, 3, SKILL_MELEE);
+    entity_t* e2 = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 3}, 10, 2, 3, SKILL_MELEE);
 
     slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
     slice_entity_ptr_t order = turn_order_init(allocator);
@@ -48,9 +49,9 @@ PRIVATE void test_game_entity_pressed_diagonal_and_far_enemy_attack_noop(linear_
     grid_t grid = grid_init(allocator, 6, 6);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
-    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
-    entity_t* diagonal = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){1, 1}, 10, 2, 3);
-    entity_t* far = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){5, 5}, 10, 2, 3);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3, SKILL_MELEE);
+    entity_t* diagonal = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){1, 1}, 10, 2, 3, SKILL_MELEE);
+    entity_t* far = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){5, 5}, 10, 2, 3, SKILL_MELEE);
 
     slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
     slice_entity_ptr_t order = turn_order_init(allocator);
@@ -81,9 +82,9 @@ PRIVATE void test_game_turn_order_compacts_when_non_active_entity_dies_during_at
     grid_t grid = grid_init(allocator, 4, 4);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
-    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
-    entity_t* b = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 3}, 10, 2, 3);
-    entity_t* c = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){1, 0}, 3, 2, 3);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3, SKILL_MELEE);
+    entity_t* b = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 3}, 10, 2, 3, SKILL_MELEE);
+    entity_t* c = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){1, 0}, 3, 2, 3, SKILL_MELEE);
 
     slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
     slice_entity_ptr_t order = turn_order_init(allocator);
@@ -110,8 +111,8 @@ PRIVATE void test_game_entity_pressed_adjacent_enemy_attacks_then_noops_when_ap_
     grid_t grid = grid_init(allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
-    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 1, 3);
-    entity_t* e = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){1, 0}, 10, 2, 3);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 1, 3, SKILL_MELEE);
+    entity_t* e = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){1, 0}, 10, 2, 3, SKILL_MELEE);
 
     slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
     slice_entity_ptr_t order = turn_order_init(allocator);
@@ -135,11 +136,98 @@ PRIVATE void test_game_entity_pressed_adjacent_enemy_attacks_then_noops_when_ap_
     game_deinit(allocator, game);
 }
 
+PRIVATE void test_game_ranged_attack_hits_at_max_range_without_moving(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 5, 1);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 1, 3, SKILL_RANGED);
+    entity_t* e = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 1, 3, SKILL_MELEE);
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, e);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    assert_test(game.selected_entity == p);
+
+    // e sits exactly 3 tiles away (SKILL_RANGED.range): reachable without moving.
+    test_click_tile(&game, allocator, e->position);
+
+    assert_test(e->hp == 7);
+    assert_test(p->ap == 0);
+    assert_test(p->position.x == 0 && p->position.y == 0);
+
+    game_deinit(allocator, game);
+}
+
+PRIVATE void test_game_ranged_attack_noop_beyond_range(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 5, 1);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 1, 3, SKILL_RANGED);
+    entity_t* e = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){4, 0}, 10, 1, 3, SKILL_MELEE);
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, e);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+
+    // e sits 4 tiles away, one beyond SKILL_RANGED.range (3): out of reach.
+    test_click_tile(&game, allocator, e->position);
+
+    assert_test(e->hp == 10);
+    assert_test(p->ap == 1);
+
+    game_deinit(allocator, game);
+}
+
+PRIVATE void test_game_ranged_attack_blocked_by_unit_in_path(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 4, 1);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 1, 3, SKILL_RANGED);
+    entity_t* blocker = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){2, 0}, 10, 1, 3, SKILL_MELEE);
+    entity_t* e = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 1, 3, SKILL_MELEE);
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, blocker);
+    turn_order_add(allocator, &order, e);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+
+    // e is within range (3), but blocker occupies the only tile on the
+    // straight-line path (height-1 grid, no way around): unreachable.
+    test_click_tile(&game, allocator, e->position);
+
+    assert_test(e->hp == 10);
+    assert_test(p->ap == 1);
+    assert_test(blocker->hp == 10);
+
+    game_deinit(allocator, game);
+}
+
 const test_case_t g_game_combat_tests[] = {
     { TEST_NAME("game_attack_kills_defender_clamps_hp_and_frees_tile_for_movement"), test_game_attack_kills_defender_clamps_hp_and_frees_tile_for_movement },
     { TEST_NAME("game_entity_pressed_diagonal_and_far_enemy_attack_noop"), test_game_entity_pressed_diagonal_and_far_enemy_attack_noop },
     { TEST_NAME("game_turn_order_compacts_when_non_active_entity_dies_during_attack"), test_game_turn_order_compacts_when_non_active_entity_dies_during_attack },
     { TEST_NAME("game_entity_pressed_adjacent_enemy_attacks_then_noops_when_ap_zero"), test_game_entity_pressed_adjacent_enemy_attacks_then_noops_when_ap_zero },
+    { TEST_NAME("game_ranged_attack_hits_at_max_range_without_moving"), test_game_ranged_attack_hits_at_max_range_without_moving },
+    { TEST_NAME("game_ranged_attack_noop_beyond_range"), test_game_ranged_attack_noop_beyond_range },
+    { TEST_NAME("game_ranged_attack_blocked_by_unit_in_path"), test_game_ranged_attack_blocked_by_unit_in_path },
 };
 
 const uint32_t g_game_combat_tests_count = sizeof(g_game_combat_tests) / sizeof(g_game_combat_tests[0]);

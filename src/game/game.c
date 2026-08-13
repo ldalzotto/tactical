@@ -166,15 +166,7 @@ PRIVATE void game_on_entity_pressed(game_state_t *game, linear_allocator_t *allo
         return;
     }
 
-    entity_t *selected = game->selected_entity;
-    if (!entity_is_adjacent(*selected, *pressed)) {
-        return;
-    }
-    if (selected->ap <= 0) {
-        return;
-    }
-
-    if (action_try_attack(game->selected_entity, entity)) {
+    if (action_try_attack(allocator, game->grid, game->entities, game->selected_entity, entity)) {
         // If the entity just died, we remove dead entities
         if (!entity->alive) {
             game->turn = turn_remove_dead_entities(game->turn);

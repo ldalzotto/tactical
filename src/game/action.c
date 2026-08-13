@@ -1,5 +1,6 @@
 #include "action.h"
 #include "pathing.h"
+#include "skill.h"
 
 PUBLIC bool action_try_move(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* entity, position_t target) {
     pathing_state_t pathing = pathing_compute_distances(allocator, grid, entities, entity, entity->position, entity->mp);
@@ -18,7 +19,7 @@ PUBLIC bool action_try_move(linear_allocator_t *allocator, grid_t grid, slice_en
     return true;
 }
 
-PUBLIC bool action_try_attack(entity_t* attacker, entity_t* defender) {
+PUBLIC bool action_try_attack(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* attacker, entity_t* defender) {
 
     if (!attacker->alive || !defender->alive) {
         return false;
@@ -28,16 +29,16 @@ PUBLIC bool action_try_attack(entity_t* attacker, entity_t* defender) {
         return false;
     }
 
-    if (!entity_is_adjacent(*attacker, *defender)) {
+    if (attacker->ap < attacker->skill.ap_cost) {
         return false;
     }
 
-    if (attacker->ap == 0) {
+    if (!skill_target_in_range(allocator, grid, entities, attacker, defender)) {
         return false;
     }
 
-    attacker->ap -= 1;
-    entity_damage(defender, ACTION_ATTACK_DAMAGE);
+    attacker->ap -= attacker->skill.ap_cost;
+    entity_damage(defender, attacker->skill.damage);
 
     return true;
 }

@@ -1,6 +1,7 @@
 #include "test_game_movement.h"
 #include "lib/assert.h"
 #include "game/entity.h"
+#include "game/skill.h"
 #include "game/grid.h"
 #include "game/turn.h"
 #include "test_game_helpers.h"
@@ -19,7 +20,7 @@ PRIVATE void test_game_selecting_entity_computes_reachable_tiles_within_mp_and_m
     grid_t grid = grid_init(allocator, 4, 4);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
-    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 2);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 2, SKILL_MELEE);
 
     slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
     slice_entity_ptr_t order = turn_order_init(allocator);
@@ -64,7 +65,7 @@ PRIVATE void test_game_obstacles_block_reachable_tiles_and_movement(linear_alloc
 
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
-    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 2, 4);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 2, 4, SKILL_MELEE);
 
     slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
     slice_entity_ptr_t order = turn_order_init(allocator);
@@ -106,8 +107,8 @@ PRIVATE void test_game_occupied_tile_blocks_corridor_reachability(linear_allocat
     grid_t grid = grid_init(allocator, 5, 1);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
-    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 10);
-    entity_t* blocker = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){2, 0}, 10, 2, 3);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 10, SKILL_MELEE);
+    entity_t* blocker = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){2, 0}, 10, 2, 3, SKILL_MELEE);
 
     slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
     slice_entity_ptr_t order = turn_order_init(allocator);
@@ -142,7 +143,7 @@ PRIVATE void test_game_tile_pressed_moves_within_reach_and_consumes_mp(linear_al
     grid_t grid = grid_init(allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
-    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3, SKILL_MELEE);
 
     slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
     slice_entity_ptr_t order = turn_order_init(allocator);
@@ -165,7 +166,7 @@ PRIVATE void test_game_tile_pressed_noops_on_unreachable_tile(linear_allocator_t
     grid_t grid = grid_init(allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
-    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 1);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 1, SKILL_MELEE);
 
     slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
     slice_entity_ptr_t order = turn_order_init(allocator);

@@ -54,6 +54,7 @@ else()
         src/game/position.c
         src/game/render.c
         src/game/scenario.c
+        src/game/skill.c
         src/game/turn.c
         src/game/ui.c
 
