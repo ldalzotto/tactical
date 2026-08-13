@@ -112,8 +112,8 @@ PUBLIC entity_t* ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, 
         return 0;
     }
 
-    if (skill_target_in_range(allocator, grid, entities, enemy, target)) {
-        return action_try_attack(allocator, grid, entities, enemy, target) ? target : 0;
+    if (action_try_attack(allocator, grid, entities, enemy, target)) {
+        return target;
     }
 
     while (enemy->mp > 0 && !skill_target_in_range(allocator, grid, entities, enemy, target)) {
@@ -122,9 +122,5 @@ PUBLIC entity_t* ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, 
         }
     }
 
-    if (skill_target_in_range(allocator, grid, entities, enemy, target)) {
-        return action_try_attack(allocator, grid, entities, enemy, target) ? target : 0;
-    }
-
-    return 0;
+    return action_try_attack(allocator, grid, entities, enemy, target) ? target : 0;
 }
