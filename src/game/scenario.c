@@ -1,6 +1,6 @@
 #include "scenario.h"
 
-game_state_t scenario_setup_default(linear_allocator_t* allocator, int grid_width, int grid_height, int fb_width, int fb_height, int hud_height) {
+PUBLIC game_state_t scenario_setup_default(linear_allocator_t* allocator, int grid_width, int grid_height, int fb_width, int fb_height, int hud_height) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, grid_width, grid_height);
     grid_set_walkable(grid, (position_t){7, 4}, false);

@@ -2,17 +2,17 @@
 
 #include "../lib/assert.h"
 
-slice_entity_t entity_list_init(linear_allocator_t *allocator) {
+PUBLIC slice_entity_t entity_list_init(linear_allocator_t *allocator) {
     slice_entity_t entities;
     entities = LINEAR_ALLOCATOR_PUSH(allocator, entities, 0);
     return entities;
 }
 
-void entity_list_deinit(linear_allocator_t *allocator, slice_entity_t list) {
+PUBLIC void entity_list_deinit(linear_allocator_t *allocator, slice_entity_t list) {
     LINEAR_ALLOCATOR_POP(allocator, list);
 }
 
-entity_t* entity_spawn(linear_allocator_t *allocator, slice_entity_t *entities, entity_team_t team, position_t position, int hp, int ap, int mp) {
+PUBLIC entity_t* entity_spawn(linear_allocator_t *allocator, slice_entity_t *entities, entity_team_t team, position_t position, int hp, int ap, int mp) {
     // We are allowed to push an entity only at the same time where the list is created. For now.
     assert_debug(allocator->cursor == entities->end);
 
@@ -36,7 +36,7 @@ entity_t* entity_spawn(linear_allocator_t *allocator, slice_entity_t *entities, 
     return &SLICE_DEREF(entity_s);
 }
 
-entity_t *entity_find_at(slice_entity_t list, position_t position) {
+PUBLIC entity_t *entity_find_at(slice_entity_t list, position_t position) {
     for (SLICE_FOREACH(list, entity_s)) {
         entity_t *entity = &SLICE_DEREF(entity_s);
         if (entity->alive && position_equals(entity->position, position)) {
@@ -47,7 +47,7 @@ entity_t *entity_find_at(slice_entity_t list, position_t position) {
     return 0;
 }
 
-void entity_damage(entity_t* entity, int amount) {
+PUBLIC void entity_damage(entity_t* entity, int amount) {
     entity->hp -= amount;
     if (entity->hp <= 0) {
         entity->hp = 0;
@@ -55,7 +55,7 @@ void entity_damage(entity_t* entity, int amount) {
     }
 }
 
-bool entity_is_adjacent(entity_t a, entity_t b) {
+PUBLIC bool entity_is_adjacent(entity_t a, entity_t b) {
     for (SLICE_FOREACH(POSITION_DIRECTIONS, dir_s)) {
         position_t dir = SLICE_DEREF(dir_s);
         if (position_equals(a.position, position_add(b.position, dir))) {
@@ -65,7 +65,7 @@ bool entity_is_adjacent(entity_t a, entity_t b) {
     return false;
 }
 
-int entity_alive_count(slice_entity_t list, entity_team_t team) {
+PUBLIC int entity_alive_count(slice_entity_t list, entity_team_t team) {
     int count = 0;
     for ( SLICE_FOREACH(list, entity_s) ) {
         entity_t *entity = &SLICE_DEREF(entity_s);

@@ -2,7 +2,7 @@
 
 extern unsigned char __heap_base;
 
-void* heap_base() {
+PUBLIC void* heap_base() {
     return &__heap_base;
 }
 
@@ -18,18 +18,18 @@ extern void __debug_log(void *begin, void *end);
 __attribute__((import_module("env"), import_name("poll_input_events")))
 extern void *__poll_input_events(window_handle_t window, void *begin);
 
-window_handle_t create_window(int32_t width, int32_t height) {
+PUBLIC window_handle_t create_window(int32_t width, int32_t height) {
     return __create_window(width, height);
 }
 
-void present_window(window_handle_t window,  slice_t fb) {
+PUBLIC void present_window(window_handle_t window,  slice_t fb) {
     __present_window(window, fb.begin, fb.end);
 }
 
-void debug_log(slice_t str) {
+PUBLIC void debug_log(slice_t str) {
     __debug_log(str.begin, str.end);
 }
 
-void *poll_input_events(window_handle_t window, void *begin) {
+PUBLIC void *poll_input_events(window_handle_t window, void *begin) {
     return __poll_input_events(window, begin);
 }

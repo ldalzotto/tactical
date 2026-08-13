@@ -2,12 +2,12 @@
 
 #include "../lib/assert.h"
 
-void pathing_deinit(linear_allocator_t *allocator, pathing_state_t state) {
+PUBLIC void pathing_deinit(linear_allocator_t *allocator, pathing_state_t state) {
     LINEAR_ALLOCATOR_POP(allocator, state.dist);
     linear_allocator_pop(allocator, state.align);
 }
 
-pathing_state_t  pathing_compute_distances(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* excluded, position_t from, int max_steps) {
+PUBLIC pathing_state_t  pathing_compute_distances(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* excluded, position_t from, int max_steps) {
     assert_debug(grid_in_bounds(grid, from));
 
     size_t count = (size_t)(grid.width * grid.height);
@@ -80,7 +80,7 @@ pathing_state_t  pathing_compute_distances(linear_allocator_t *allocator, grid_t
     };
 }
 
-int pathing_distance_at(pathing_state_t state, grid_t grid, position_t position) {
+PUBLIC int pathing_distance_at(pathing_state_t state, grid_t grid, position_t position) {
     assert_debug(grid_in_bounds(grid, position));
     return SLICE_AT(state.dist, position.y * grid.width + position.x);
 }

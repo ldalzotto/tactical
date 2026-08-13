@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../lib/linkage.h"
+
 #include <stdbool.h>
 
 #include "../lib/memory.h"
@@ -52,10 +54,14 @@ typedef struct {
 // everything in reverse order. `allocator` is also used to carve out the
 // game's internal scratch arena (a fixed byte region; position_t alignment
 // inside it is handled lazily, only once something is actually pushed).
-game_state_t game_init(linear_allocator_t *allocator, slice_t grid_align, grid_t grid, slice_t entity_list_align, slice_entity_t entities, slice_t turn_order_align, slice_entity_ptr_t turn_order, int fb_width, int fb_height, int hud_height);
+PUBLIC game_state_t game_init(linear_allocator_t *allocator, slice_t grid_align, grid_t grid, slice_t entity_list_align, slice_entity_t entities, slice_t turn_order_align, slice_entity_ptr_t turn_order, int fb_width, int fb_height, int hud_height);
 
 // Pops the scratch arena, then the grid+entities+turn-order region,
 // including the alignment padding pushed before each.
-void game_deinit(linear_allocator_t *allocator, game_state_t state);
+PUBLIC void game_deinit(linear_allocator_t *allocator, game_state_t state);
 
-void game_on_input_event(game_state_t *game, linear_allocator_t *allocator, input_event_t event);
+PUBLIC void game_on_input_event(game_state_t *game, linear_allocator_t *allocator, input_event_t event);
+
+#ifdef APP_UNITY_BUILD
+#include "game.c"
+#endif

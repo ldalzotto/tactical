@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../lib/linkage.h"
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -20,10 +22,14 @@ typedef struct {
 
 SLICE_DEFINE(entity_t);
 
-slice_entity_t entity_list_init(linear_allocator_t *allocator);
-void entity_list_deinit(linear_allocator_t *allocator, slice_entity_t list);
-entity_t* entity_spawn(linear_allocator_t *allocator, slice_entity_t* list, entity_team_t team, position_t position, int hp, int ap, int mp);
-entity_t *entity_find_at(slice_entity_t list, position_t position);
-void entity_damage(entity_t* entity, int amount);
-bool entity_is_adjacent(entity_t a, entity_t b);
-int entity_alive_count(slice_entity_t list, entity_team_t team);
+PUBLIC slice_entity_t entity_list_init(linear_allocator_t *allocator);
+PUBLIC void entity_list_deinit(linear_allocator_t *allocator, slice_entity_t list);
+PUBLIC entity_t* entity_spawn(linear_allocator_t *allocator, slice_entity_t* list, entity_team_t team, position_t position, int hp, int ap, int mp);
+PUBLIC entity_t *entity_find_at(slice_entity_t list, position_t position);
+PUBLIC void entity_damage(entity_t* entity, int amount);
+PUBLIC bool entity_is_adjacent(entity_t a, entity_t b);
+PUBLIC int entity_alive_count(slice_entity_t list, entity_team_t team);
+
+#ifdef APP_UNITY_BUILD
+#include "entity.c"
+#endif

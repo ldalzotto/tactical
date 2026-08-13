@@ -13,7 +13,7 @@
 // it can't seed a static initializer -- these helpers do the same
 // suite-by-suite dispatch at runtime instead of building a lookup table.
 
-static const test_case_t *test_lookup(uint32_t index) {
+PRIVATE const test_case_t *test_lookup(uint32_t index) {
     if (index < g_runtime_tests_count) { return &g_runtime_tests[index]; }
     index -= g_runtime_tests_count;
 

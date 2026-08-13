@@ -6,7 +6,7 @@
 #include "game/layout.h"
 #include "test_game_helpers.h"
 
-static void test_game_entity_pressed_selects_only_the_active_entity(void) {
+PRIVATE void test_game_entity_pressed_selects_only_the_active_entity(void) {
     static char buffer[8192];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -39,7 +39,7 @@ static void test_game_entity_pressed_selects_only_the_active_entity(void) {
     game_deinit(&allocator, game);
 }
 
-static void test_game_entity_pressed_enemy_active_noops(void) {
+PRIVATE void test_game_entity_pressed_enemy_active_noops(void) {
     static char buffer[8192];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -62,7 +62,7 @@ static void test_game_entity_pressed_enemy_active_noops(void) {
     game_deinit(&allocator, game);
 }
 
-static void test_game_end_turn_advances_past_a_harmless_enemy_and_deselects(void) {
+PRIVATE void test_game_end_turn_advances_past_a_harmless_enemy_and_deselects(void) {
     static char buffer[8192];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -101,7 +101,7 @@ static void test_game_end_turn_advances_past_a_harmless_enemy_and_deselects(void
     game_deinit(&allocator, game);
 }
 
-static void test_game_1v1_enemy_death_sets_win_and_freezes_input(void) {
+PRIVATE void test_game_1v1_enemy_death_sets_win_and_freezes_input(void) {
     static char buffer[8192];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -140,7 +140,7 @@ static void test_game_1v1_enemy_death_sets_win_and_freezes_input(void) {
     game_deinit(&allocator, game);
 }
 
-static void test_game_ai_kills_last_player_during_end_turn_sets_lose(void) {
+PRIVATE void test_game_ai_kills_last_player_during_end_turn_sets_lose(void) {
     static char buffer[8192];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -174,7 +174,7 @@ static void test_game_ai_kills_last_player_during_end_turn_sets_lose(void) {
     game_deinit(&allocator, game);
 }
 
-static void test_game_on_input_event_click_in_end_turn_button_behaves_like_end_turn_pressed(void) {
+PRIVATE void test_game_on_input_event_click_in_end_turn_button_behaves_like_end_turn_pressed(void) {
     static char buffer[8192];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -213,7 +213,7 @@ static void test_game_on_input_event_click_in_end_turn_button_behaves_like_end_t
     game_deinit(&allocator, game);
 }
 
-static void test_game_on_input_event_click_on_entity_tile_behaves_like_entity_pressed(void) {
+PRIVATE void test_game_on_input_event_click_on_entity_tile_behaves_like_entity_pressed(void) {
     static char buffer[8192];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);

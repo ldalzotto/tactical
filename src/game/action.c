@@ -1,7 +1,7 @@
 #include "action.h"
 #include "pathing.h"
 
-bool action_try_move(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* entity, position_t target) {
+PUBLIC bool action_try_move(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* entity, position_t target) {
     pathing_state_t pathing = pathing_compute_distances(allocator, grid, entities, entity, entity->position, entity->mp);
 
     int distance = pathing_distance_at(pathing, grid, target);
@@ -18,7 +18,7 @@ bool action_try_move(linear_allocator_t *allocator, grid_t grid, slice_entity_t 
     return true;
 }
 
-bool action_try_attack(entity_t* attacker, entity_t* defender) {
+PUBLIC bool action_try_attack(entity_t* attacker, entity_t* defender) {
 
     if (!attacker->alive || !defender->alive) {
         return false;

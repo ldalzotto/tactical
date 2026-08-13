@@ -5,7 +5,7 @@
 SLICE_DEFINE(uint8_t);
 SLICE_DEFINE(uint32_t);
 
-static void test_byteoffset(void) {
+PRIVATE void test_byteoffset(void) {
     static uint32_t values[4] = { 10, 20, 30, 40 };
 
     uint32_t *third = typeoffset(values, 2);
@@ -13,7 +13,7 @@ static void test_byteoffset(void) {
     assert_test(*third == 30);
 }
 
-static void test_linear_allocator_init(void) {
+PRIVATE void test_linear_allocator_init(void) {
     static char buffer[16];
     slice_t data = { buffer, buffer + sizeof(buffer) };
 
@@ -24,7 +24,7 @@ static void test_linear_allocator_init(void) {
     assert_test(allocator.data.end == data.end);
 }
 
-static void test_linear_allocator_deinit(void) {
+PRIVATE void test_linear_allocator_deinit(void) {
     static char buffer[16];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -34,7 +34,7 @@ static void test_linear_allocator_deinit(void) {
     assert_test(allocator.cursor == allocator.data.begin);
 }
 
-static void test_linear_allocator_deinit_panics_on_leftover_allocation(void) {
+PRIVATE void test_linear_allocator_deinit_panics_on_leftover_allocation(void) {
     static char buffer[16];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -47,7 +47,7 @@ static void test_linear_allocator_deinit_panics_on_leftover_allocation(void) {
     assert_test(expect_panic_end());
 }
 
-static void test_linear_allocator_push(void) {
+PRIVATE void test_linear_allocator_push(void) {
     static char buffer[16];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -61,7 +61,7 @@ static void test_linear_allocator_push(void) {
     LINEAR_ALLOCATOR_POP(&allocator, bytes);
 }
 
-static void test_linear_allocator_push_panics_on_overflow(void) {
+PRIVATE void test_linear_allocator_push_panics_on_overflow(void) {
     static char buffer[4];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -71,7 +71,7 @@ static void test_linear_allocator_push_panics_on_overflow(void) {
     assert_test(expect_panic_end());
 }
 
-static void test_linear_allocator_push_alignment(void) {
+PRIVATE void test_linear_allocator_push_alignment(void) {
     static _Alignas(8) char buffer[16];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -90,7 +90,7 @@ static void test_linear_allocator_push_alignment(void) {
     LINEAR_ALLOCATOR_POP(&allocator, byte);
 }
 
-static void test_linear_allocator_push_alignment_panics_on_non_power_of_two_alignment(void) {
+PRIVATE void test_linear_allocator_push_alignment_panics_on_non_power_of_two_alignment(void) {
     static char buffer[16];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -100,7 +100,7 @@ static void test_linear_allocator_push_alignment_panics_on_non_power_of_two_alig
     assert_test(expect_panic_end());
 }
 
-static void test_linear_allocator_pop(void) {
+PRIVATE void test_linear_allocator_pop(void) {
     static char buffer[16];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -112,7 +112,7 @@ static void test_linear_allocator_pop(void) {
     assert_test(allocator.cursor == allocator.data.begin);
 }
 
-static void test_linear_allocator_pop_panics_on_marker_before_data_begin(void) {
+PRIVATE void test_linear_allocator_pop_panics_on_marker_before_data_begin(void) {
     static char buffer[16];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -124,7 +124,7 @@ static void test_linear_allocator_pop_panics_on_marker_before_data_begin(void) {
     assert_test(expect_panic_end());
 }
 
-static void test_linear_allocator_pop_panics_on_marker_end_mismatch(void) {
+PRIVATE void test_linear_allocator_pop_panics_on_marker_end_mismatch(void) {
     static char buffer[16];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -137,7 +137,7 @@ static void test_linear_allocator_pop_panics_on_marker_end_mismatch(void) {
     assert_test(expect_panic_end());
 }
 
-static void test_linear_allocator_pop_move(void) {
+PRIVATE void test_linear_allocator_pop_move(void) {
     static char buffer[64];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -164,7 +164,7 @@ static void test_linear_allocator_pop_move(void) {
     linear_allocator_pop(&allocator, a.slice);
 }
 
-static void test_linear_allocator_pop_move_panics_on_move_forward(void) {
+PRIVATE void test_linear_allocator_pop_move_panics_on_move_forward(void) {
     static char buffer[64];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -180,7 +180,7 @@ static void test_linear_allocator_pop_move_panics_on_move_forward(void) {
     assert_test(expect_panic_end());
 }
 
-static void test_linear_allocator_pop_move_panics_on_from_not_top_of_stack(void) {
+PRIVATE void test_linear_allocator_pop_move_panics_on_from_not_top_of_stack(void) {
     static char buffer[64];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -196,7 +196,7 @@ static void test_linear_allocator_pop_move_panics_on_from_not_top_of_stack(void)
     assert_test(expect_panic_end());
 }
 
-static void test_slice_at(void) {
+PRIVATE void test_slice_at(void) {
     static uint8_t buffer[4] = { 1, 2, 3, 4 };
     slice_uint8_t s = { .slice = { buffer, buffer + sizeof(buffer) } };
 
@@ -207,7 +207,7 @@ static void test_slice_at(void) {
     assert_test(buffer[1] == 42);
 }
 
-static void test_slice_at_panics_on_non_power_of_two_alignment(void) {
+PRIVATE void test_slice_at_panics_on_non_power_of_two_alignment(void) {
     static uint8_t buffer[8];
     slice_t s = { buffer, buffer + sizeof(buffer) };
 
@@ -216,7 +216,7 @@ static void test_slice_at_panics_on_non_power_of_two_alignment(void) {
     assert_test(expect_panic_end());
 }
 
-static void test_slice_at_panics_on_out_of_bounds(void) {
+PRIVATE void test_slice_at_panics_on_out_of_bounds(void) {
     static uint8_t buffer[4];
     slice_t s = { buffer, buffer + sizeof(buffer) };
 
@@ -225,7 +225,7 @@ static void test_slice_at_panics_on_out_of_bounds(void) {
     assert_test(expect_panic_end());
 }
 
-static void test_slice_at_panics_on_misalignment(void) {
+PRIVATE void test_slice_at_panics_on_misalignment(void) {
     static _Alignas(4) uint8_t buffer[8];
     slice_t s = { buffer, buffer + sizeof(buffer) };
 
@@ -234,7 +234,7 @@ static void test_slice_at_panics_on_misalignment(void) {
     assert_test(expect_panic_end());
 }
 
-static void test_slice_advance(void) {
+PRIVATE void test_slice_advance(void) {
     static uint8_t buffer[4] = { 1, 2, 3, 4 };
     slice_uint8_t s = { .slice = { buffer, buffer + sizeof(buffer) } };
 
@@ -245,7 +245,7 @@ static void test_slice_advance(void) {
     assert_test(SLICE_AT(advanced, 0) == 3);
 }
 
-static void test_slice_advance_panics_on_out_of_bounds(void) {
+PRIVATE void test_slice_advance_panics_on_out_of_bounds(void) {
     static uint8_t buffer[4];
     slice_uint8_t s = { .slice = { buffer, buffer + sizeof(buffer) } };
 
@@ -254,7 +254,7 @@ static void test_slice_advance_panics_on_out_of_bounds(void) {
     assert_test(expect_panic_end());
 }
 
-static void test_bytesize(void) {
+PRIVATE void test_bytesize(void) {
     static uint8_t buffer[7];
     slice_uint8_t s = { .slice = { buffer, buffer + sizeof(buffer) } };
 

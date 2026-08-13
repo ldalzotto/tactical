@@ -14,7 +14,7 @@
 // tile the UI routes to a different handler) has no equivalent test here:
 // there's no click that reaches it.
 
-static void test_game_selecting_entity_computes_reachable_tiles_within_mp_and_moves(void) {
+PRIVATE void test_game_selecting_entity_computes_reachable_tiles_within_mp_and_moves(void) {
     static char buffer[4096];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -60,7 +60,7 @@ static void test_game_selecting_entity_computes_reachable_tiles_within_mp_and_mo
     game_deinit(&allocator, game);
 }
 
-static void test_game_obstacles_block_reachable_tiles_and_movement(void) {
+PRIVATE void test_game_obstacles_block_reachable_tiles_and_movement(void) {
     static char buffer[4096];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -109,7 +109,7 @@ static void test_game_obstacles_block_reachable_tiles_and_movement(void) {
     game_deinit(&allocator, game);
 }
 
-static void test_game_occupied_tile_blocks_corridor_reachability(void) {
+PRIVATE void test_game_occupied_tile_blocks_corridor_reachability(void) {
     static char buffer[4096];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -149,7 +149,7 @@ static void test_game_occupied_tile_blocks_corridor_reachability(void) {
     game_deinit(&allocator, game);
 }
 
-static void test_game_tile_pressed_moves_within_reach_and_consumes_mp(void) {
+PRIVATE void test_game_tile_pressed_moves_within_reach_and_consumes_mp(void) {
     static char buffer[8192];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -176,7 +176,7 @@ static void test_game_tile_pressed_moves_within_reach_and_consumes_mp(void) {
     game_deinit(&allocator, game);
 }
 
-static void test_game_tile_pressed_noops_on_unreachable_tile(void) {
+PRIVATE void test_game_tile_pressed_noops_on_unreachable_tile(void) {
     static char buffer[8192];
     slice_t data = { buffer, buffer + sizeof(buffer) };
     linear_allocator_t allocator = linear_allocator_init(data);

@@ -7,8 +7,13 @@
     "build:verbose": "node server/build.js --verbose",
     "build:release": "node server/build.js --release",
     "build:release:verbose": "node server/build.js --release --verbose",
+    "build:unity": "node server/build.js --unity",
+    "build:unity:release": "node server/build.js --unity --release",
+    "build:with-tests": "node server/build.js --tests",
     "start": "node server/server.js",
     "start:release": "node server/server.js --release",
-    "test": "npm run build && node server/run-tests.js"
+    "start:unity": "node server/server.js --unity",
+    "start:unity:release": "node server/server.js --unity --release",
+    "test": "npm run build:with-tests && node server/run-tests.js"
   }
 }

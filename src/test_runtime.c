@@ -2,11 +2,11 @@
 #include "lib/assert.h"
 #include "lib/runtime.h"
 
-static void test_pass_example(void) {
+PRIVATE void test_pass_example(void) {
     assert_test(1 + 1 == 2);
 }
 
-static void test_fail_example(void) {
+PRIVATE void test_fail_example(void) {
     expect_panic_begin();
     assert_test(1 + 1 == 3);
     assert_test(expect_panic_end());
@@ -18,7 +18,7 @@ static void test_fail_example(void) {
     assert_test(1 + 1 == 2);
 }
 
-static void test_input_event_layout(void) {
+PRIVATE void test_input_event_layout(void) {
     assert_test(sizeof(input_event_t) == 12);
 
     static input_event_t events[2];

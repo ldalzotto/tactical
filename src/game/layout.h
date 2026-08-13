@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../lib/linkage.h"
+
 #include <stdbool.h>
 
 #include "ui.h"
@@ -13,6 +15,10 @@ typedef struct {
     rect_t timeline_rect;
 } viewport_t;
 
-viewport_t layout_compute(int fb_width, int fb_height, int grid_width, int grid_height, int hud_height);
-bool screen_to_grid(viewport_t v, int screen_x, int screen_y, int *out_tx, int *out_ty);
-void grid_to_screen(viewport_t v, int tx, int ty, int *out_px, int *out_py);
+PUBLIC viewport_t layout_compute(int fb_width, int fb_height, int grid_width, int grid_height, int hud_height);
+PUBLIC bool screen_to_grid(viewport_t v, int screen_x, int screen_y, int *out_tx, int *out_ty);
+PUBLIC void grid_to_screen(viewport_t v, int tx, int ty, int *out_px, int *out_py);
+
+#ifdef APP_UNITY_BUILD
+#include "layout.c"
+#endif

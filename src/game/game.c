@@ -9,7 +9,7 @@
 // In the future, grow/shrink this region on demand instead of a flat guess.
 #define GAME_SCRATCH_CAPACITY 256
 
-static void game_check_game_over(game_state_t *game) {
+PRIVATE void game_check_game_over(game_state_t *game) {
     if (game->game_over != GAME_OVER_NONE) {
         return;
     }
@@ -24,7 +24,7 @@ static void game_check_game_over(game_state_t *game) {
     }
 }
 
-game_state_t game_init(linear_allocator_t *allocator, slice_t grid_align, grid_t grid, slice_t entity_list_align, slice_entity_t entities, slice_t turn_order_align, slice_entity_ptr_t turn_order, int fb_width, int fb_height, int hud_height) {
+PUBLIC game_state_t game_init(linear_allocator_t *allocator, slice_t grid_align, grid_t grid, slice_t entity_list_align, slice_entity_t entities, slice_t turn_order_align, slice_entity_ptr_t turn_order, int fb_width, int fb_height, int hud_height) {
     assert_debug((void*)entities.begin >= (void*)grid.tiles.end);
     assert_debug((void*)turn_order.begin >= (void*)entities.end);
 
@@ -56,7 +56,7 @@ game_state_t game_init(linear_allocator_t *allocator, slice_t grid_align, grid_t
     return game;
 }
 
-void game_deinit(linear_allocator_t *allocator, game_state_t state) {
+PUBLIC void game_deinit(linear_allocator_t *allocator, game_state_t state) {
     LINEAR_ALLOCATOR_POP(&state.scratch, state.render.reachable_tiles);
     linear_allocator_pop(&state.scratch, state.render.reachable_align);
     linear_allocator_deinit(&state.scratch);
@@ -69,7 +69,7 @@ void game_deinit(linear_allocator_t *allocator, game_state_t state) {
     linear_allocator_pop(allocator, state.grid_align);
 }
 
-static bool game_tile_is_reachable(pathing_state_t pathing, grid_t grid, position_t position, int mp) {
+PRIVATE bool game_tile_is_reachable(pathing_state_t pathing, grid_t grid, position_t position, int mp) {
     int dist = pathing_distance_at(pathing, grid, position);
     return dist > 0 && dist <= mp;
 }
@@ -82,7 +82,7 @@ static bool game_tile_is_reachable(pathing_state_t pathing, grid_t grid, positio
 // the new one needs (counted in a first pass over the grid, filled in a
 // second), aligning right before that push -- so no alignment padding sits
 // in scratch while nothing is selected.
-static void game_refresh_reachable_render(game_state_t *game, linear_allocator_t *allocator) {
+PRIVATE void game_refresh_reachable_render(game_state_t *game, linear_allocator_t *allocator) {
     LINEAR_ALLOCATOR_POP(&game->scratch, game->render.reachable_tiles);
     linear_allocator_pop(&game->scratch, game->render.reachable_align);
 
@@ -124,7 +124,7 @@ static void game_refresh_reachable_render(game_state_t *game, linear_allocator_t
 // Advances the cursor past the entity that just finished acting, then lets
 // the AI play out every consecutive enemy turn until either a player entity
 // becomes active or the game ends.
-static void game_advance_turn(game_state_t *game, linear_allocator_t *allocator) {
+PRIVATE void game_advance_turn(game_state_t *game, linear_allocator_t *allocator) {
     game->turn = turn_advance(game->turn);
     game->selected_entity = 0;
     game_refresh_reachable_render(game, allocator);
@@ -145,7 +145,7 @@ static void game_advance_turn(game_state_t *game, linear_allocator_t *allocator)
     }
 }
 
-static void game_on_entity_pressed(game_state_t *game, linear_allocator_t *allocator, entity_t* entity) {
+PRIVATE void game_on_entity_pressed(game_state_t *game, linear_allocator_t *allocator, entity_t* entity) {
     assert_debug(game->game_over == GAME_OVER_NONE);
     assert_debug(entity != 0);
     assert_debug(entity->alive);
@@ -183,7 +183,7 @@ static void game_on_entity_pressed(game_state_t *game, linear_allocator_t *alloc
     }
 }
 
-static void game_on_tile_pressed(game_state_t *game, linear_allocator_t *allocator, position_t target) {
+PRIVATE void game_on_tile_pressed(game_state_t *game, linear_allocator_t *allocator, position_t target) {
     assert_debug(game->game_over == GAME_OVER_NONE);
     entity_t *active = turn_active_entity(game->turn);
     if (active->team != ENTITY_TEAM_PLAYER) {
@@ -202,7 +202,7 @@ static void game_on_tile_pressed(game_state_t *game, linear_allocator_t *allocat
     }
 }
 
-static void game_on_end_turn_pressed(game_state_t *game, linear_allocator_t *allocator) {
+PRIVATE void game_on_end_turn_pressed(game_state_t *game, linear_allocator_t *allocator) {
     assert_debug(game->game_over == GAME_OVER_NONE);
     entity_t *active = turn_active_entity(game->turn);
     if (active->team != ENTITY_TEAM_PLAYER) {
@@ -212,7 +212,7 @@ static void game_on_end_turn_pressed(game_state_t *game, linear_allocator_t *all
     game_advance_turn(game, allocator);
 }
 
-void game_on_input_event(game_state_t *game, linear_allocator_t *allocator, input_event_t event) {
+PUBLIC void game_on_input_event(game_state_t *game, linear_allocator_t *allocator, input_event_t event) {
     if (game->game_over != GAME_OVER_NONE) {
         return;
     }

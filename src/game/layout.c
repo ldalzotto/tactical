@@ -1,10 +1,10 @@
 #include "layout.h"
 
-static int layout_min(int a, int b) {
+PRIVATE int layout_min(int a, int b) {
     return a < b ? a : b;
 }
 
-viewport_t layout_compute(int fb_width, int fb_height, int grid_width, int grid_height, int hud_height) {
+PUBLIC viewport_t layout_compute(int fb_width, int fb_height, int grid_width, int grid_height, int hud_height) {
     int tile_size = layout_min(fb_width / grid_width, (fb_height - hud_height) / grid_height);
 
     rect_t hud_rect = {
@@ -45,7 +45,7 @@ viewport_t layout_compute(int fb_width, int fb_height, int grid_width, int grid_
     return viewport;
 }
 
-bool screen_to_grid(viewport_t v, int screen_x, int screen_y, int *out_tx, int *out_ty) {
+PUBLIC bool screen_to_grid(viewport_t v, int screen_x, int screen_y, int *out_tx, int *out_ty) {
     int viewport_width = v.grid_width * v.tile_size;
     int viewport_height = v.grid_height * v.tile_size;
     rect_t viewport_rect = (rect_t){v.origin_x, v.origin_y, viewport_width, viewport_height};
@@ -58,7 +58,7 @@ bool screen_to_grid(viewport_t v, int screen_x, int screen_y, int *out_tx, int *
     return true;
 }
 
-void grid_to_screen(viewport_t v, int tx, int ty, int *out_px, int *out_py) {
+PUBLIC void grid_to_screen(viewport_t v, int tx, int ty, int *out_px, int *out_py) {
     *out_px = v.origin_x + tx * v.tile_size;
     *out_py = v.origin_y + ty * v.tile_size;
 }

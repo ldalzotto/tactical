@@ -1,10 +1,12 @@
 const { spawn } = require('node:child_process');
 const path = require('node:path');
 
-function runBuild({ cwd, stdio = 'inherit', release = false, verbose = false } = {}) {
+function runBuild({ cwd, stdio = 'inherit', release = false, unity = false, tests = false, verbose = false } = {}) {
     return new Promise((resolve, reject) => {
         const args = [path.join(__dirname, 'build.js')];
         if (release) args.push('--release');
+        if (unity) args.push('--unity');
+        if (tests) args.push('--tests');
         if (verbose) args.push('--verbose');
         const proc = spawn('node', args, { cwd, stdio });
 

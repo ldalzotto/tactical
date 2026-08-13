@@ -2,17 +2,17 @@
 
 #include "../lib/assert.h"
 
-slice_entity_ptr_t turn_order_init(linear_allocator_t *allocator) {
+PUBLIC slice_entity_ptr_t turn_order_init(linear_allocator_t *allocator) {
     slice_entity_ptr_t order;
     order = LINEAR_ALLOCATOR_PUSH(allocator, order, 0);
     return order;
 }
 
-void turn_order_deinit(linear_allocator_t *allocator, slice_entity_ptr_t order) {
+PUBLIC void turn_order_deinit(linear_allocator_t *allocator, slice_entity_ptr_t order) {
     LINEAR_ALLOCATOR_POP(allocator, order);
 }
 
-void turn_order_add(linear_allocator_t *allocator, slice_entity_ptr_t *order, entity_t *entity) {
+PUBLIC void turn_order_add(linear_allocator_t *allocator, slice_entity_ptr_t *order, entity_t *entity) {
     // Same append-in-place discipline as entity_spawn: only allowed right
     // after the previous add, with nothing else pushed in between.
     assert_debug(allocator->cursor == order->end);
@@ -24,22 +24,22 @@ void turn_order_add(linear_allocator_t *allocator, slice_entity_ptr_t *order, en
     order->end = entry.end;
 }
 
-static void turn_reset_points(entity_t *entity) {
+PRIVATE void turn_reset_points(entity_t *entity) {
     entity->ap = entity->max_ap;
     entity->mp = entity->max_mp;
 }
 
-turn_state_t turn_init(slice_entity_ptr_t order) {
+PUBLIC turn_state_t turn_init(slice_entity_ptr_t order) {
     turn_state_t state = { .order = order, .capacity = order, .cursor = 0 };
     turn_reset_points(turn_active_entity(state));
     return state;
 }
 
-entity_t* turn_active_entity(turn_state_t state) {
+PUBLIC entity_t* turn_active_entity(turn_state_t state) {
     return SLICE_AT(state.order, state.cursor);
 }
 
-turn_state_t turn_advance(turn_state_t state) {
+PUBLIC turn_state_t turn_advance(turn_state_t state) {
     int count = (int)SLICE_TYPESIZE(state.order);
     assert_debug(count > 0);
     state.cursor = (state.cursor + 1) % count;
@@ -47,7 +47,7 @@ turn_state_t turn_advance(turn_state_t state) {
     return state;
 }
 
-turn_state_t turn_remove_dead_entities(turn_state_t state) {
+PUBLIC turn_state_t turn_remove_dead_entities(turn_state_t state) {
     entity_t *active = turn_active_entity(state);
 
     slice_entity_ptr_t write = state.order;
