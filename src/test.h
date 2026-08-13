@@ -3,6 +3,8 @@
 #include "lib/memory.h"
 #include <stdint.h>
 
+#define TEST_NAME(str) (slice_t){ .begin = (void *)(str), .end = (void *)((str) + sizeof(str) - 1) }
+
 typedef void (*test_fn_t)(void);
 
 typedef struct {

@@ -49,7 +49,17 @@ set(APP_SOURCES
 )
 
 if(APP_BUILD_TESTS)
-    list(APPEND APP_SOURCES src/test.c)
+    list(APPEND APP_SOURCES
+        src/test.c
+        src/test_runtime.c
+        src/test_memory.c
+        src/test_layout.c
+        src/test_game_movement.c
+        src/test_game_combat.c
+        src/test_game_ai.c
+        src/test_game_selection.c
+        src/test_scenario.c
+    )
 endif()
 
 add_executable(app ${APP_SOURCES})
