@@ -27,3 +27,9 @@ static inline void test_click_end_turn(game_state_t *game, linear_allocator_t *a
     input_event_t click = { .type = INPUT_EVENT_MOUSE_CLICK, .x = button.x + 1, .y = button.y + 1 };
     game_on_input_event(game, allocator, click);
 }
+
+static inline void test_click_attack_toggle(game_state_t *game, linear_allocator_t *allocator) {
+    rect_t button = game->viewport.attack_button;
+    input_event_t click = { .type = INPUT_EVENT_MOUSE_CLICK, .x = button.x + 1, .y = button.y + 1 };
+    game_on_input_event(game, allocator, click);
+}

@@ -26,6 +26,10 @@ typedef struct {
                                         // at the current scratch cursor when it's empty
     slice_position_t reachable_tiles;  // tiles the selected entity can currently reach; length is
                                         // resliced on each recompute to reflect the live count
+    slice_t attack_range_align;        // same alignment-marker pattern as reachable_align, but for
+                                        // attack_range_tiles; always the topmost region in scratch
+    slice_position_t attack_range_tiles; // tiles within the selected entity's skill range, populated
+                                          // only while attack_mode is on; empty otherwise
 } game_render_cache_t;
 
 typedef struct {
@@ -37,6 +41,8 @@ typedef struct {
     turn_state_t turn;
     viewport_t viewport;
     entity_t* selected_entity; // 0 if none
+    bool attack_mode;          // when on, entity_pressed on an enemy attempts an attack instead
+                                // of being a no-op; renderer shows render.attack_range_tiles
     position_t hover;
     bool hover_valid;
     game_over_t game_over;

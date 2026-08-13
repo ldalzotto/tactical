@@ -9,6 +9,7 @@ static const rgba_t COLOR_TILE_WALKABLE_INSET = { 60, 60, 60, 255 };
 static const rgba_t COLOR_TILE_OBSTACLE = { 10, 10, 10, 255 };
 static const rgba_t COLOR_TILE_OBSTACLE_INSET = { 30, 30, 30, 255 };
 static const rgba_t COLOR_REACHABLE_TINT = { 80, 140, 220, 255 };
+static const rgba_t COLOR_ATTACK_RANGE_TINT = { 230, 140, 60, 255 };
 static const rgba_t COLOR_WHITE = { 255, 255, 255, 255 };
 static const rgba_t COLOR_PLAYER = { 60, 120, 255, 255 };
 static const rgba_t COLOR_ENEMY = { 220, 60, 60, 255 };
@@ -17,6 +18,9 @@ static const rgba_t COLOR_HP_FG = { 60, 200, 60, 255 };
 static const rgba_t COLOR_HUD_BG = { 20, 20, 20, 255 };
 static const rgba_t COLOR_END_TURN_ACTIVE = { 60, 200, 60, 255 };
 static const rgba_t COLOR_END_TURN_INACTIVE = { 80, 80, 80, 255 };
+static const rgba_t COLOR_ATTACK_BUTTON_ON = { 220, 60, 60, 255 };
+static const rgba_t COLOR_ATTACK_BUTTON_AVAILABLE = { 230, 140, 60, 255 };
+static const rgba_t COLOR_ATTACK_BUTTON_INACTIVE = { 80, 80, 80, 255 };
 static const rgba_t COLOR_AP_PIP = { 60, 120, 255, 255 };
 static const rgba_t COLOR_MP_PIP = { 60, 200, 60, 255 };
 static const rgba_t COLOR_WIN = { 0, 200, 0, 255 };
@@ -55,6 +59,14 @@ PRIVATE void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
         grid_to_screen(game.viewport, tile.x, tile.y, &px, &py);
         int ts = game.viewport.tile_size;
         graphics_draw_rectangle(fb, fb_width, px, py, ts, ts, COLOR_REACHABLE_TINT);
+    }
+
+    for (SLICE_FOREACH(game.render.attack_range_tiles, tile_s)) {
+        position_t tile = SLICE_DEREF(tile_s);
+        int px, py;
+        grid_to_screen(game.viewport, tile.x, tile.y, &px, &py);
+        int ts = game.viewport.tile_size;
+        graphics_draw_rectangle(fb, fb_width, px, py, ts, ts, COLOR_ATTACK_RANGE_TINT);
     }
 
     if (game.hover_valid) {
@@ -145,6 +157,17 @@ PRIVATE void render_hud(slice_rgba_t fb, int fb_width, game_state_t game) {
     rect_t button = game.viewport.end_turn_button;
     rgba_t button_color = (active->team == ENTITY_TEAM_PLAYER) ? COLOR_END_TURN_ACTIVE : COLOR_END_TURN_INACTIVE;
     graphics_draw_rectangle(fb, fb_width, button.x, button.y, button.width, button.height, button_color);
+
+    rect_t attack_button = game.viewport.attack_button;
+    rgba_t attack_button_color;
+    if (active->team != ENTITY_TEAM_PLAYER || game.selected_entity == 0) {
+        attack_button_color = COLOR_ATTACK_BUTTON_INACTIVE;
+    } else if (game.attack_mode) {
+        attack_button_color = COLOR_ATTACK_BUTTON_ON;
+    } else {
+        attack_button_color = COLOR_ATTACK_BUTTON_AVAILABLE;
+    }
+    graphics_draw_rectangle(fb, fb_width, attack_button.x, attack_button.y, attack_button.width, attack_button.height, attack_button_color);
 
     if (game.selected_entity == 0) {
         return;

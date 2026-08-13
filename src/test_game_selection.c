@@ -106,6 +106,7 @@ PRIVATE void test_game_1v1_enemy_death_sets_win_and_freezes_input(linear_allocat
     game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
     test_click_tile(&game, allocator, e->position);
 
     assert_test(!e->alive);

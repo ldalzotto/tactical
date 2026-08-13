@@ -24,6 +24,7 @@ PRIVATE void test_game_attack_kills_defender_clamps_hp_and_frees_tile_for_moveme
     game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, 320, 240, 40);
 
     test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
     test_click_tile(&game, allocator, e->position);
 
     // Attack damage (5) exceeds e's hp (3): hp clamps to 0, not negative.
@@ -64,6 +65,9 @@ PRIVATE void test_game_entity_pressed_diagonal_and_far_enemy_attack_noop(linear_
     test_click_tile(&game, allocator, p->position);
     assert_test(game.selected_entity == p);
 
+    test_click_attack_toggle(&game, allocator);
+    assert_test(game.attack_mode);
+
     // Diagonal doesn't count as adjacent: pressing it is a no-op.
     test_click_tile(&game, allocator, diagonal->position);
     assert_test(p->ap == 2);
@@ -95,6 +99,7 @@ PRIVATE void test_game_turn_order_compacts_when_non_active_entity_dies_during_at
     game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, 320, 240, 40);
 
     test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
     test_click_tile(&game, allocator, c->position);
 
     assert_test(!c->alive);
@@ -124,11 +129,15 @@ PRIVATE void test_game_entity_pressed_adjacent_enemy_attacks_then_noops_when_ap_
     test_click_tile(&game, allocator, p->position);
     assert_test(game.selected_entity == p);
 
+    test_click_attack_toggle(&game, allocator);
     test_click_tile(&game, allocator, e->position);
     assert_test(p->ap == 0);
     assert_test(e->hp == 5);
     assert_test(e->alive);
+    // A successful attack closes attack mode automatically.
+    assert_test(!game.attack_mode);
 
+    test_click_attack_toggle(&game, allocator);
     test_click_tile(&game, allocator, e->position);
     assert_test(p->ap == 0);
     assert_test(e->hp == 5);
@@ -153,6 +162,8 @@ PRIVATE void test_game_ranged_attack_hits_at_max_range_without_moving(linear_all
 
     test_click_tile(&game, allocator, p->position);
     assert_test(game.selected_entity == p);
+
+    test_click_attack_toggle(&game, allocator);
 
     // e sits exactly 3 tiles away (SKILL_RANGED.range): reachable without moving.
     test_click_tile(&game, allocator, e->position);
@@ -180,6 +191,7 @@ PRIVATE void test_game_ranged_attack_noop_beyond_range(linear_allocator_t *alloc
     game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, 320, 240, 40);
 
     test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
 
     // e sits 4 tiles away, one beyond SKILL_RANGED.range (3): out of reach.
     test_click_tile(&game, allocator, e->position);
@@ -208,6 +220,7 @@ PRIVATE void test_game_ranged_attack_blocked_by_unit_in_path(linear_allocator_t 
     game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, 320, 240, 40);
 
     test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
 
     // e is within range (3), but blocker occupies the only tile on the
     // straight-line path (height-1 grid, no way around): unreachable.
@@ -220,6 +233,39 @@ PRIVATE void test_game_ranged_attack_blocked_by_unit_in_path(linear_allocator_t 
     game_deinit(allocator, game);
 }
 
+PRIVATE void test_game_attack_toggle_after_move_selection_does_not_overflow_scratch(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    // Centered with room to spare in every direction, and mp == SKILL_RANGED.range (3),
+    // so both diamonds are the same, uncropped, maximum size.
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){8, 5}, 10, 2, 3, SKILL_RANGED);
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+
+    // Selecting first populates render.reachable_tiles (mp=3, a ~24-tile
+    // diamond) in game->scratch.
+    test_click_tile(&game, allocator, p->position);
+    assert_test(SLICE_TYPESIZE(game.render.reachable_tiles) > 0);
+
+    // Toggling attack mode next pushes a same-sized attack_range_tiles
+    // diamond (skill.range=3) *on top of* the still-live reachable_tiles --
+    // both caches have to coexist in scratch at once.
+    expect_panic_begin();
+    test_click_attack_toggle(&game, allocator);
+    assert_test(!expect_panic_end());
+
+    assert_test(game.attack_mode);
+    assert_test(SLICE_TYPESIZE(game.render.attack_range_tiles) > 0);
+
+    game_deinit(allocator, game);
+}
+
 const test_case_t g_game_combat_tests[] = {
     { TEST_NAME("game_attack_kills_defender_clamps_hp_and_frees_tile_for_movement"), test_game_attack_kills_defender_clamps_hp_and_frees_tile_for_movement },
     { TEST_NAME("game_entity_pressed_diagonal_and_far_enemy_attack_noop"), test_game_entity_pressed_diagonal_and_far_enemy_attack_noop },
@@ -228,6 +274,7 @@ const test_case_t g_game_combat_tests[] = {
     { TEST_NAME("game_ranged_attack_hits_at_max_range_without_moving"), test_game_ranged_attack_hits_at_max_range_without_moving },
     { TEST_NAME("game_ranged_attack_noop_beyond_range"), test_game_ranged_attack_noop_beyond_range },
     { TEST_NAME("game_ranged_attack_blocked_by_unit_in_path"), test_game_ranged_attack_blocked_by_unit_in_path },
+    { TEST_NAME("game_attack_toggle_after_move_selection_does_not_overflow_scratch"), test_game_attack_toggle_after_move_selection_does_not_overflow_scratch },
 };
 
 const uint32_t g_game_combat_tests_count = sizeof(g_game_combat_tests) / sizeof(g_game_combat_tests[0]);
