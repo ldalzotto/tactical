@@ -115,7 +115,7 @@ async function runWasmTests({ wasmBytes, resolveFrames, onResult, onComplete, cr
         const fn = test_discovery_fn_at(i);
 
         try {
-            test_run(fn);
+            test_run(fn, memory.buffer.byteLength);
             passed++;
             onResult({ name, passed: true });
         } catch (err) {

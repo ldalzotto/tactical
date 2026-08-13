@@ -3,12 +3,8 @@
 #include "game/scenario.h"
 #include "test_game_helpers.h"
 
-PRIVATE void test_scenario_setup_default_populates_map_and_units(void) {
-    static char buffer[8192];
-    slice_t data = { buffer, buffer + sizeof(buffer) };
-    linear_allocator_t allocator = linear_allocator_init(data);
-
-    game_state_t game = scenario_setup_default(&allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+PRIVATE void test_scenario_setup_default_populates_map_and_units(linear_allocator_t *allocator) {
+    game_state_t game = scenario_setup_default(allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     assert_test(SLICE_TYPESIZE(game.entities) == 6);
 
@@ -58,7 +54,7 @@ PRIVATE void test_scenario_setup_default_populates_map_and_units(void) {
     }
     assert_test(turn_active_entity(game.turn) == &SLICE_AT(game.entities, 0));
 
-    game_deinit(&allocator, game);
+    game_deinit(allocator, game);
 }
 
 const test_case_t g_scenario_tests[] = {

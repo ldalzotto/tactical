@@ -2,7 +2,8 @@
 #include "lib/assert.h"
 #include "game/layout.h"
 
-PRIVATE void test_layout_compute_defaults(void) {
+PRIVATE void test_layout_compute_defaults(linear_allocator_t *allocator) {
+    (void)allocator;
     viewport_t v = layout_compute(320, 240, 16, 10, 40);
 
     assert_test(v.origin_x == 0);
@@ -22,7 +23,8 @@ PRIVATE void test_layout_compute_defaults(void) {
     assert_test(v.end_turn_button.height == 20);
 }
 
-PRIVATE void test_point_in_rect(void) {
+PRIVATE void test_point_in_rect(linear_allocator_t *allocator) {
+    (void)allocator;
     rect_t r = { .x = 10, .y = 20, .width = 5, .height = 8 };
 
     assert_test(point_in_rect(r, 10, 20));
@@ -33,7 +35,8 @@ PRIVATE void test_point_in_rect(void) {
     assert_test(!point_in_rect(r, 10, 19));
 }
 
-PRIVATE void test_screen_to_grid_corners(void) {
+PRIVATE void test_screen_to_grid_corners(linear_allocator_t *allocator) {
+    (void)allocator;
     viewport_t v = layout_compute(320, 240, 16, 10, 40);
 
     int tx, ty;
@@ -50,7 +53,8 @@ PRIVATE void test_screen_to_grid_corners(void) {
     assert_test(!screen_to_grid(v, v.hud_rect.x + 1, v.hud_rect.y + 1, &tx, &ty));
 }
 
-PRIVATE void test_grid_to_screen_round_trips_with_screen_to_grid(void) {
+PRIVATE void test_grid_to_screen_round_trips_with_screen_to_grid(linear_allocator_t *allocator) {
+    (void)allocator;
     viewport_t v = layout_compute(320, 240, 16, 10, 40);
 
     for (int ty = 0; ty < v.grid_height; ty++) {

@@ -1,5 +1,6 @@
 #include "test.h"
 #include "lib/assert.h"
+#include "lib/runtime.h"
 #include "test_runtime.h"
 #include "test_memory.h"
 #include "test_layout.h"
@@ -69,7 +70,13 @@ test_fn_t test_discovery_fn_at(uint32_t index) {
 }
 
 __attribute__((export_name("test_run")))
-void test_run(test_fn_t fn) {
+void test_run(test_fn_t fn, uint32_t memory_size) {
     expect_panic_end();
-    fn();
+
+    slice_t data = { heap_base(), byteoffset(heap_base(), (ptrdiff_t)memory_size) };
+    linear_allocator_t allocator = linear_allocator_init(data);
+
+    fn(&allocator);
+
+    linear_allocator_deinit(&allocator);
 }

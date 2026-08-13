@@ -5,7 +5,7 @@
 
 #define TEST_NAME(str) (slice_t){ .begin = (void *)(str), .end = (void *)((str) + sizeof(str) - 1) }
 
-typedef void (*test_fn_t)(void);
+typedef void (*test_fn_t)(linear_allocator_t *allocator);
 
 typedef struct {
     slice_t name;
@@ -17,7 +17,7 @@ const char *test_discovery_name_begin(uint32_t index);
 const char *test_discovery_name_end(uint32_t index);
 test_fn_t test_discovery_fn_at(uint32_t index);
 
-void test_run(test_fn_t fn);
+void test_run(test_fn_t fn, uint32_t memory_size);
 
 #ifdef APP_UNITY_BUILD
 #include "test.c"
