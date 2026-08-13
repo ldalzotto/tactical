@@ -1,6 +1,7 @@
 #include "ai.h"
 
 #include "action.h"
+#include "pathing.h"
 
 /*
     Distance from the BFS root to a tile adjacent to `position`.
