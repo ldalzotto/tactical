@@ -20,16 +20,21 @@ typedef enum {
 
 // Data derived purely for rendering, cached so render_frame never has to
 // recompute it per frame.
+// reachable_tiles and attack_range_tiles are mutually exclusive: exactly one
+// of the two is ever populated at a time (the other is kept nullified),
+// matching the move/attack toggle -- so scratch only ever holds one live
+// tile cache.
 typedef struct {
     slice_t reachable_align;           // alignment padding pushed into scratch right before
                                         // reachable_tiles, when it's non-empty; zero-length marker
                                         // at the current scratch cursor when it's empty
     slice_position_t reachable_tiles;  // tiles the selected entity can currently reach; length is
-                                        // resliced on each recompute to reflect the live count
+                                        // resliced on each recompute to reflect the live count;
+                                        // nullified while attack_mode is on
     slice_t attack_range_align;        // same alignment-marker pattern as reachable_align, but for
                                         // attack_range_tiles; always the topmost region in scratch
     slice_position_t attack_range_tiles; // tiles within the selected entity's skill range, populated
-                                          // only while attack_mode is on; empty otherwise
+                                          // only while attack_mode is on; nullified otherwise
 } game_render_cache_t;
 
 typedef struct {

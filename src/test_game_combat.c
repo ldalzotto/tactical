@@ -252,16 +252,60 @@ PRIVATE void test_game_attack_toggle_after_move_selection_does_not_overflow_scra
     // diamond) in game->scratch.
     test_click_tile(&game, allocator, p->position);
     assert_test(SLICE_TYPESIZE(game.render.reachable_tiles) > 0);
+    assert_test(SLICE_TYPESIZE(game.render.attack_range_tiles) == 0);
 
-    // Toggling attack mode next pushes a same-sized attack_range_tiles
-    // diamond (skill.range=3) *on top of* the still-live reachable_tiles --
-    // both caches have to coexist in scratch at once.
+    // Toggling attack mode next computes a same-sized attack_range_tiles
+    // diamond (skill.range=3). reachable_tiles and attack_range_tiles are
+    // mutually exclusive, so reachable_tiles must be nullified first --
+    // scratch never has to fit both diamonds at once.
     expect_panic_begin();
     test_click_attack_toggle(&game, allocator);
     assert_test(!expect_panic_end());
 
     assert_test(game.attack_mode);
     assert_test(SLICE_TYPESIZE(game.render.attack_range_tiles) > 0);
+    assert_test(SLICE_TYPESIZE(game.render.reachable_tiles) == 0);
+
+    // Toggling back off restores reachable_tiles and nullifies attack_range_tiles.
+    test_click_attack_toggle(&game, allocator);
+    assert_test(!game.attack_mode);
+    assert_test(SLICE_TYPESIZE(game.render.reachable_tiles) > 0);
+    assert_test(SLICE_TYPESIZE(game.render.attack_range_tiles) == 0);
+
+    game_deinit(allocator, game);
+}
+
+PRIVATE void test_game_selecting_shows_reachable_tiles_and_toggle_shows_attack_range_tiles(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    // mp (1) is well short of SKILL_RANGED.range (3), so a tile 3 steps away
+    // is within skill range but unambiguously out of move range.
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){5, 5}, 10, 2, 1, SKILL_RANGED);
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+
+    position_t adjacent_tile = { 6, 5 };  // 1 tile away: within mp, within skill range
+    position_t far_tile = { 8, 5 };       // 3 tiles away: within skill range, beyond mp
+
+    // Pressing the entity selects it: reachable tiles (move range) become
+    // visible, attack range tiles stay hidden.
+    test_click_tile(&game, allocator, p->position);
+    assert_test(test_tile_list_contains(game.render.reachable_tiles, adjacent_tile));
+    assert_test(!test_tile_list_contains(game.render.reachable_tiles, far_tile));
+    assert_test(SLICE_TYPESIZE(game.render.attack_range_tiles) == 0);
+
+    // Pressing the attack toggle flips visibility: attack range tiles (skill
+    // range) become visible, reachable tiles are hidden.
+    test_click_attack_toggle(&game, allocator);
+    assert_test(test_tile_list_contains(game.render.attack_range_tiles, adjacent_tile));
+    assert_test(test_tile_list_contains(game.render.attack_range_tiles, far_tile));
+    assert_test(SLICE_TYPESIZE(game.render.reachable_tiles) == 0);
 
     game_deinit(allocator, game);
 }
@@ -275,6 +319,7 @@ const test_case_t g_game_combat_tests[] = {
     { TEST_NAME("game_ranged_attack_noop_beyond_range"), test_game_ranged_attack_noop_beyond_range },
     { TEST_NAME("game_ranged_attack_blocked_by_unit_in_path"), test_game_ranged_attack_blocked_by_unit_in_path },
     { TEST_NAME("game_attack_toggle_after_move_selection_does_not_overflow_scratch"), test_game_attack_toggle_after_move_selection_does_not_overflow_scratch },
+    { TEST_NAME("game_selecting_shows_reachable_tiles_and_toggle_shows_attack_range_tiles"), test_game_selecting_shows_reachable_tiles_and_toggle_shows_attack_range_tiles },
 };
 
 const uint32_t g_game_combat_tests_count = sizeof(g_game_combat_tests) / sizeof(g_game_combat_tests[0]);
