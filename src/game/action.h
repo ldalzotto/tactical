@@ -13,11 +13,12 @@
 // skip_entity = mover).
 PUBLIC bool action_try_move(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* entity, position_t target);
 
-// True on success: attacker ap -= attacker->skill.ap_cost, defender takes
-// attacker->skill.damage via entity_damage. False, no mutation, if:
+// True on success: attacker ap -= entity_active_skill(attacker).ap_cost, defender
+// takes entity_active_skill(attacker).damage via entity_damage. False, no
+// mutation, if:
 // - either entity is dead, or same team
-// - attacker.ap < attacker->skill.ap_cost
-// - defender out of attacker->skill.range (via skill_target_in_range)
+// - attacker.ap < entity_active_skill(attacker).ap_cost
+// - defender out of entity_active_skill(attacker).range (via skill_target_in_range)
 PUBLIC bool action_try_attack(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* attacker, entity_t* defender);
 
 #ifdef APP_UNITY_BUILD

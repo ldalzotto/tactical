@@ -29,7 +29,9 @@ PUBLIC bool action_try_attack(linear_allocator_t *allocator, grid_t grid, slice_
         return false;
     }
 
-    if (attacker->ap < attacker->skill.ap_cost) {
+    skill_t skill = entity_active_skill(attacker);
+
+    if (attacker->ap < skill.ap_cost) {
         return false;
     }
 
@@ -37,8 +39,8 @@ PUBLIC bool action_try_attack(linear_allocator_t *allocator, grid_t grid, slice_
         return false;
     }
 
-    attacker->ap -= attacker->skill.ap_cost;
-    entity_damage(defender, attacker->skill.damage);
+    attacker->ap -= skill.ap_cost;
+    entity_damage(defender, skill.damage);
 
     return true;
 }
