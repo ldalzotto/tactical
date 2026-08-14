@@ -102,7 +102,7 @@ function buildImportObject({ createWindow, presentWindow, debugLog, reportPanic 
 async function runWasmTests({ wasmBytes, resolveFrames, onResult, onComplete, createWindow, presentWindow, debugLog }) {
     const { memory, importObject } = buildImportObject({ createWindow, presentWindow, debugLog });
     const { instance } = await WebAssembly.instantiate(wasmBytes, importObject);
-    const { test_discovery_count, test_discovery_name_begin, test_discovery_name_end, test_discovery_fn_at, test_run } = instance.exports;
+    const { test_discovery_count, test_discovery_name_begin, test_discovery_name_end, test_discovery_fn_at, test_run, test_expect_trap_end } = instance.exports;
     const count = test_discovery_count();
 
     let passed = 0;
@@ -119,6 +119,11 @@ async function runWasmTests({ wasmBytes, resolveFrames, onResult, onComplete, cr
             passed++;
             onResult({ name, passed: true });
         } catch (err) {
+            if (test_expect_trap_end()) {
+                passed++;
+                onResult({ name, passed: true });
+                continue;
+            }
             failed++;
             const { message, framesText } = await resolveFailureText(err, resolveFrames);
             const detail = framesText ? `${message}\n${framesText}` : message;

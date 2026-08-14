@@ -15,20 +15,6 @@ const { spawnSync } = require('node:child_process');
 // A side whose count is 0 is a coverage gap even though the line itself may
 // have executed — this is exactly the "missing branch" the HTML report flags.
 
-// Regions that are intentionally never executed by the test suite. Keys may
-// be `file:line` or `file:line:col`.
-const IGNORED_REGIONS = new Set([
-    // __builtin_trap: executing it traps the wasm and fails the test run, so
-    // no passing test can cover it. This is the trap itself, not a defensive
-    // branch that can be converted into an assert_debug invariant.
-    'src/lib/assert.c:16:9',
-    // panic's "no expect_panic in effect" branch falls through to the trap
-    // above, so covering it would trap the wasm and fail the test run. The
-    // expect_panic side is covered by the negative-assertion tests; only the
-    // trapping side is unreachable from a passing suite.
-    'src/lib/assert.c:11:13',
-]);
-
 function run(cmd, args) {
     const result = spawnSync(cmd, args, { encoding: 'utf8' });
     if (result.status !== 0) {
@@ -56,9 +42,6 @@ function printUncovered({ wasmPath, profDataPath, root }) {
         total++;
     };
 
-    const isIgnored = (rel, line, col) =>
-        IGNORED_REGIONS.has(`${rel}:${line}`) || IGNORED_REGIONS.has(`${rel}:${line}:${col}`);
-
     for (const file of data.data[0].files) {
         const rel = relName(file.filename);
 
@@ -74,9 +57,6 @@ function printUncovered({ wasmPath, profDataPath, root }) {
                 continue;
             }
             found.regions++;
-            if (isIgnored(rel, line, col)) {
-                continue;
-            }
             push(rel, line, col, 'uncovered code (executed 0 times)');
         }
 
@@ -91,15 +71,11 @@ function printUncovered({ wasmPath, profDataPath, root }) {
                 const locCol = col ?? branch[1];
                 if (branch[4] === 0) {
                     missing++;
-                    if (!isIgnored(rel, locLine, locCol)) {
-                        push(rel, locLine, locCol, 'uncovered branch (condition is never true)');
-                    }
+                    push(rel, locLine, locCol, 'uncovered branch (condition is never true)');
                 }
                 if (branch[5] === 0) {
                     missing++;
-                    if (!isIgnored(rel, locLine, locCol)) {
-                        push(rel, locLine, locCol, 'uncovered branch (condition is never false)');
-                    }
+                    push(rel, locLine, locCol, 'uncovered branch (condition is never false)');
                 }
             }
             return missing;

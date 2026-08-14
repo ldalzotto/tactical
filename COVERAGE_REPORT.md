@@ -3,7 +3,7 @@
 `npm run test` originally reported **92/92 tests passing** with **95 uncovered
 gaps**. This report describes the decisions made to close every gap.
 
-After the changes: **96/96 tests passing, 0 uncovered gaps**.
+After the changes: **98/98 tests passing, 0 uncovered gaps**.
 
 ## Guiding rule
 
@@ -57,15 +57,17 @@ After the changes: **96/96 tests passing, 0 uncovered gaps**.
   `assert_debug(active_seen)` documents the invariant that the active entity
   (the attacker that just killed a defender) survives compaction.
 
-### `src/lib/assert.c` / `server/coverage-missing.js`
+### `src/lib/assert.c` / `server/coverage-missing.js` / `web/wasm-shared.js`
 - `panic`'s `if (g_expect_panic)` false side falls through to
-  `__builtin_trap`. Covering that side would trap the wasm and fail the test
-  run, so it cannot be covered by a passing test and is not a defensive branch
-  that can be rewritten as `assert_debug`.
-- Extended `IGNORED_REGIONS` with `src/lib/assert.c:11:13` and updated
-  `scanBranches` to honor ignored locations for branch gaps (previously only
-  region gaps were filtered). Ignored branches still count toward the summary
-  reconciliation so no gap is double-reported.
+  `__builtin_trap`, which traps the wasm and cannot be caught in C. Instead of
+  ignoring those gaps, the test runner now supports expected traps:
+  `expect_trap_begin`/`expect_trap_end` record that a test expects to reach
+  the trap, `panic` marks the trap as reached before trapping, and
+  `web/wasm-shared.js` treats a thrown trap as a pass when
+  `test_expect_trap_end` confirms it was both expected and reached.
+- Removed `IGNORED_REGIONS` (and its `isIgnored` helper) from
+  `server/coverage-missing.js`; every region and branch must now be covered by
+  the passing test suite.
 
 ## Test changes (all through the high-level API)
 
