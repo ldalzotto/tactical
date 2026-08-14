@@ -29,7 +29,7 @@ async function main() {
     const wasmBytes = fs.readFileSync(WASM_PATH);
     const resolveFrames = (frames) => symbolicate({ wasmPath: WASM_PATH, frames });
 
-    const { passed, failed, count, memory } = await runWasmTests({
+    const { failed, memory } = await runWasmTests({
         wasmBytes,
         resolveFrames,
         onResult({ name, passed, detail }) {
@@ -43,14 +43,15 @@ async function main() {
         },
     });
 
+    if (failed > 0) {
+        process.exitCode = 1;
+        return;
+    }
+
     const proftext = buildTextProfile({ wasmBytes, memory });
     fs.writeFileSync(PROF_TEXT, proftext);
 
     run('llvm-profdata', ['merge', '-o', PROF_DATA, PROF_TEXT]);
-
-    console.log('\n=== Coverage summary ===\n');
-    const report = run('llvm-cov', ['report', WASM_PATH, `-instr-profile=${PROF_DATA}`]);
-    process.stdout.write(report.stdout);
 
     run('llvm-cov', [
         'show',
@@ -71,7 +72,7 @@ async function main() {
         process.stdout.write(diagnostics.join('\n') + '\n');
     }
 
-    process.exitCode = failed > 0 ? 1 : 0;
+    process.exitCode = 0;
 }
 
 main().catch((err) => {
