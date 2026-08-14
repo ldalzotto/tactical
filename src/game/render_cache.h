@@ -30,18 +30,21 @@ typedef struct {
 // the pre-selection watermark with both caches nullified.
 PUBLIC void render_cache_reset(linear_allocator_t *scratch, render_cache_t *cache);
 
-// Replaces reachable_tiles with a fresh `count`-sized region and re-pushes
+// Adopts `reachable_align`/`reachable_tiles` -- built by the caller, who
+// pushed them onto the same scratch via linear_allocator_push_alignment
+// then one linear_allocator_push per tile while iterating, growing the
+// slice's end in place -- as the new reachable_tiles region, then re-pushes
 // an empty attack_range_tiles on top of it, so attack_range_tiles stays the
-// topmost scratch region. Caller fills the `count` positions afterward via
-// SLICE_AT(cache->reachable_tiles, i). Requires both caches to currently be
-// empty (call right after render_cache_reset).
-PUBLIC void render_cache_write_reachable(linear_allocator_t *scratch, render_cache_t *cache, int count);
+// topmost scratch region. Requires both caches to currently be empty (call
+// right after render_cache_reset).
+PUBLIC void render_cache_write_reachable(linear_allocator_t *scratch, render_cache_t *cache, slice_t reachable_align, slice_position_t reachable_tiles);
 
-// Replaces attack_range_tiles with a fresh `count`-sized region. Caller
-// fills the `count` positions afterward via
-// SLICE_AT(cache->attack_range_tiles, i). Requires reachable_tiles to
-// already be empty (call right after render_cache_reset).
-PUBLIC void render_cache_write_attack_range(linear_allocator_t *scratch, render_cache_t *cache, int count);
+// Adopts `attack_range_align`/`attack_range_tiles` -- built by the caller
+// the same way as for render_cache_write_reachable -- as the new
+// attack_range_tiles region. Since attack_range_tiles is already the
+// topmost scratch region, nothing needs pushing after it. Requires
+// reachable_tiles to already be empty (call right after render_cache_reset).
+PUBLIC void render_cache_write_attack_range(render_cache_t *cache, slice_t attack_range_align, slice_position_t attack_range_tiles);
 
 #ifdef APP_UNITY_BUILD
 #include "render_cache.c"

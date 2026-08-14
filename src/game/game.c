@@ -110,27 +110,20 @@ PRIVATE void game_set_attack_mode(game_state_t *game, linear_allocator_t *alloca
 
         pathing_state_t pathing = pathing_compute_distances(allocator, game->grid, game->entities, selected, selected->position, selected->mp);
 
-        int count = 0;
-        for (int ty = 0; ty < game->grid.height; ty++) {
-            for (int tx = 0; tx < game->grid.width; tx++) {
-                if (game_tile_is_reachable(pathing, game->grid, (position_t){tx, ty}, selected->mp)) {
-                    count++;
-                }
-            }
-        }
-
-        render_cache_write_reachable(&game->scratch, &game->render, count);
-
-        int i = 0;
+        slice_t reachable_align = linear_allocator_push_alignment(&game->scratch, _Alignof(position_t));
+        slice_position_t reachable_tiles = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.reachable_tiles, 0);
         for (int ty = 0; ty < game->grid.height; ty++) {
             for (int tx = 0; tx < game->grid.width; tx++) {
                 position_t position = { tx, ty };
                 if (game_tile_is_reachable(pathing, game->grid, position, selected->mp)) {
-                    SLICE_AT(game->render.reachable_tiles, i) = position;
-                    i++;
+                    slice_position_t entry = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.reachable_tiles, 1);
+                    SLICE_DEREF(entry) = position;
+                    reachable_tiles.end = entry.end;
                 }
             }
         }
+
+        render_cache_write_reachable(&game->scratch, &game->render, reachable_align, reachable_tiles);
 
         pathing_deinit(allocator, pathing);
         return;
@@ -141,27 +134,20 @@ PRIVATE void game_set_attack_mode(game_state_t *game, linear_allocator_t *alloca
 
     pathing_state_t pathing = pathing_compute_distances(allocator, game->grid, game->entities, selected, selected->position, selected->skill.range);
 
-    int count = 0;
-    for (int ty = 0; ty < game->grid.height; ty++) {
-        for (int tx = 0; tx < game->grid.width; tx++) {
-            if (game_tile_is_reachable(pathing, game->grid, (position_t){tx, ty}, selected->skill.range)) {
-                count++;
-            }
-        }
-    }
-
-    render_cache_write_attack_range(&game->scratch, &game->render, count);
-
-    int i = 0;
+    slice_t attack_range_align = linear_allocator_push_alignment(&game->scratch, _Alignof(position_t));
+    slice_position_t attack_range_tiles = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.attack_range_tiles, 0);
     for (int ty = 0; ty < game->grid.height; ty++) {
         for (int tx = 0; tx < game->grid.width; tx++) {
             position_t position = { tx, ty };
             if (game_tile_is_reachable(pathing, game->grid, position, selected->skill.range)) {
-                SLICE_AT(game->render.attack_range_tiles, i) = position;
-                i++;
+                slice_position_t entry = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.attack_range_tiles, 1);
+                SLICE_DEREF(entry) = position;
+                attack_range_tiles.end = entry.end;
             }
         }
     }
+
+    render_cache_write_attack_range(&game->render, attack_range_align, attack_range_tiles);
 
     pathing_deinit(allocator, pathing);
 
