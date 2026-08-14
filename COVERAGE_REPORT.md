@@ -106,23 +106,23 @@ Added 12 tests (69 -> 81 total):
 - `game_skill_button_hit_test_clamps_more_than_two_skills` — 3-skill entity
   exercises the `VIEWPORT_MAX_SKILL_BUTTONS` clamp.
 
-## Decision 5: whitelist genuinely unreachable defensive regions
+## Decision 5: assert unreachable defensive invariants instead of ignoring them
 
-After the tests above, five regions remained. Together with the
-`__builtin_trap` region (already whitelisted when the tool was first scoped),
-these cannot be reached through `game.h` without either crashing the wasm
-runner or bypassing a guard the public API already enforces:
+Rather than whitelisting the remaining defensive branches, the code was
+changed so those branches no longer exist as runtime paths:
 
-- `src/lib/assert.c:16:9` — `__builtin_trap()`; reaching it aborts the test run.
-- `src/game/action.c:24:47` and `:25:16` — the dead-defender side of
-  `action_try_attack`'s guard. `entity_find_at` only returns alive entities.
-- `src/game/ai.c:93:17`, `:94:16`, `:153:72` — `ai_step_toward`'s `!found`
-  guard. If `ai_find_nearest_player` found a reachable player, at least one of
-  the enemy's neighbors is reachable from that player (the BFS path is
-  reversible), so `found` is always true.
+- `action_try_attack` now uses `assert_debug(attacker->alive)` and
+  `assert_debug(defender->alive)`. The dead-entity runtime guard is gone;
+  the `action.h` contract now documents that both entities must be alive.
+- `ai_step_toward` is now `void` and ends with `assert_debug(found)` before
+  calling `action_try_move`. Since `ai_run_ennemy_turn` only calls it after
+  `ai_find_nearest_player` found a reachable player, `found` is always true.
+  The caller's dead `if (!ai_step_toward(...)) break;` was removed.
 
-These are documented in `IGNORED_REGIONS` in `server/coverage-missing.js`
-rather than deleting the defensive checks.
+The only remaining `IGNORED_REGIONS` entry is `src/lib/assert.c:16:9`, the
+`__builtin_trap()` inside `panic`. That is the trap itself, not a defensive
+branch: executing it traps the wasm and fails the test run, so no passing test
+can cover it.
 
 ## Final state
 
