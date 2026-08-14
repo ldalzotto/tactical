@@ -28,8 +28,30 @@ typedef struct {
     entity_team_t team;
     int hp, max_hp, ap, max_ap, mp, max_mp;
     bool alive;
+    /*
+        TODO: We don't want to have a constant ENTITY_MAX_SKILLS.
+        Instead of skills, skill_count. Just use a slice of skill.
+        In that sense, the /Users/loicdalzotto/perso/tactical/src/game/entity.h entity_spawn api should be simplified
+        to not take skills.
+        Because the number of skills can vary.
+        When we create an entity, I want the skills to be allocated dynamically with the linear_allocator.
+        I would vote to have a separate list of entity skills.
+
+        So that when a scenario is created, you allocate an entity. Then you populate a skills array. And
+        the entity references a slice of this array. A little bit like how a database would work.
+    */
     skill_t skills[ENTITY_MAX_SKILLS];
     int skill_count;
+    /*
+        TODO: the selected_skill should not be at the entity_t level.
+        Inside /Users/loicdalzotto/perso/tactical/src/game/game.h state, you should have something like
+        a player state.
+        There is an opportunity to regroup some data of the game_state_t structure. Like     position_t hover;
+    bool hover_valid;
+        Which both seems to represent a player state.
+        This makes the entity_active_skill /Users/loicdalzotto/perso/tactical/src/game/entity.c line 48 obsolete
+        as it is only used in game.c when user act.
+    */
     int selected_skill; // index into skills; which one entity_active_skill() returns
 } entity_t;
 
