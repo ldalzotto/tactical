@@ -3,7 +3,7 @@
 #include "skill.h"
 
 PUBLIC bool action_try_move(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* entity, position_t target) {
-    pathing_state_t pathing = pathing_compute_distances(allocator, grid, entities, entity, entity->position, entity->mp, 0);
+    pathing_state_t pathing = pathing_compute_distances(allocator, grid, entities, entity, entity->position, entity->mp, false);
 
     int distance = pathing_distance_at(pathing, grid, target);
 

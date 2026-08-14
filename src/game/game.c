@@ -114,7 +114,7 @@ PRIVATE void game_set_mode(game_state_t *game, linear_allocator_t *allocator, ga
             return;
         }
 
-        pathing_state_t pathing = pathing_compute_distances(allocator, game->grid, game->entities, active, active->position, active->mp, 0);
+        pathing_state_t pathing = pathing_compute_distances(allocator, game->grid, game->entities, active, active->position, active->mp, false);
 
         slice_t reachable_align = linear_allocator_push_alignment(&game->scratch, _Alignof(position_t));
         slice_position_t reachable_tiles = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.reachable_tiles, 0);
@@ -135,10 +135,12 @@ PRIVATE void game_set_mode(game_state_t *game, linear_allocator_t *allocator, ga
         return;
     } else if (mode == GAME_MODE_ATTACK) {
         int skill_range = SLICE_AT(active->skills, game->selected_skill).range;
-        // pass_through_opposing_team_of=active: attack-range preview treats
-        // other enemies as passable so tiles behind them stay reachable-for-
-        // targeting -- see ticket 003 / PLAN.md Q1-Q2.
-        pathing_state_t pathing = pathing_compute_distances(allocator, game->grid, game->entities, active, active->position, skill_range, active);
+        // mark_occupied_reachable=true: any entity (ally or enemy) still
+        // occludes the BFS -- a target is an obstacle, not a window -- but
+        // the occupied tile itself still gets a distance so it shows up as
+        // reachable-for-targeting instead of silently vanishing from the
+        // preview.
+        pathing_state_t pathing = pathing_compute_distances(allocator, game->grid, game->entities, active, active->position, skill_range, true);
 
         slice_t attack_range_align = linear_allocator_push_alignment(&game->scratch, _Alignof(position_t));
         slice_position_t attack_range_tiles = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.attack_range_tiles, 0);

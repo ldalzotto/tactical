@@ -83,10 +83,11 @@ PRIVATE void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
         // Tiles occupied by a targetable (opposing-team) entity draw
         // dithered so the highlight stays visible under the entity's own
         // opaque sprite (drawn afterward in render_entities) -- see ticket
-        // 004. Same-team occupants fall back to solid: ticket 003 only
-        // makes opposing-team entities passable, so an ally can't
-        // legitimately end up on an attack-range tile in the first place,
-        // but the check still degrades safely (solid) if that ever changes.
+        // 004. Same-team (ally) occupants fall back to solid: allies still
+        // block the attack-range BFS entirely (see pathing_compute_distances'
+        // mark_occupied_reachable), so an ally tile never legitimately ends
+        // up in attack_range_tiles in the first place, but the check still
+        // degrades safely (solid) if that ever changes.
         entity_t *occupant = entity_find_at(game.entities, tile);
         bool targetable = occupant != 0 && occupant->team != attacker->team;
         if (targetable) {
