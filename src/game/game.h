@@ -45,6 +45,7 @@ typedef struct {
     slice_t turn_order_align;
     turn_state_t turn;
     viewport_t viewport;
+    // TODO: This is a temporary state that has to be removed.
     entity_t* selected_entity; // 0 if none
     bool attack_mode;          // when on, entity_pressed on an enemy attempts an attack instead
                                 // of being a no-op; renderer shows render.attack_range_tiles

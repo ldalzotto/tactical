@@ -84,94 +84,74 @@ PRIVATE bool game_tile_is_reachable(pathing_state_t pathing, grid_t grid, positi
     return dist > 0 && dist <= mp;
 }
 
-// Pops both range caches (attack_range_tiles, then reachable_tiles -- in
-// that order, since attack_range_tiles is always the topmost region of
-// game->scratch) down to nothing, leaving the stack collapsed back to the
-// pre-selection watermark. Callers push back whichever single cache they
-// want populated right after; only one of the two is ever non-empty at a
-// time, so scratch never has to fit both simultaneously.
-PRIVATE void game_clear_range_caches(game_state_t *game) {
+// Turns attack mode on/off, owning both reachable_tiles and
+// attack_range_tiles for whichever branch runs -- the two are mutually
+// exclusive, so each branch is responsible for nullifying the one it isn't
+// populating. Turning off recomputes reachable_tiles for the current
+// selection (or leaves it empty if there is none, or it has no mp left) and
+// nullifies attack_range_tiles; called eagerly whenever selection, position,
+// or mp of the selected entity changes, and whenever attack mode is turned
+// off. Turning on does the mirror image: nullifies reachable_tiles and
+// computes attack_range_tiles with the same BFS used for move-reachable
+// tiles, rooted with selected->skill.range instead of mp. Callers only turn
+// attack mode on with a live selection. Render just reads the cached lists,
+// no per-frame pathing.
+PRIVATE void game_set_attack_mode(game_state_t *game, linear_allocator_t *allocator, bool on) {
+
+    // The attach range and reachable don't coexist.
     LINEAR_ALLOCATOR_POP(&game->scratch, game->render.attack_range_tiles);
     linear_allocator_pop(&game->scratch, game->render.attack_range_align);
     LINEAR_ALLOCATOR_POP(&game->scratch, game->render.reachable_tiles);
     linear_allocator_pop(&game->scratch, game->render.reachable_align);
-}
 
-PRIVATE void game_push_empty_reachable(game_state_t *game) {
     game->render.reachable_align = linear_allocator_push(&game->scratch, 0);
     game->render.reachable_tiles = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.reachable_tiles, 0);
-}
-
-PRIVATE void game_push_empty_attack_range(game_state_t *game) {
     game->render.attack_range_align = linear_allocator_push(&game->scratch, 0);
     game->render.attack_range_tiles = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.attack_range_tiles, 0);
-}
 
-// Recomputes the selected entity's reachable-tiles cache from scratch, and
-// nullifies attack_range_tiles -- the two are mutually exclusive, this is
-// the "move mode" side. Called eagerly whenever selection, position, or mp
-// of the selected entity changes, and whenever attack mode is turned off --
-// render just reads the cached list, no per-frame pathing.
-PRIVATE void game_refresh_reachable_render(game_state_t *game, linear_allocator_t *allocator) {
-    game_clear_range_caches(game);
-    game->attack_mode = false;
-
-    entity_t *selected = game->selected_entity;
-    if (selected == 0 || selected->mp <= 0) {
-        game_push_empty_reachable(game);
-        game_push_empty_attack_range(game);
-        return;
-    }
-
-    pathing_state_t pathing = pathing_compute_distances(allocator, game->grid, game->entities, selected, selected->position, selected->mp);
-
-    int count = 0;
-    for (int ty = 0; ty < game->grid.height; ty++) {
-        for (int tx = 0; tx < game->grid.width; tx++) {
-            if (game_tile_is_reachable(pathing, game->grid, (position_t){tx, ty}, selected->mp)) {
-                count++;
-            }
-        }
-    }
-
-    game->render.reachable_align = linear_allocator_push_alignment(&game->scratch, _Alignof(position_t));
-    game->render.reachable_tiles = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.reachable_tiles, count);
-
-    int i = 0;
-    for (int ty = 0; ty < game->grid.height; ty++) {
-        for (int tx = 0; tx < game->grid.width; tx++) {
-            position_t position = { tx, ty };
-            if (game_tile_is_reachable(pathing, game->grid, position, selected->mp)) {
-                SLICE_AT(game->render.reachable_tiles, i) = position;
-                i++;
-            }
-        }
-    }
-
-    pathing_deinit(allocator, pathing);
-
-    game_push_empty_attack_range(game);
-}
-
-// Turns attack mode on/off. Turning off just delegates to
-// game_refresh_reachable_render, which restores reachable_tiles for the
-// current selection and nullifies attack_range_tiles. Turning on does the
-// mirror image: nullifies reachable_tiles and computes attack_range_tiles
-// with the same BFS used for move-reachable tiles, rooted with
-// selected->skill.range instead of mp. Callers only turn attack mode on
-// with a live selection.
-PRIVATE void game_set_attack_mode(game_state_t *game, linear_allocator_t *allocator, bool on) {
     if (!on) {
-        game_refresh_reachable_render(game, allocator);
+        game->attack_mode = false;
+
+        entity_t *selected = game->selected_entity;
+        if (selected == 0 || selected->mp <= 0) {
+            return;
+        }
+
+        pathing_state_t pathing = pathing_compute_distances(allocator, game->grid, game->entities, selected, selected->position, selected->mp);
+
+        int count = 0;
+        for (int ty = 0; ty < game->grid.height; ty++) {
+            for (int tx = 0; tx < game->grid.width; tx++) {
+                if (game_tile_is_reachable(pathing, game->grid, (position_t){tx, ty}, selected->mp)) {
+                    count++;
+                }
+            }
+        }
+
+        game->render.reachable_align = linear_allocator_push_alignment(&game->scratch, _Alignof(position_t));
+        game->render.reachable_tiles = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.reachable_tiles, count);
+        // Make sure that the attack_range_align are allocated after the reachable
+        game->render.attack_range_align = linear_allocator_push(&game->scratch, 0);
+        game->render.attack_range_tiles = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.attack_range_tiles, 0);
+
+        int i = 0;
+        for (int ty = 0; ty < game->grid.height; ty++) {
+            for (int tx = 0; tx < game->grid.width; tx++) {
+                position_t position = { tx, ty };
+                if (game_tile_is_reachable(pathing, game->grid, position, selected->mp)) {
+                    SLICE_AT(game->render.reachable_tiles, i) = position;
+                    i++;
+                }
+            }
+        }
+
+        pathing_deinit(allocator, pathing);
         return;
     }
 
     entity_t *selected = game->selected_entity;
     assert_debug(selected != 0);
-
-    game_clear_range_caches(game);
-    game_push_empty_reachable(game);
-
+    
     pathing_state_t pathing = pathing_compute_distances(allocator, game->grid, game->entities, selected, selected->position, selected->skill.range);
 
     int count = 0;
@@ -208,7 +188,7 @@ PRIVATE void game_set_attack_mode(game_state_t *game, linear_allocator_t *alloca
 PRIVATE void game_advance_turn(game_state_t *game, linear_allocator_t *allocator) {
     game->turn = turn_advance(game->turn);
     game->selected_entity = 0;
-    game_refresh_reachable_render(game, allocator);
+    game_set_attack_mode(game, allocator, false);
 
     entity_t *active = turn_active_entity(game->turn);
     while (game->game_over == GAME_OVER_NONE && active->team == ENTITY_TEAM_ENEMY) {
@@ -239,7 +219,7 @@ PRIVATE void game_on_entity_pressed(game_state_t *game, linear_allocator_t *allo
     entity_t *pressed = entity;
     if (pressed == active) {
         game->selected_entity = entity;
-        game_refresh_reachable_render(game, allocator);
+        game_set_attack_mode(game, allocator, false);
         return;
     }
 
@@ -276,7 +256,7 @@ PRIVATE void game_on_tile_pressed(game_state_t *game, linear_allocator_t *alloca
     }
 
     if (action_try_move(allocator, game->grid, game->entities, game->selected_entity, target)) {
-        game_refresh_reachable_render(game, allocator);
+        game_set_attack_mode(game, allocator, false);
     }
 }
 
