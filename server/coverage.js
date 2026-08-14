@@ -7,6 +7,7 @@ const { spawnSync } = require('node:child_process');
 const { symbolicate } = require('./symbolicate');
 const { runWasmTests } = require('../web/wasm-shared');
 const { buildTextProfile } = require('./wasm-profile');
+const { printUncovered } = require('./coverage-missing');
 
 const ROOT = path.join(__dirname, '..');
 const WASM_PATH = path.join(ROOT, 'build', 'app.wasm');
@@ -59,6 +60,16 @@ async function main() {
         `-output-dir=${HTML_DIR}`,
     ]);
     console.log(`\nAnnotated line coverage: build/coverage-html/index.html`);
+
+    const { diagnostics, total } = printUncovered({
+        wasmPath: WASM_PATH,
+        profDataPath: PROF_DATA,
+        root: ROOT,
+    });
+    if (total > 0) {
+        console.log(`\n=== Uncovered code (${total} regions) ===\n`);
+        process.stdout.write(diagnostics.join('\n') + '\n');
+    }
 
     process.exitCode = failed > 0 ? 1 : 0;
 }
