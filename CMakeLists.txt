@@ -28,7 +28,7 @@ option(APP_COVERAGE "Instrument the app with clang source-based code coverage" O
 message(STATUS "APP_COVERAGE: ${APP_COVERAGE}")
 
 # In unity mode, every lib/*.h and game/*.h (and test*.h, when
-# APP_BUILD_TESTS is on) includes only main.c and, conditionally, test.h -- ends up dragging the
+# APP_BUILD_TESTS is on) includes only app.c and, conditionally, test.h -- ends up dragging the
 # whole app (and test suite) into one translation unit. That, plus
 # -ffunction-sections/--gc-sections below, lets the linker drop any
 # function that isn't reachable from an export_name root, i.e. treat it
@@ -37,7 +37,7 @@ option(APP_UNITY_BUILD "Compile the whole app as a single translation unit" OFF)
 message(STATUS "APP_UNITY_BUILD: ${APP_UNITY_BUILD}")
 
 if(APP_UNITY_BUILD)
-    set(APP_SOURCES src/main.c)
+    set(APP_SOURCES src/app.c)
 else()
     set(APP_SOURCES
         src/lib/assert.c
@@ -62,7 +62,7 @@ else()
         src/game/turn.c
         src/game/ui.c
 
-        src/main.c
+        src/app.c
     )
 
     if(APP_BUILD_TESTS)
