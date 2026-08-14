@@ -444,6 +444,40 @@ PRIVATE void test_game_skill_button_pressed_noop_outside_valid_conditions(linear
     // Single-skill entity, to test the out-of-range button index (1) noops
     // for an entity that doesn't have that many skills.
     entity_t* p2 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){4, 0}, 10, 1, 3, SKILL_MELEE);
+    // Multi-skill enemy, to test that a non-player active entity ignores
+    // skill-button clicks entirely (both game_on_skill_button_pressed's own
+    // team check, and the input-dispatch hit-test gating in front of it).
+    entity_t* e = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){2, 0}, 10, 1, 3, SKILL_MELEE);
+    entity_add_skill(e, SKILL_RANGED);
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, e);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, p2);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, 320, 240, 40);
+
+    // e is active first (turn order: e, p, p2) and isn't player-controlled:
+    // click is a no-op regardless of e having multiple skills.
+    assert_test(turn_active_entity(game.turn) == e);
+    test_click_skill_button(&game, allocator, 1);
+    assert_test(e->selected_skill == 0);
+    assert_test(turn_active_entity(game.turn) == e);
+
+    game_deinit(allocator, game);
+}
+
+PRIVATE void test_game_skill_button_pressed_noop_when_mode_none_or_index_out_of_range(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 5, 1);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 1, 3, SKILL_MELEE);
+    entity_add_skill(p, SKILL_RANGED);
+    // Single-skill entity, to test the out-of-range button index (1) noops
+    // for an entity that doesn't have that many skills.
+    entity_t* p2 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){4, 0}, 10, 1, 3, SKILL_MELEE);
 
     slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
     slice_entity_ptr_t order = turn_order_init(allocator);
@@ -517,6 +551,7 @@ const test_case_t g_game_combat_tests[] = {
     { TEST_NAME("game_selecting_shows_reachable_tiles_and_toggle_shows_attack_range_tiles"), test_game_selecting_shows_reachable_tiles_and_toggle_shows_attack_range_tiles },
     { TEST_NAME("game_skill_button_switches_attack_range_to_selected_skill"), test_game_skill_button_switches_attack_range_to_selected_skill },
     { TEST_NAME("game_skill_button_pressed_noop_outside_valid_conditions"), test_game_skill_button_pressed_noop_outside_valid_conditions },
+    { TEST_NAME("game_skill_button_pressed_noop_when_mode_none_or_index_out_of_range"), test_game_skill_button_pressed_noop_when_mode_none_or_index_out_of_range },
     { TEST_NAME("game_attack_after_skill_switch_uses_new_skill_damage_and_ap_cost"), test_game_attack_after_skill_switch_uses_new_skill_damage_and_ap_cost },
 };
 

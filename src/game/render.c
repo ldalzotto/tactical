@@ -25,6 +25,8 @@ static const rgba_t COLOR_END_TURN_INACTIVE = { 80, 80, 80, 255 };
 static const rgba_t COLOR_ATTACK_BUTTON_ON = { 220, 60, 60, 255 };
 static const rgba_t COLOR_ATTACK_BUTTON_AVAILABLE = { 230, 140, 60, 255 };
 static const rgba_t COLOR_ATTACK_BUTTON_INACTIVE = { 80, 80, 80, 255 };
+// Same value as COLOR_ATTACK_BUTTON_AVAILABLE: deliberate visual echo (this
+// orange marks "the active choice" in both places), not a copy-paste slip.
 static const rgba_t COLOR_SKILL_BUTTON_SELECTED = { 230, 140, 60, 255 };
 static const rgba_t COLOR_SKILL_BUTTON_AVAILABLE = { 90, 90, 110, 255 };
 static const rgba_t COLOR_AP_PIP = { 60, 120, 255, 255 };
