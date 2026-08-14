@@ -25,6 +25,8 @@ static const rgba_t COLOR_END_TURN_INACTIVE = { 80, 80, 80, 255 };
 static const rgba_t COLOR_ATTACK_BUTTON_ON = { 220, 60, 60, 255 };
 static const rgba_t COLOR_ATTACK_BUTTON_AVAILABLE = { 230, 140, 60, 255 };
 static const rgba_t COLOR_ATTACK_BUTTON_INACTIVE = { 80, 80, 80, 255 };
+static const rgba_t COLOR_SKILL_BUTTON_SELECTED = { 230, 140, 60, 255 };
+static const rgba_t COLOR_SKILL_BUTTON_AVAILABLE = { 90, 90, 110, 255 };
 static const rgba_t COLOR_AP_PIP = { 60, 120, 255, 255 };
 static const rgba_t COLOR_MP_PIP = { 60, 200, 60, 255 };
 static const rgba_t COLOR_WIN = { 0, 200, 0, 255 };
@@ -200,6 +202,18 @@ PRIVATE void render_hud(slice_rgba_t fb, int fb_width, game_state_t game) {
         attack_button_color = COLOR_ATTACK_BUTTON_AVAILABLE;
     }
     graphics_draw_rectangle(fb, fb_width, attack_button.x, attack_button.y, attack_button.width, attack_button.height, attack_button_color);
+
+    // Skill buttons only meaningful once a mode is active (matches
+    // game_on_skill_button_pressed's own gate) and only shown at all when
+    // there's an actual choice to make -- a single-skill entity has nothing
+    // to switch between, so drawing an inert button would just be clutter.
+    if (active->team == ENTITY_TEAM_PLAYER && game.mode != GAME_MODE_NONE && active->skill_count > 1) {
+        for (int i = 0; i < active->skill_count; i++) {
+            rect_t skill_button = game.viewport.skill_buttons[i];
+            rgba_t skill_button_color = (i == active->selected_skill) ? COLOR_SKILL_BUTTON_SELECTED : COLOR_SKILL_BUTTON_AVAILABLE;
+            graphics_draw_rectangle(fb, fb_width, skill_button.x, skill_button.y, skill_button.width, skill_button.height, skill_button_color);
+        }
+    }
 
     if (game.mode == GAME_MODE_NONE) {
         return;

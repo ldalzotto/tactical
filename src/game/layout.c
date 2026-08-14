@@ -32,10 +32,24 @@ PUBLIC viewport_t layout_compute(int fb_width, int fb_height, int grid_width, in
         .height = hud_rect.height - 2 * hud_padding,
     };
 
+    // Skill buttons: a row of VIEWPORT_MAX_SKILL_BUTTONS, same size as
+    // attack_button, immediately to its left -- same right-anchored button
+    // strip, just extended.
+    rect_t skill_buttons[VIEWPORT_MAX_SKILL_BUTTONS];
+    for (int i = 0; i < VIEWPORT_MAX_SKILL_BUTTONS; i++) {
+        skill_buttons[i] = (rect_t){
+            .x = attack_button.x - (i + 1) * (button_width + hud_padding),
+            .y = hud_rect.y + hud_padding,
+            .width = button_width,
+            .height = hud_rect.height - 2 * hud_padding,
+        };
+    }
+
     rect_t timeline_rect = {
         .x = hud_rect.x + hud_padding,
         .y = hud_rect.y + hud_padding / 10,
-        .width = hud_rect.width - end_turn_button.width - attack_button.width - 3 * hud_padding,
+        .width = hud_rect.width - end_turn_button.width - attack_button.width
+            - VIEWPORT_MAX_SKILL_BUTTONS * (button_width + hud_padding) - 3 * hud_padding,
         .height = hud_rect.height / 8,
     };
 
@@ -50,6 +64,9 @@ PUBLIC viewport_t layout_compute(int fb_width, int fb_height, int grid_width, in
         .attack_button = attack_button,
         .timeline_rect = timeline_rect,
     };
+    for (int i = 0; i < VIEWPORT_MAX_SKILL_BUTTONS; i++) {
+        viewport.skill_buttons[i] = skill_buttons[i];
+    }
     return viewport;
 }
 

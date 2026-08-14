@@ -238,6 +238,29 @@ PRIVATE void game_on_attack_toggle_pressed(game_state_t *game, linear_allocator_
     game_set_mode(game, allocator, game->mode == GAME_MODE_ATTACK ? GAME_MODE_MOVEMENT : GAME_MODE_ATTACK);
 }
 
+// Selects entity_t.skills[index] as the active entity's active skill and
+// recomputes the range preview for it. No-op outside player control / no
+// active mode / an index the entity doesn't have that many skills for.
+// Safe to call repeatedly (including with the same mode already active) --
+// game_set_mode's render_cache_reset always pops back to the pre-selection
+// watermark before re-pushing, so this can't leak/overflow game->scratch.
+PRIVATE void game_on_skill_button_pressed(game_state_t *game, linear_allocator_t *allocator, int index) {
+    assert_debug(game->game_over == GAME_OVER_NONE);
+    entity_t *active = turn_active_entity(game->turn);
+    if (active->team != ENTITY_TEAM_PLAYER) {
+        return;
+    }
+    if (game->mode == GAME_MODE_NONE) {
+        return;
+    }
+    if (index < 0 || index >= active->skill_count) {
+        return;
+    }
+
+    active->selected_skill = index;
+    game_set_mode(game, allocator, game->mode);
+}
+
 PRIVATE void game_on_end_turn_pressed(game_state_t *game, linear_allocator_t *allocator) {
     assert_debug(game->game_over == GAME_OVER_NONE);
     entity_t *active = turn_active_entity(game->turn);
@@ -262,6 +285,13 @@ PUBLIC void game_on_input_event(game_state_t *game, linear_allocator_t *allocato
         if (point_in_rect(game->viewport.attack_button, event.x, event.y)) {
             game_on_attack_toggle_pressed(game, allocator);
             return;
+        }
+
+        for (int i = 0; i < VIEWPORT_MAX_SKILL_BUTTONS; i++) {
+            if (point_in_rect(game->viewport.skill_buttons[i], event.x, event.y)) {
+                game_on_skill_button_pressed(game, allocator, i);
+                return;
+            }
         }
 
         int tx, ty;
