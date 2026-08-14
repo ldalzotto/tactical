@@ -34,7 +34,8 @@ PRIVATE void test_game_selecting_entity_computes_reachable_tiles_within_mp_and_m
     game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
 
     test_click_tile(&game, allocator, p->position);
-    assert_test(game.mode == GAME_MODE_MOVEMENT && turn_active_entity(game.turn) == p);
+    assert_test(game.mode == GAME_MODE_MOVEMENT);
+    assert_test(turn_active_entity(game.turn) == p);
 
     // mp is 2: (0,0) is dist 0 (excluded, it's where the mover stands),
     // (2,0) is dist 2 (in range), (3,0) is dist 3 and (3,3) is dist 6 (both
@@ -48,7 +49,8 @@ PRIVATE void test_game_selecting_entity_computes_reachable_tiles_within_mp_and_m
     test_click_tile(&game, allocator, (position_t){2, 0});
 
     entity_t *entity = p;
-    assert_test(entity->position.x == 2 && entity->position.y == 0);
+    assert_test(entity->position.x == 2);
+    assert_test(entity->position.y == 0);
     assert_test(entity->mp == 0);
 
     game_deinit(allocator, game);
@@ -90,7 +92,8 @@ PRIVATE void test_game_obstacles_block_reachable_tiles_and_movement(linear_alloc
     test_click_tile(&game, allocator, (position_t){2, 0});
 
     entity_t *entity = p;
-    assert_test(entity->position.x == 0 && entity->position.y == 1);
+    assert_test(entity->position.x == 0);
+    assert_test(entity->position.y == 1);
     assert_test(entity->mp == 4);
 
     game_deinit(allocator, game);
@@ -155,7 +158,8 @@ PRIVATE void test_game_tile_pressed_moves_within_reach_and_consumes_mp(linear_al
     test_click_tile(&game, allocator, (position_t){2, 0});
 
     entity_t *entity = p;
-    assert_test(entity->position.x == 2 && entity->position.y == 0);
+    assert_test(entity->position.x == 2);
+    assert_test(entity->position.y == 0);
     assert_test(entity->mp == 1);
 
     game_deinit(allocator, game);
@@ -183,7 +187,8 @@ PRIVATE void test_game_tile_pressed_noops_on_unreachable_tile(linear_allocator_t
     test_click_tile(&game, allocator, (position_t){5, 0});
 
     entity_t *entity = p;
-    assert_test(entity->position.x == 0 && entity->position.y == 0);
+    assert_test(entity->position.x == 0);
+    assert_test(entity->position.y == 0);
     assert_test(entity->mp == 1);
 
     game_deinit(allocator, game);
