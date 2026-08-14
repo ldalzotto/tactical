@@ -50,21 +50,12 @@ static bool test_tile_fully_color(slice_rgba_t fb, int fb_width, viewport_t view
     return true;
 }
 
-// Framebuffer allocation, mirroring app.c's app_init(): push alignment padding,
-// then the pixel buffer. *out_align must be popped (after popping the
-// returned slice) to fully unwind the allocator -- see callers.
-static slice_rgba_t test_render_alloc_framebuffer(linear_allocator_t *allocator, int fb_width, int fb_height, slice_t *out_align) {
-    *out_align = linear_allocator_push_alignment(allocator, _Alignof(rgba_t));
-    slice_rgba_t fb;
-    fb = LINEAR_ALLOCATOR_PUSH(allocator, fb, (size_t)(fb_width * fb_height));
-    return fb;
-}
-
 PRIVATE void test_render_turn_indicator_visible_before_and_after_selection(linear_allocator_t *allocator) {
     // Framebuffer is pushed before the game state (and popped after
     // game_deinit below) to respect the allocator's LIFO push/pop discipline.
-    slice_t fb_align;
-    slice_rgba_t fb = test_render_alloc_framebuffer(allocator, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, &fb_align);
+    slice_t fb_align = linear_allocator_push_alignment(allocator, _Alignof(rgba_t));
+    slice_rgba_t fb;
+    fb = LINEAR_ALLOCATOR_PUSH(allocator, fb, (size_t)(GAME_TEST_FB_WIDTH * GAME_TEST_FB_HEIGHT));
 
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 4);
@@ -110,8 +101,9 @@ PRIVATE void test_render_turn_indicator_visible_before_and_after_selection(linea
 }
 
 PRIVATE void test_render_turn_indicator_follows_active_entity_across_turns(linear_allocator_t *allocator) {
-    slice_t fb_align;
-    slice_rgba_t fb = test_render_alloc_framebuffer(allocator, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, &fb_align);
+    slice_t fb_align = linear_allocator_push_alignment(allocator, _Alignof(rgba_t));
+    slice_rgba_t fb;
+    fb = LINEAR_ALLOCATOR_PUSH(allocator, fb, (size_t)(GAME_TEST_FB_WIDTH * GAME_TEST_FB_HEIGHT));
 
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 4);
@@ -152,8 +144,9 @@ PRIVATE void test_render_turn_indicator_follows_active_entity_across_turns(linea
 
 PRIVATE void test_render_dithered_rectangle_checkerboards_over_background(linear_allocator_t *allocator) {
     const int w = 4, h = 4;
-    slice_t fb_align;
-    slice_rgba_t fb = test_render_alloc_framebuffer(allocator, w, h, &fb_align);
+    slice_t fb_align = linear_allocator_push_alignment(allocator, _Alignof(rgba_t));
+    slice_rgba_t fb;
+    fb = LINEAR_ALLOCATOR_PUSH(allocator, fb, (size_t)(w * h));
 
     rgba_t background = { 10, 10, 10, 255 };
     rgba_t fill = { 200, 50, 50, 255 };
@@ -173,8 +166,9 @@ PRIVATE void test_render_dithered_rectangle_checkerboards_over_background(linear
 }
 
 PRIVATE void test_render_attack_range_tile_occupied_by_enemy_is_dithered_not_solid(linear_allocator_t *allocator) {
-    slice_t fb_align;
-    slice_rgba_t fb = test_render_alloc_framebuffer(allocator, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, &fb_align);
+    slice_t fb_align = linear_allocator_push_alignment(allocator, _Alignof(rgba_t));
+    slice_rgba_t fb;
+    fb = LINEAR_ALLOCATOR_PUSH(allocator, fb, (size_t)(GAME_TEST_FB_WIDTH * GAME_TEST_FB_HEIGHT));
 
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 5, 1);
@@ -236,8 +230,9 @@ PRIVATE void test_render_attack_range_tile_occupied_by_enemy_is_dithered_not_sol
 }
 
 PRIVATE void test_render_obstacle_tile_uses_obstacle_colors(linear_allocator_t *allocator) {
-    slice_t fb_align;
-    slice_rgba_t fb = test_render_alloc_framebuffer(allocator, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, &fb_align);
+    slice_t fb_align = linear_allocator_push_alignment(allocator, _Alignof(rgba_t));
+    slice_rgba_t fb;
+    fb = LINEAR_ALLOCATOR_PUSH(allocator, fb, (size_t)(GAME_TEST_FB_WIDTH * GAME_TEST_FB_HEIGHT));
 
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 4);
@@ -269,8 +264,9 @@ PRIVATE void test_render_obstacle_tile_uses_obstacle_colors(linear_allocator_t *
 }
 
 PRIVATE void test_render_hover_draws_outline(linear_allocator_t *allocator) {
-    slice_t fb_align;
-    slice_rgba_t fb = test_render_alloc_framebuffer(allocator, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, &fb_align);
+    slice_t fb_align = linear_allocator_push_alignment(allocator, _Alignof(rgba_t));
+    slice_rgba_t fb;
+    fb = LINEAR_ALLOCATOR_PUSH(allocator, fb, (size_t)(GAME_TEST_FB_WIDTH * GAME_TEST_FB_HEIGHT));
 
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 4);
@@ -310,8 +306,9 @@ PRIVATE void test_render_small_tile_clamps_hp_bar_and_entity_metrics(linear_allo
     const int fb_height = 16;
     const int hud_height = 4;
 
-    slice_t fb_align;
-    slice_rgba_t fb = test_render_alloc_framebuffer(allocator, fb_width, fb_height, &fb_align);
+    slice_t fb_align = linear_allocator_push_alignment(allocator, _Alignof(rgba_t));
+    slice_rgba_t fb;
+    fb = LINEAR_ALLOCATOR_PUSH(allocator, fb, (size_t)(fb_width * fb_height));
 
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 8, 4);
@@ -341,8 +338,9 @@ PRIVATE void test_render_small_tile_clamps_hp_bar_and_entity_metrics(linear_allo
 }
 
 PRIVATE void test_render_hp_bar_zero_max_hp_uses_zero_foreground(linear_allocator_t *allocator) {
-    slice_t fb_align;
-    slice_rgba_t fb = test_render_alloc_framebuffer(allocator, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, &fb_align);
+    slice_t fb_align = linear_allocator_push_alignment(allocator, _Alignof(rgba_t));
+    slice_rgba_t fb;
+    fb = LINEAR_ALLOCATOR_PUSH(allocator, fb, (size_t)(GAME_TEST_FB_WIDTH * GAME_TEST_FB_HEIGHT));
 
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 4);
@@ -373,8 +371,9 @@ PRIVATE void test_render_hp_bar_zero_max_hp_uses_zero_foreground(linear_allocato
 }
 
 PRIVATE void test_render_skips_dead_entities(linear_allocator_t *allocator) {
-    slice_t fb_align;
-    slice_rgba_t fb = test_render_alloc_framebuffer(allocator, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, &fb_align);
+    slice_t fb_align = linear_allocator_push_alignment(allocator, _Alignof(rgba_t));
+    slice_rgba_t fb;
+    fb = LINEAR_ALLOCATOR_PUSH(allocator, fb, (size_t)(GAME_TEST_FB_WIDTH * GAME_TEST_FB_HEIGHT));
 
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 4);
@@ -410,8 +409,9 @@ PRIVATE void test_render_skips_dead_entities(linear_allocator_t *allocator) {
 }
 
 PRIVATE void test_render_game_over_screens(linear_allocator_t *allocator) {
-    slice_t fb_align;
-    slice_rgba_t fb = test_render_alloc_framebuffer(allocator, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, &fb_align);
+    slice_t fb_align = linear_allocator_push_alignment(allocator, _Alignof(rgba_t));
+    slice_rgba_t fb;
+    fb = LINEAR_ALLOCATOR_PUSH(allocator, fb, (size_t)(GAME_TEST_FB_WIDTH * GAME_TEST_FB_HEIGHT));
 
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 4);
@@ -458,8 +458,9 @@ PRIVATE void test_render_game_over_screens(linear_allocator_t *allocator) {
 }
 
 PRIVATE void test_render_skill_buttons_when_multiple_skills(linear_allocator_t *allocator) {
-    slice_t fb_align;
-    slice_rgba_t fb = test_render_alloc_framebuffer(allocator, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, &fb_align);
+    slice_t fb_align = linear_allocator_push_alignment(allocator, _Alignof(rgba_t));
+    slice_rgba_t fb;
+    fb = LINEAR_ALLOCATOR_PUSH(allocator, fb, (size_t)(GAME_TEST_FB_WIDTH * GAME_TEST_FB_HEIGHT));
 
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 1);
@@ -491,8 +492,9 @@ PRIVATE void test_render_skill_buttons_when_multiple_skills(linear_allocator_t *
 }
 
 PRIVATE void test_render_fully_color_helper_rejects_mixed_tile(linear_allocator_t *allocator) {
-    slice_t fb_align;
-    slice_rgba_t fb = test_render_alloc_framebuffer(allocator, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, &fb_align);
+    slice_t fb_align = linear_allocator_push_alignment(allocator, _Alignof(rgba_t));
+    slice_rgba_t fb;
+    fb = LINEAR_ALLOCATOR_PUSH(allocator, fb, (size_t)(GAME_TEST_FB_WIDTH * GAME_TEST_FB_HEIGHT));
 
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 4);
@@ -523,8 +525,9 @@ PRIVATE void test_render_fully_color_helper_rejects_mixed_tile(linear_allocator_
 }
 
 PRIVATE void test_render_enemy_active_uses_inactive_hud_buttons(linear_allocator_t *allocator) {
-    slice_t fb_align;
-    slice_rgba_t fb = test_render_alloc_framebuffer(allocator, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, &fb_align);
+    slice_t fb_align = linear_allocator_push_alignment(allocator, _Alignof(rgba_t));
+    slice_rgba_t fb;
+    fb = LINEAR_ALLOCATOR_PUSH(allocator, fb, (size_t)(GAME_TEST_FB_WIDTH * GAME_TEST_FB_HEIGHT));
 
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 4);
@@ -561,8 +564,9 @@ PRIVATE void test_render_enemy_active_uses_inactive_hud_buttons(linear_allocator
 // the targetable == false side of render_tiles' targetable check, so it must
 // be drawn solid rather than dithered.
 PRIVATE void test_render_attack_range_tile_occupied_by_ally_is_solid_not_dithered(linear_allocator_t *allocator) {
-    slice_t fb_align;
-    slice_rgba_t fb = test_render_alloc_framebuffer(allocator, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, &fb_align);
+    slice_t fb_align = linear_allocator_push_alignment(allocator, _Alignof(rgba_t));
+    slice_rgba_t fb;
+    fb = LINEAR_ALLOCATOR_PUSH(allocator, fb, (size_t)(GAME_TEST_FB_WIDTH * GAME_TEST_FB_HEIGHT));
 
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 5, 1);
@@ -612,8 +616,9 @@ PRIVATE void test_render_attack_range_tile_occupied_by_ally_is_solid_not_dithere
 // With exactly two skills, render_hud's skill-button loop must draw without
 // taking the VIEWPORT_MAX_SKILL_BUTTONS clamp (button_count > 2 is false).
 PRIVATE void test_render_skill_buttons_two_skills_do_not_clamp(linear_allocator_t *allocator) {
-    slice_t fb_align;
-    slice_rgba_t fb = test_render_alloc_framebuffer(allocator, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, &fb_align);
+    slice_t fb_align = linear_allocator_push_alignment(allocator, _Alignof(rgba_t));
+    slice_rgba_t fb;
+    fb = LINEAR_ALLOCATOR_PUSH(allocator, fb, (size_t)(GAME_TEST_FB_WIDTH * GAME_TEST_FB_HEIGHT));
 
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 1);
