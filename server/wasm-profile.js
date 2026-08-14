@@ -3,21 +3,56 @@
 const zlib = require('node:zlib');
 const crypto = require('node:crypto');
 
-// Layout of one __llvm_prf_data record on wasm32 for this toolchain
-// (clang 17, swiftlang fork). See clang's include/profile/InstrProfData.inc:
+// Layout of one __llvm_prf_data record on wasm32. See clang's
+// include/profile/InstrProfData.inc for the authoritative struct. NameRef
+// and FuncHash are stable across toolchains, but the fields after them
+// (pointers, then NumCounters) have shifted between clang releases as LLVM
+// added value-profile kinds, e.g. IPVK_VTableTarget inserted a 4-byte field
+// before NumCounters, changing the padded record size from 48 to 56 bytes:
 //   NameRef          u64 @ 0
 //   FuncHash         u64 @ 8
-//   CounterPtr       i32 @ 16
-//   BitmapPtr        i32 @ 20
-//   FunctionPointer  i32 @ 24
-//   Values           i32 @ 28
-//   NumCounters      u32 @ 32
-//   NumValueSites    u16[3] @ 36
-//   NumBitmapBytes   u32 @ 42
-//   (padded to 48 bytes)
-const PRF_DATA_RECORD_SIZE = 48;
+//   ...toolchain-dependent...
+//   NumCounters      u32 @ (32 on older clang, 36 on newer)
+//   ...padded to the toolchain's record size
+// Rather than pin a clang-version cutoff (fragile — the exact version this
+// changed in isn't reliably knowable across every clang/emscripten build),
+// detectRecordLayout() below tries each known layout against the actual
+// binary and picks the one whose summed NumCounters matches the counters
+// segment size.
 const PRF_DATA_FUNC_HASH_OFFSET = 8;
-const PRF_DATA_NUM_COUNTERS_OFFSET = 32;
+const KNOWN_RECORD_LAYOUTS = [
+    { recordSize: 48, numCountersOffset: 32 }, // clang <= 17
+    { recordSize: 56, numCountersOffset: 36 }, // clang with IPVK_VTableTarget (observed on clang 23 trunk)
+];
+
+// Different clang/LLVM versions lay out __llvm_prf_data records differently
+// (see KNOWN_RECORD_LAYOUTS above). Detect which one produced this binary by
+// checking which candidate's summed per-record NumCounters matches the
+// counters segment size -- a mismatch means we mis-parsed the records.
+function detectRecordLayout(dataSeg, countersSeg) {
+    const expectedCounterCount = countersSeg.size / 8;
+    const bytes = dataSeg.bytes;
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.length);
+
+    for (const layout of KNOWN_RECORD_LAYOUTS) {
+        if (dataSeg.size === 0 || dataSeg.size % layout.recordSize !== 0) {
+            continue;
+        }
+        const numFuncs = dataSeg.size / layout.recordSize;
+        let total = 0;
+        for (let i = 0; i < numFuncs; i++) {
+            total += view.getUint32(i * layout.recordSize + layout.numCountersOffset, true);
+        }
+        if (total === expectedCounterCount) {
+            return layout;
+        }
+    }
+
+    throw new Error(
+        `unable to detect __llvm_prf_data record layout for size ${dataSeg.size} ` +
+        `(unrecognized clang toolchain; add its layout to KNOWN_RECORD_LAYOUTS in wasm-profile.js)`,
+    );
+}
 
 function readU32(buf, pos) {
     let result = 0;
@@ -197,20 +232,18 @@ function buildTextProfile({ wasmBytes, memory }) {
         nameByHash.set(computeHash(name), name);
     }
 
-    const numFuncs = dataSeg.size / PRF_DATA_RECORD_SIZE;
-    if (dataSeg.size % PRF_DATA_RECORD_SIZE !== 0) {
-        throw new Error(`unexpected __llvm_prf_data size: ${dataSeg.size}`);
-    }
+    const { recordSize, numCountersOffset } = detectRecordLayout(dataSeg, countersSeg);
+    const numFuncs = dataSeg.size / recordSize;
 
     const view = new DataView(memory.buffer);
     let counterIndex = 0;
     const parts = [];
 
     for (let i = 0; i < numFuncs; i++) {
-        const base = dataSeg.offset + i * PRF_DATA_RECORD_SIZE;
+        const base = dataSeg.offset + i * recordSize;
         const nameRef = view.getBigUint64(base, true);
         const funcHash = view.getBigUint64(base + PRF_DATA_FUNC_HASH_OFFSET, true);
-        const numCounters = view.getUint32(base + PRF_DATA_NUM_COUNTERS_OFFSET, true);
+        const numCounters = view.getUint32(base + numCountersOffset, true);
 
         // Counters are laid out sequentially per record; always consume the
         // record's counters so later records stay aligned.
