@@ -2,6 +2,8 @@
 #include "pathing.h"
 #include "skill.h"
 
+#include "../lib/assert.h"
+
 PUBLIC bool action_try_move(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* entity, position_t target) {
     pathing_state_t pathing = pathing_compute_distances(allocator, grid, entities, entity, entity->position, entity->mp);
 
@@ -20,10 +22,8 @@ PUBLIC bool action_try_move(linear_allocator_t *allocator, grid_t grid, slice_en
 }
 
 PUBLIC bool action_try_attack(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* attacker, skill_t skill, entity_t* defender) {
-
-    if (!attacker->alive || !defender->alive) {
-        return false;
-    }
+    assert_debug(attacker->alive);
+    assert_debug(defender->alive);
 
     if (attacker->team == defender->team) {
         return false;

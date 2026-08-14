@@ -33,30 +33,13 @@ const INCLUDED_FILES = new Set([
     'src/lib/assert.c',
 ]);
 
-// Regions that are intentionally never executed by the test suite. These are
-// defensive traps/branches that cannot be reached through the game.h API
-// without either crashing the wasm runner or bypassing a guard the public API
-// already enforces. Keys may be `file:line` or `file:line:col`.
+// Regions that are intentionally never executed by the test suite. Keys may
+// be `file:line` or `file:line:col`.
 const IGNORED_REGIONS = new Set([
-    // __builtin_trap: reaching it would abort the test run.
+    // __builtin_trap: executing it traps the wasm and fails the test run, so
+    // no passing test can cover it. This is the trap itself, not a defensive
+    // branch that can be converted into an assert_debug invariant.
     'src/lib/assert.c:16:9',
-
-    // action_try_attack's dead-defender guard. game.h never routes a click to
-    // a dead defender (entity_find_at only returns alive entities), so the
-    // right side of `!attacker->alive || !defender->alive` is unreachable
-    // from the public game API. The guard is kept as a documented contract of
-    // action.h.
-    'src/game/action.c:24:47',
-    'src/game/action.c:25:16',
-
-    // ai_step_toward's `!found` guard. ai_run_ennemy_turn only calls
-    // ai_step_toward after ai_find_nearest_player found a reachable player,
-    // which implies at least one of the enemy's neighbors is reachable from
-    // that player (the BFS path is reversible), so `found` is always true.
-    // The guard is defensive and cannot be reached through game.h.
-    'src/game/ai.c:93:17',
-    'src/game/ai.c:94:16',
-    'src/game/ai.c:153:72',
 ]);
 
 function run(cmd, args) {
