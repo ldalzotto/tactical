@@ -31,6 +31,25 @@ PRIVATE void test_test_discovery_out_of_range_panics(linear_allocator_t *allocat
     assert_test(name == 0);
 }
 
+PRIVATE void test_panic_without_expect_panic_traps(linear_allocator_t *allocator) {
+    (void)allocator;
+
+    // panic's non-expect_panic path falls through to __builtin_trap. The
+    // JS runner treats this test's wasm trap as the expected outcome and
+    // confirms it via test_expect_trap_end.
+    expect_trap_begin();
+    panic(false);
+}
+
+PRIVATE void test_expect_trap_end_without_trap_reports_false(linear_allocator_t *allocator) {
+    (void)allocator;
+
+    // The expected-but-no-trap side of expect_trap_end's `&&` condition:
+    // a test can ask for a trap and then finish without reaching one.
+    expect_trap_begin();
+    assert_test(!expect_trap_end());
+}
+
 PRIVATE void test_input_event_layout(linear_allocator_t *allocator) {
     assert_test(sizeof(input_event_t) == 12);
 
@@ -50,6 +69,8 @@ const test_case_t g_runtime_tests[] = {
     { TEST_NAME("pass_example"), test_pass_example },
     { TEST_NAME("fail_example"), test_fail_example },
     { TEST_NAME("test_discovery_out_of_range_panics"), test_test_discovery_out_of_range_panics },
+    { TEST_NAME("panic_without_expect_panic_traps"), test_panic_without_expect_panic_traps },
+    { TEST_NAME("expect_trap_end_without_trap_reports_false"), test_expect_trap_end_without_trap_reports_false },
     { TEST_NAME("input_event_layout"), test_input_event_layout },
 };
 
