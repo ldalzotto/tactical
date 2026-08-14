@@ -9,15 +9,10 @@ PUBLIC game_state_t scenario_setup_default(linear_allocator_t* allocator, int gr
 
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
-    // Every entity gets both skills (ticket 007 / PLAN.md Q11): the
-    // entity_spawn skill becomes the default selected_skill, the
-    // entity_add_skill call gives it the other option too. Symmetric across
-    // both teams so the AI's multi-skill logic (ticket 005) and the
-    // player's skill-selection UI (ticket 006) both get exercised by the
-    // shipped scenario, not just by dedicated unit tests. No principled
-    // "correct" squad composition exists for this -- flagged as a scope
-    // call in FLAGGED_DECISIONS.md, not derived from any gameplay
-    // requirement.
+    // Every entity gets both skills: entity_spawn's skill stays the default
+    // selection, entity_add_skill adds the other. Exercises AI skill choice
+    // and player skill selection on both teams by default, not just in unit
+    // tests. Scope call, not a gameplay requirement -- see FLAGGED_DECISIONS.md.
     entity_t *p1 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){1, 2}, 10, 1, 3, SKILL_RANGED);
     entity_add_skill(p1, SKILL_MELEE);
     entity_t *p2 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){1, 5}, 10, 1, 3, SKILL_MELEE);
