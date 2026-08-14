@@ -53,11 +53,9 @@ async function main() {
 
     run('llvm-profdata', ['merge', '-o', PROF_DATA, PROF_TEXT]);
 
-    // Keep the annotated HTML report scoped to the same game.h-reachable
-    // sources as printUncovered (see coverage-missing.js), so the browser
-    // view doesn't show 0% for the wasm entry point, the renderer, the input
-    // poller, the scenario builder, the frame clock, the runtime/graphics
-    // wrappers or the test harness itself.
+    // Annotated HTML report. `llvm-cov show` renders line *and* branch
+    // coverage for every compiled source; the browser view is the place to
+    // inspect the exact lines/branches that printUncovered flags below.
     run('llvm-cov', [
         'show',
         WASM_PATH,
@@ -73,8 +71,10 @@ async function main() {
         root: ROOT,
     });
     if (total > 0) {
-        console.log(`\n=== Uncovered code (${total} regions) ===\n`);
+        console.log(`\n=== Uncovered code (${total} gaps) ===\n`);
         process.stdout.write(diagnostics.join('\n') + '\n');
+        process.exitCode = 1;
+        return;
     }
 
     process.exitCode = 0;
