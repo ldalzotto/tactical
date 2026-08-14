@@ -115,27 +115,29 @@ PRIVATE bool ai_skill_beats(skill_t a, skill_t b) {
 // earlier "stop moving once ANY skill is in range" design made higher-
 // damage skills structurally unreachable whenever a longer-range weaker
 // skill was available.
-PRIVATE int ai_preferred_skill_index(entity_t *enemy) {
-    int best = 0;
-    for (int i = 1; i < enemy->skill_count; i++) {
-        if (ai_skill_beats(enemy->skills[i], enemy->skills[best])) {
-            best = i;
+PRIVATE skill_t* ai_preferred_skill(entity_t *enemy) {
+    skill_t *best = 0;
+    for (SLICE_FOREACH(enemy->skills, skill_s)) {
+        skill_t *skill = &SLICE_DEREF(skill_s);
+        if (best == 0 || ai_skill_beats(*skill, *best)) {
+            best = skill;
         }
     }
     return best;
 }
 
 // Among the enemy's skills currently in range of `target`, the one with the
-// highest damage (ties: lower ap_cost, then list order), or -1 if none are
+// highest damage (ties: lower ap_cost, then list order), or 0 if none are
 // in range.
-PRIVATE int ai_best_in_range_skill_index(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *enemy, entity_t *target) {
-    int best = -1;
-    for (int i = 0; i < enemy->skill_count; i++) {
-        if (!skill_target_in_range(allocator, grid, entities, enemy, enemy->skills[i], target)) {
+PRIVATE skill_t* ai_best_in_range_skill(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *enemy, entity_t *target) {
+    skill_t *best = 0;
+    for (SLICE_FOREACH(enemy->skills, skill_s)) {
+        skill_t *skill = &SLICE_DEREF(skill_s);
+        if (!skill_target_in_range(allocator, grid, entities, enemy, *skill, target)) {
             continue;
         }
-        if (best < 0 || ai_skill_beats(enemy->skills[i], enemy->skills[best])) {
-            best = i;
+        if (best == 0 || ai_skill_beats(*skill, *best)) {
+            best = skill;
         }
     }
     return best;
@@ -160,18 +162,18 @@ PUBLIC entity_t* ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, 
         return 0;
     }
 
-    int preferred = ai_preferred_skill_index(enemy);
+    skill_t *preferred = ai_preferred_skill(enemy);
 
-    while (enemy->mp > 0 && !skill_target_in_range(allocator, grid, entities, enemy, enemy->skills[preferred], target)) {
+    while (enemy->mp > 0 && !skill_target_in_range(allocator, grid, entities, enemy, *preferred, target)) {
         if (!ai_step_toward(allocator, grid, entities, enemy, target)) {
             break;
         }
     }
 
-    int attack_skill = ai_best_in_range_skill_index(allocator, grid, entities, enemy, target);
-    if (attack_skill < 0) {
+    skill_t *attack_skill = ai_best_in_range_skill(allocator, grid, entities, enemy, target);
+    if (attack_skill == 0) {
         return 0;
     }
 
-    return action_try_attack(allocator, grid, entities, enemy, enemy->skills[attack_skill], target) ? target : 0;
+    return action_try_attack(allocator, grid, entities, enemy, *attack_skill, target) ? target : 0;
 }

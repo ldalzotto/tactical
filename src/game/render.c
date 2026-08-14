@@ -209,8 +209,14 @@ PRIVATE void render_hud(slice_rgba_t fb, int fb_width, game_state_t game) {
     // game_on_skill_button_pressed's own gate) and only shown at all when
     // there's an actual choice to make -- a single-skill entity has nothing
     // to switch between, so drawing an inert button would just be clutter.
-    if (active->team == ENTITY_TEAM_PLAYER && game.mode != GAME_MODE_NONE && active->skill_count > 1) {
-        for (int i = 0; i < active->skill_count; i++) {
+    if (active->team == ENTITY_TEAM_PLAYER && game.mode != GAME_MODE_NONE && entity_skill_count(active) > 1) {
+        // Clamped to VIEWPORT_MAX_SKILL_BUTTONS -- see
+        // game_on_input_event's matching clamp in game.c.
+        int button_count = entity_skill_count(active);
+        if (button_count > VIEWPORT_MAX_SKILL_BUTTONS) {
+            button_count = VIEWPORT_MAX_SKILL_BUTTONS;
+        }
+        for (int i = 0; i < button_count; i++) {
             rect_t skill_button = game.viewport.skill_buttons[i];
             rgba_t skill_button_color = (i == game.selected_skill) ? COLOR_SKILL_BUTTON_SELECTED : COLOR_SKILL_BUTTON_AVAILABLE;
             graphics_draw_rectangle(fb, fb_width, skill_button.x, skill_button.y, skill_button.width, skill_button.height, skill_button_color);

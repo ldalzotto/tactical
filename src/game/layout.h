@@ -6,11 +6,11 @@
 
 #include "ui.h"
 
-// Fixed button-array size for skill selection (ticket 006). Deliberately not
-// entity.h's ENTITY_MAX_SKILLS -- layout.h/.c is pure screen geometry with
-// no game-logic dependency today, and this keeps it that way. The two
-// happen to match by convention (both track "how many skills a loadout
-// supports"); if that ever needs to diverge, they're free to.
+// Fixed button-array size for skill selection (ticket 006). An entity's
+// skill list (entity_t.skills) has no fixed cap, so this is purely a HUD
+// constraint: only the first VIEWPORT_MAX_SKILL_BUTTONS skills get a button
+// (see game.c/render.c's clamps around entity_skill_count()). layout.h/.c
+// stays pure screen geometry with no game-logic dependency.
 #define VIEWPORT_MAX_SKILL_BUTTONS 2
 
 typedef struct {
@@ -20,7 +20,7 @@ typedef struct {
     rect_t hud_rect;
     rect_t end_turn_button;
     rect_t attack_button;
-    rect_t skill_buttons[VIEWPORT_MAX_SKILL_BUTTONS]; // one per entity_t.skills slot
+    rect_t skill_buttons[VIEWPORT_MAX_SKILL_BUTTONS]; // one per displayable skill, clamped
     rect_t timeline_rect;
 } viewport_t;
 

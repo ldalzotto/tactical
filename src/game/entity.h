@@ -19,40 +19,33 @@ typedef struct {
     int ap_cost;
 } skill_t;
 
-// Per-entity loadout cap for this feature (melee + ranged today), not a
-// structural constant.
-#define ENTITY_MAX_SKILLS 2
+SLICE_DEFINE(skill_t);
 
 typedef struct {
     position_t position;
     entity_team_t team;
     int hp, max_hp, ap, max_ap, mp, max_mp;
     bool alive;
-    /*
-        TODO: We don't want to have a constant ENTITY_MAX_SKILLS.
-        Instead of skills, skill_count. Just use a slice of skill.
-        In that sense, the /Users/loicdalzotto/perso/tactical/src/game/entity.h entity_spawn api should be simplified
-        to not take skills.
-        Because the number of skills can vary.
-        When we create an entity, I want the skills to be allocated dynamically with the linear_allocator.
-        I would vote to have a separate list of entity skills.
-
-        So that when a scenario is created, you allocate an entity. Then you populate a skills array. And
-        the entity references a slice of this array. A little bit like how a database would work.
-    */
-    skill_t skills[ENTITY_MAX_SKILLS];
-    int skill_count;
+    // A sub-range of a top-level skill list (see skill_list_init/skill_list_add),
+    // assigned once the entity's skills have been populated there. Not owned
+    // by the entity list itself -- see game_init's grid/entities/skills/turn_order
+    // layout.
+    slice_skill_t skills;
 } entity_t;
 
 SLICE_DEFINE(entity_t);
 
 PUBLIC slice_entity_t entity_list_init(linear_allocator_t *allocator);
 PUBLIC void entity_list_deinit(linear_allocator_t *allocator, slice_entity_t list);
-// Spawns with exactly one skill (skills[0], skill_count=1).
-// Use entity_add_skill afterward to give the entity a second skill.
-PUBLIC entity_t* entity_spawn(linear_allocator_t *allocator, slice_entity_t* list, entity_team_t team, position_t position, int hp, int ap, int mp, skill_t skill);
-// Appends a skill; asserts skill_count < ENTITY_MAX_SKILLS.
-PUBLIC void entity_add_skill(entity_t *entity, skill_t skill);
+// Spawns with no skills (skills = {0,0}); assign entity->skills afterward
+// once its skills have been populated in the top-level skill list.
+PUBLIC entity_t* entity_spawn(linear_allocator_t *allocator, slice_entity_t* list, entity_team_t team, position_t position, int hp, int ap, int mp);
+PUBLIC int entity_skill_count(entity_t *entity);
+// A shared, contiguous list every entity's `skills` slice is a sub-range of --
+// same append-in-place discipline as entity_spawn/turn_order_add.
+PUBLIC slice_skill_t skill_list_init(linear_allocator_t *allocator);
+PUBLIC void skill_list_deinit(linear_allocator_t *allocator, slice_skill_t list);
+PUBLIC skill_t* skill_list_add(linear_allocator_t *allocator, slice_skill_t *list, skill_t skill);
 PUBLIC entity_t *entity_find_at(slice_entity_t list, position_t position);
 PUBLIC void entity_damage(entity_t* entity, int amount);
 PUBLIC bool entity_is_adjacent(entity_t a, entity_t b);
