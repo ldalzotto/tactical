@@ -23,8 +23,8 @@ static const position_t __POSITION_DIRECTIONS[4] = {
 };
 
 #define POSITION_DIRECTIONS (slice_position_t) { \
-        (position_t*)__POSITION_DIRECTIONS, \
-        typeoffset((position_t*)__POSITION_DIRECTIONS, sizeof(__POSITION_DIRECTIONS)/sizeof(__POSITION_DIRECTIONS[0])), \
+        .begin = (position_t*)__POSITION_DIRECTIONS, \
+        .end = typeoffset((position_t*)__POSITION_DIRECTIONS, sizeof(__POSITION_DIRECTIONS)/sizeof(__POSITION_DIRECTIONS[0])), \
     }
 
 #ifdef APP_UNITY_BUILD

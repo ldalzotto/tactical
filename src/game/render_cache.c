@@ -6,8 +6,8 @@
 // Every mutator below re-checks this before returning, so a stray reorder
 // trips an assert instead of silently corrupting the other cache.
 PRIVATE void render_cache_assert_layout(render_cache_t cache) {
-    assert_debug(cache.attack_range_align.begin >= cache.reachable_tiles.end);
-    assert_debug(cache.attack_range_tiles.begin >= cache.reachable_tiles.end);
+    assert_debug(cache.attack_range_align.begin >= cache.reachable_tiles.slice.end);
+    assert_debug((void*)cache.attack_range_tiles.begin >= cache.reachable_tiles.slice.end);
 }
 
 PUBLIC void render_cache_reset(linear_allocator_t *scratch, render_cache_t *cache) {
