@@ -5,6 +5,7 @@ const mode = args.includes('--release') ? 'Release' : 'Debug';
 const verbose = args.includes('--verbose');
 const unity = args.includes('--unity');
 const tests = args.includes('--tests');
+const coverage = args.includes('--coverage');
 
 // macOS ships Xcode's clang without the WebAssembly backend, so `clang`
 // on PATH can't target wasm32. Emscripten bundles a clang build that can;
@@ -27,5 +28,5 @@ function run(cmd, cmdArgs) {
     }
 }
 
-run('cmake', ['-S', '.', '-B', 'build', `-DCMAKE_BUILD_TYPE=${mode}`, `-DAPP_UNITY_BUILD=${unity ? 'ON' : 'OFF'}`, `-DAPP_BUILD_TESTS=${tests ? 'ON' : 'OFF'}`]);
+run('cmake', ['-S', '.', '-B', 'build', `-DCMAKE_BUILD_TYPE=${mode}`, `-DAPP_UNITY_BUILD=${unity ? 'ON' : 'OFF'}`, `-DAPP_BUILD_TESTS=${tests ? 'ON' : 'OFF'}`, `-DAPP_COVERAGE=${coverage ? 'ON' : 'OFF'}`]);
 run('cmake', ['--build', 'build']);
