@@ -305,7 +305,7 @@ PUBLIC void game_on_input_event(game_state_t *game, linear_allocator_t *allocato
                 button_count = VIEWPORT_MAX_SKILL_BUTTONS;
             }
             for (int i = 0; i < button_count; i++) {
-                if (point_in_rect(game->viewport.skill_buttons[i], event.x, event.y)) {
+                if (point_in_rect(SLICE_AT(viewport_skill_buttons(&game->viewport), i), event.x, event.y)) {
                     game_on_skill_button_pressed(game, allocator, i);
                     return;
                 }

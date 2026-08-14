@@ -20,13 +20,19 @@ typedef struct {
     rect_t hud_rect;
     rect_t end_turn_button;
     rect_t attack_button;
-    rect_t skill_buttons[VIEWPORT_MAX_SKILL_BUTTONS]; // one per displayable skill, clamped
+    // Backing storage only, sized for VIEWPORT_MAX_SKILL_BUTTONS. viewport_t
+    // is copied by value throughout the codebase, so a slice can't be
+    // stored here (its pointers would go stale on copy) -- read/write
+    // through viewport_skill_buttons() instead, which rebuilds the slice
+    // from whichever live instance you hand it.
+    rect_t skill_buttons[VIEWPORT_MAX_SKILL_BUTTONS];
     rect_t timeline_rect;
 } viewport_t;
 
 PUBLIC viewport_t layout_compute(int fb_width, int fb_height, int grid_width, int grid_height, int hud_height);
 PUBLIC bool screen_to_grid(viewport_t v, int screen_x, int screen_y, int *out_tx, int *out_ty);
 PUBLIC void grid_to_screen(viewport_t v, int tx, int ty, int *out_px, int *out_py);
+PUBLIC slice_rect_t viewport_skill_buttons(viewport_t *v);
 
 #ifdef APP_UNITY_BUILD
 #include "layout.c"
