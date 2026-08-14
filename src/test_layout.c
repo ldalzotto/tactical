@@ -21,6 +21,11 @@ PRIVATE void test_layout_compute_defaults(linear_allocator_t *allocator) {
     assert_test(v.end_turn_button.y == 210);
     assert_test(v.end_turn_button.width == 60);
     assert_test(v.end_turn_button.height == 20);
+
+    assert_test(v.attack_button.x == 180);
+    assert_test(v.attack_button.y == 210);
+    assert_test(v.attack_button.width == 60);
+    assert_test(v.attack_button.height == 20);
 }
 
 PRIVATE void test_point_in_rect(linear_allocator_t *allocator) {

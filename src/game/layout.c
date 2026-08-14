@@ -25,10 +25,17 @@ PUBLIC viewport_t layout_compute(int fb_width, int fb_height, int grid_width, in
         .height = hud_rect.height - 2 * hud_padding,
     };
 
+    rect_t attack_button = {
+        .x = end_turn_button.x - button_width - hud_padding,
+        .y = hud_rect.y + hud_padding,
+        .width = button_width,
+        .height = hud_rect.height - 2 * hud_padding,
+    };
+
     rect_t timeline_rect = {
         .x = hud_rect.x + hud_padding,
         .y = hud_rect.y + hud_padding / 10,
-        .width = hud_rect.width - end_turn_button.width - 2 * hud_padding,
+        .width = hud_rect.width - end_turn_button.width - attack_button.width - 3 * hud_padding,
         .height = hud_rect.height / 8,
     };
 
@@ -40,6 +47,7 @@ PUBLIC viewport_t layout_compute(int fb_width, int fb_height, int grid_width, in
         .grid_height = grid_height,
         .hud_rect = hud_rect,
         .end_turn_button = end_turn_button,
+        .attack_button = attack_button,
         .timeline_rect = timeline_rect,
     };
     return viewport;

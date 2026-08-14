@@ -12,6 +12,7 @@ typedef struct {
     int grid_width, grid_height; // tile counts (for bounds checks)
     rect_t hud_rect;
     rect_t end_turn_button;
+    rect_t attack_button;
     rect_t timeline_rect;
 } viewport_t;
 

@@ -2,6 +2,7 @@
 
 #include "action.h"
 #include "pathing.h"
+#include "skill.h"
 
 /*
     Distance from the BFS root to a tile adjacent to `position`.
@@ -96,34 +97,30 @@ PRIVATE bool ai_step_toward(linear_allocator_t *allocator, grid_t grid, slice_en
     return action_try_move(allocator, grid, entities, enemy, best_position);
 }
 
-// Runs one enemy's turn: find nearest ALIVE player entity via BFS rooted at
-// the enemy's own tile (skip_entity=enemy). If already orthogonally adjacent
-// and ap>0, action_try_attack. Otherwise, while mp>0 and not yet adjacent:
-// BFS rooted at the TARGET's tile (skip_entity=ENTITY_ID_NONE) to get a
-// distance-to-target field, step to whichever orthogonal neighbor (checked in
-// order: up, right, down, left) of the enemy's current tile has the smallest
-// distance-to-target via action_try_move (one tile at a time), then re-check
-// adjacency/attack. If no alive player entities remain, no-op. Returns the
-// attacked entity, or 0 if no attack landed.
+// Runs one enemy's turn:
+// - find nearest ALIVE player entity via BFS rooted at the enemy's tile (skip_entity=enemy)
+// - if already within skill range and ap>0, action_try_attack
+// - otherwise, while mp>0 and out of range: BFS rooted at the TARGET's tile
+//   (skip_entity=ENTITY_ID_NONE) for a distance-to-target field, step to the
+//   orthogonal neighbor (order: up, right, down, left) with smallest
+//   distance-to-target via action_try_move, one tile at a time, then recheck
+// - no-op if no alive player entities remain
+// Returns the attacked entity, or 0 if no attack landed.
 PUBLIC entity_t* ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *enemy) {
     entity_t* target = ai_find_nearest_player(allocator, grid, entities, enemy);
     if (target == 0) {
         return 0;
     }
 
-    if (entity_is_adjacent(*enemy, *target)) {
-        return action_try_attack(enemy, target) ? target : 0;
+    if (action_try_attack(allocator, grid, entities, enemy, target)) {
+        return target;
     }
 
-    while (enemy->mp > 0 && !entity_is_adjacent(*enemy, *target)) {
+    while (enemy->mp > 0 && !skill_target_in_range(allocator, grid, entities, enemy, target)) {
         if (!ai_step_toward(allocator, grid, entities, enemy, target)) {
             break;
         }
     }
 
-    if (entity_is_adjacent(*enemy, *target)) {
-        return action_try_attack(enemy, target) ? target : 0;
-    }
-
-    return 0;
+    return action_try_attack(allocator, grid, entities, enemy, target) ? target : 0;
 }
