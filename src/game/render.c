@@ -76,14 +76,13 @@ PRIVATE void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
         grid_to_screen(game.viewport, tile.x, tile.y, &px, &py);
         int ts = game.viewport.tile_size;
 
-        // A tile occupied by a targetable (opposing-team) entity draws
-        // dithered instead of solid: ticket 003 made these tiles reachable
-        // in the BFS, but the entity's own opaque sprite (drawn afterward in
-        // render_entities) would otherwise fully hide the highlight in the
-        // tile's center -- the dither keeps it visible in the margin around
-        // the sprite. See ticket 004 / PLAN.md Q3 for why this reuses
-        // entity_find_at (the same occupancy primitive pathing.c already
-        // uses) instead of a second, drifting occupancy check.
+        // Tiles occupied by a targetable (opposing-team) entity draw
+        // dithered so the highlight stays visible under the entity's own
+        // opaque sprite (drawn afterward in render_entities) -- see ticket
+        // 004. Same-team occupants fall back to solid: ticket 003 only
+        // makes opposing-team entities passable, so an ally can't
+        // legitimately end up on an attack-range tile in the first place,
+        // but the check still degrades safely (solid) if that ever changes.
         entity_t *occupant = entity_find_at(game.entities, tile);
         bool targetable = occupant != 0 && occupant->team != attacker->team;
         if (targetable) {

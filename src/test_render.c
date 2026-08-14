@@ -180,14 +180,32 @@ PRIVATE void test_render_attack_range_tile_occupied_by_enemy_is_dithered_not_sol
     test_click_attack_toggle(&game, allocator);
     render_frame(fb, GAME_TEST_FB_WIDTH, game);
 
+    rgba_t tint = { 230, 140, 60, 255 };
+    // COLOR_TILE_WALKABLE (render.c) -- the outer-border tile color a
+    // checkerboard "off" pixel falls back to once the tint isn't drawn
+    // there. Grid has no obstacles, so every tile is walkable.
+    rgba_t tile_walkable = { 40, 40, 40, 255 };
+
     // (1, 0): in range, unoccupied -- still a full solid tint fill, same as
     // before ticket 004 (dithering only applies to occupied tiles).
-    assert_test(test_tile_fully_color(fb, GAME_TEST_FB_WIDTH, game.viewport, (position_t){1, 0}, (rgba_t){230, 140, 60, 255}));
-    // enemy's own tile: dithered, not fully solid tint -- the checkerboard
-    // gaps show tile/background color through, and the entity's own sprite
-    // (drawn afterward) covers the tile's center.
-    assert_test(!test_tile_fully_color(fb, GAME_TEST_FB_WIDTH, game.viewport, enemy->position, (rgba_t){230, 140, 60, 255}));
-    assert_test(test_tile_contains_color(fb, GAME_TEST_FB_WIDTH, game.viewport, enemy->position, (rgba_t){230, 140, 60, 255}));
+    assert_test(test_tile_fully_color(fb, GAME_TEST_FB_WIDTH, game.viewport, (position_t){1, 0}, tint));
+
+    // enemy's own tile: two horizontally-adjacent pixels in the top-left
+    // corner (row 0, columns 0-1 of the tile -- inside the outer 2px border
+    // band, well above render_entities' square_top so the entity sprite
+    // never overwrites this row) must differ: even (px+py) parity draws
+    // tint, odd parity is skipped and falls through to the tile's own
+    // color. A solid (non-dithered) fill would make both pixels equal tint
+    // -- this is the actual proof dithering happened, not just "some tint
+    // pixel exists somewhere on the tile" (which is also true of a solid
+    // fill's untouched margin, so doesn't distinguish the two).
+    int enemy_px, enemy_py;
+    grid_to_screen(game.viewport, enemy->position.x, enemy->position.y, &enemy_px, &enemy_py);
+    assert_test((enemy_px + enemy_py) % 2 == 0); // sanity: the pixel we check is the "on" one
+    rgba_t corner_on = SLICE_AT(fb, enemy_py * GAME_TEST_FB_WIDTH + enemy_px);
+    rgba_t corner_off = SLICE_AT(fb, enemy_py * GAME_TEST_FB_WIDTH + (enemy_px + 1));
+    assert_test(test_rgba_equals(corner_on, tint));
+    assert_test(test_rgba_equals(corner_off, tile_walkable));
 
     game_deinit(allocator, game);
     LINEAR_ALLOCATOR_POP(allocator, fb);
