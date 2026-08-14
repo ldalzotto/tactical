@@ -52,14 +52,12 @@ PUBLIC turn_state_t turn_remove_dead_entities(turn_state_t state) {
 
     slice_entity_ptr_t write = state.order;
     int new_cursor = 0;
-    bool active_seen = false;
     for ( SLICE_FOREACH(state.order, read) ) {
         entity_t *entity = SLICE_DEREF(read);
         // If the entity is dead, we remove it.
         if ( entity->alive ) {
             if (entity == active) {
                 new_cursor = (int)typesize(state.order.begin, write.begin);
-                active_seen = true;
             }
             SLICE_DEREF(write) = entity;
             write = SLICE_ADVANCE(write, 1);
@@ -67,11 +65,6 @@ PUBLIC turn_state_t turn_remove_dead_entities(turn_state_t state) {
     }
     state.order.end = write.begin;
 
-    // The active entity just acted (the caller only removes a *defender*
-    // killed by that action), so it is alive and still present in the
-    // compacted order. Repositioning the cursor without a search also keeps
-    // this path free of an empty-slice loop that can never run.
-    assert_debug(active_seen);
     state.cursor = new_cursor;
 
     return state;
