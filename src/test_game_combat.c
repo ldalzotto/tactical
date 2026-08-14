@@ -202,7 +202,14 @@ PRIVATE void test_game_ranged_attack_noop_beyond_range(linear_allocator_t *alloc
     game_deinit(allocator, game);
 }
 
-PRIVATE void test_game_ranged_attack_blocked_by_unit_in_path(linear_allocator_t *allocator) {
+// Ticket 003: attack-range BFS now treats entities on the opposing team of
+// the attacker as passable, so an enemy standing on the only straight-line
+// path no longer blocks a shot at another enemy behind it -- this is the
+// bug feature 1 fixes (previously this exact scenario asserted the attack
+// was blocked; it's now expected to land). Allies of the attacker are a
+// separate scenario below (test_game_ranged_attack_still_blocked_by_ally_in_path)
+// and remain blocking, unchanged.
+PRIVATE void test_game_ranged_attack_reaches_through_enemy_in_path(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 1);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
@@ -222,13 +229,88 @@ PRIVATE void test_game_ranged_attack_blocked_by_unit_in_path(linear_allocator_t 
     test_click_tile(&game, allocator, p->position);
     test_click_attack_toggle(&game, allocator);
 
-    // e is within range (3), but blocker occupies the only tile on the
-    // straight-line path (height-1 grid, no way around): unreachable.
+    // e is within range (3); blocker (an enemy of p, same as e) occupies the
+    // only tile on the straight-line path (height-1 grid, no way around) but
+    // is now passable for range purposes: the attack on e lands.
+    assert_test(test_tile_list_contains(game.render.attack_range_tiles, e->position));
+    test_click_tile(&game, allocator, e->position);
+
+    assert_test(e->hp == 10 - SKILL_RANGED.damage);
+    assert_test(p->ap == 0);
+    // blocker itself wasn't the target: untouched.
+    assert_test(blocker->hp == 10);
+
+    game_deinit(allocator, game);
+}
+
+// Allies still block occupancy in the attack-range BFS -- only the
+// attacker's opposing team is made passable (PLAN.md Q2: scoped to what the
+// feature actually asked for, not "ignore everyone").
+PRIVATE void test_game_ranged_attack_still_blocked_by_ally_in_path(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 4, 1);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 1, 3, SKILL_RANGED);
+    entity_t* ally = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){2, 0}, 10, 1, 3, SKILL_MELEE);
+    entity_t* e = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 1, 3, SKILL_MELEE);
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, ally);
+    turn_order_add(allocator, &order, e);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+
+    // e is within range (3), but ally occupies the only tile on the
+    // straight-line path: still unreachable, since allies aren't passable.
+    assert_test(!test_tile_list_contains(game.render.attack_range_tiles, e->position));
     test_click_tile(&game, allocator, e->position);
 
     assert_test(e->hp == 10);
     assert_test(p->ap == 1);
-    assert_test(blocker->hp == 10);
+    assert_test(ally->hp == 10);
+
+    game_deinit(allocator, game);
+}
+
+// attack_range_tiles itself (not just a specific attack outcome) now
+// includes both the occupied enemy's own tile AND the tile beyond it, once
+// that tile is within range through the now-passable enemy -- the exact
+// "cells under/behind an enemy stay reachable-for-targeting" behavior
+// feature 1 asks for.
+PRIVATE void test_game_attack_range_tiles_include_occupied_and_beyond(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 5, 1);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 1, 3, SKILL_RANGED);
+    entity_t* enemy_at_range_2 = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){2, 0}, 10, 1, 3, SKILL_MELEE);
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, enemy_at_range_2);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+
+    // enemy_at_range_2's own tile (distance 2, within SKILL_RANGED.range=3):
+    // previously never appeared in attack_range_tiles at all (occupied tiles
+    // were skipped before getting a BFS distance).
+    assert_test(test_tile_list_contains(game.render.attack_range_tiles, enemy_at_range_2->position));
+    // (3, 0), distance 3 through the now-passable enemy: previously
+    // unreachable since the enemy blocked the only path past it.
+    assert_test(test_tile_list_contains(game.render.attack_range_tiles, (position_t){3, 0}));
+    // (4, 0), distance 4, beyond SKILL_RANGED.range=3: still out of range,
+    // the fix doesn't extend range, only what occupancy blocks within it.
+    assert_test(!test_tile_list_contains(game.render.attack_range_tiles, (position_t){4, 0}));
 
     game_deinit(allocator, game);
 }
@@ -317,7 +399,9 @@ const test_case_t g_game_combat_tests[] = {
     { TEST_NAME("game_entity_pressed_adjacent_enemy_attacks_then_noops_when_ap_zero"), test_game_entity_pressed_adjacent_enemy_attacks_then_noops_when_ap_zero },
     { TEST_NAME("game_ranged_attack_hits_at_max_range_without_moving"), test_game_ranged_attack_hits_at_max_range_without_moving },
     { TEST_NAME("game_ranged_attack_noop_beyond_range"), test_game_ranged_attack_noop_beyond_range },
-    { TEST_NAME("game_ranged_attack_blocked_by_unit_in_path"), test_game_ranged_attack_blocked_by_unit_in_path },
+    { TEST_NAME("game_ranged_attack_reaches_through_enemy_in_path"), test_game_ranged_attack_reaches_through_enemy_in_path },
+    { TEST_NAME("game_ranged_attack_still_blocked_by_ally_in_path"), test_game_ranged_attack_still_blocked_by_ally_in_path },
+    { TEST_NAME("game_attack_range_tiles_include_occupied_and_beyond"), test_game_attack_range_tiles_include_occupied_and_beyond },
     { TEST_NAME("game_attack_toggle_after_move_selection_does_not_overflow_scratch"), test_game_attack_toggle_after_move_selection_does_not_overflow_scratch },
     { TEST_NAME("game_selecting_shows_reachable_tiles_and_toggle_shows_attack_range_tiles"), test_game_selecting_shows_reachable_tiles_and_toggle_shows_attack_range_tiles },
 };

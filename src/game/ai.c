@@ -32,7 +32,7 @@ PRIVATE int ai_distance_to_adjacency(pathing_state_t pathing, grid_t grid, posit
 
 PRIVATE entity_t* ai_find_nearest_player(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* enemy) {
     int max_steps = grid.width * grid.height;
-    pathing_state_t pathing = pathing_compute_distances(allocator, grid, entities, enemy, enemy->position, max_steps);
+    pathing_state_t pathing = pathing_compute_distances(allocator, grid, entities, enemy, enemy->position, max_steps, 0);
 
     entity_t* best_entity = 0;
     int best_dist = -1;
@@ -63,7 +63,7 @@ PRIVATE bool ai_step_toward(linear_allocator_t *allocator, grid_t grid, slice_en
     int max_steps = grid.width * grid.height;
     // We compute the distance from the target.
     // The smallest distance of ennemy neighbor is the tile we are going to move towards.
-    pathing_state_t pathing = pathing_compute_distances(allocator, grid, entities, target, target->position, max_steps);
+    pathing_state_t pathing = pathing_compute_distances(allocator, grid, entities, target, target->position, max_steps, 0);
 
     bool found = false;
     int best_dist = -1;

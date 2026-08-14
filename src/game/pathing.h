@@ -2,6 +2,7 @@
 
 #include "../lib/linkage.h"
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "../lib/memory.h"
@@ -26,7 +27,18 @@ PUBLIC void pathing_deinit(linear_allocator_t *allocator, pathing_state_t state)
 // Distances beyond max_steps are left -1. Standard array-queue BFS,
 // 4-directional neighbors, capacity width*height (can't overflow). Caller
 // must pathing_deinit the result when done with it.
-PUBLIC pathing_state_t pathing_compute_distances(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* excluded, position_t from, int max_steps);
+//
+// pass_through_opposing_team_of: when non-null, any entity whose team
+// differs from THIS entity's team is ALSO treated as passable (not just
+// excluded) -- used for attack-range computation so targetable enemies
+// don't block the BFS (and tiles behind them stay reachable-for-targeting).
+// Allies (same team as pass_through_opposing_team_of) still block. This is
+// deliberately a separate parameter from `excluded`: excluded is whichever
+// single entity's own tile must get a distance (the mover, or -- in
+// skill_target_in_range -- the specific target being validated), which is
+// not always the attacker whose team the pass-through rule should be
+// relative to. Every pre-existing caller passes NULL (unchanged behavior).
+PUBLIC pathing_state_t pathing_compute_distances(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* excluded, position_t from, int max_steps, entity_t* pass_through_opposing_team_of);
 
 PUBLIC int pathing_distance_at(pathing_state_t state, grid_t grid, position_t position); // -1 if unreached OR out of bounds -- this is a defensive query (arbitrary coords from clicks later), do NOT make it panic like grid_tile_at does
 
