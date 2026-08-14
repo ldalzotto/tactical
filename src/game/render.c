@@ -1,5 +1,7 @@
 #include "render.h"
 
+#include "../lib/assert.h"
+
 // Colors. Some values (the "lighter" gridline fill, entity square/HP-bar
 // insets, HUD background, AP/MP indicator sizing) are implementation
 // choices rather than pinned spec values.
@@ -113,8 +115,11 @@ PRIVATE void render_hp_bar(slice_rgba_t fb, int fb_width, int px, int py, int ts
     graphics_draw_rectangle(fb, fb_width, bar_x, bar_y, bar_width, bar_height, COLOR_HP_BG);
 
     int fg_width = entity->max_hp > 0 ? (bar_width * entity->hp) / entity->max_hp : 0;
-    if (fg_width < 0) fg_width = 0;
-    if (fg_width > bar_width) fg_width = bar_width;
+    // With max_hp > 0 and 0 <= hp <= max_hp, fg_width is always clamped to
+    // [0, bar_width] by construction. Assert the invariant instead of
+    // leaving dead clamp branches behind.
+    assert_debug(fg_width >= 0);
+    assert_debug(fg_width <= bar_width);
     graphics_draw_rectangle(fb, fb_width, bar_x, bar_y, fg_width, bar_height, COLOR_HP_FG);
 }
 

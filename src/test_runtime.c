@@ -20,6 +20,17 @@ PRIVATE void test_fail_example(linear_allocator_t *allocator) {
     assert_test(1 + 1 == 2);
 }
 
+PRIVATE void test_test_discovery_out_of_range_panics(linear_allocator_t *allocator) {
+    (void)allocator;
+
+    // test_lookup's fallback path (assert_test(false)) is only reachable
+    // through an out-of-range discovery index.
+    expect_panic_begin();
+    const char *name = test_discovery_name_begin(0xFFFFFFFF);
+    assert_test(expect_panic_end());
+    assert_test(name == 0);
+}
+
 PRIVATE void test_input_event_layout(linear_allocator_t *allocator) {
     assert_test(sizeof(input_event_t) == 12);
 
@@ -38,6 +49,7 @@ PRIVATE void test_input_event_layout(linear_allocator_t *allocator) {
 const test_case_t g_runtime_tests[] = {
     { TEST_NAME("pass_example"), test_pass_example },
     { TEST_NAME("fail_example"), test_fail_example },
+    { TEST_NAME("test_discovery_out_of_range_panics"), test_test_discovery_out_of_range_panics },
     { TEST_NAME("input_event_layout"), test_input_event_layout },
 };
 
