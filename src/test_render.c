@@ -18,13 +18,6 @@ static const rgba_t TEST_COLOR_TURN_INDICATOR = { 250, 210, 40, 255 };
 // overwriting the other, not just that the new one appears in isolation.
 static const rgba_t TEST_COLOR_SELECTION_OUTLINE = { 255, 255, 255, 255 };
 
-static bool test_rgba_equals(rgba_t a, rgba_t b) {
-    // Bitwise & instead of &&: each channel comparison is a plain value
-    // here, so this helper doesn't introduce short-circuit coverage branches
-    // in every caller.
-    return (a.r == b.r) & (a.g == b.g) & (a.b == b.b) & (a.a == b.a);
-}
-
 static bool test_tile_contains_color(slice_rgba_t fb, int fb_width, viewport_t viewport, position_t tile, rgba_t color) {
     int px, py;
     grid_to_screen(viewport, tile.x, tile.y, &px, &py);
@@ -33,7 +26,7 @@ static bool test_tile_contains_color(slice_rgba_t fb, int fb_width, viewport_t v
     for (int y = 0; y < ts; y++) {
         for (int x = 0; x < ts; x++) {
             rgba_t pixel = SLICE_AT(fb, (py + y) * fb_width + (px + x));
-            if (test_rgba_equals(pixel, color)) {
+            if (rgba_equals(pixel, color)) {
                 return true;
             }
         }
@@ -49,7 +42,7 @@ static bool test_tile_fully_color(slice_rgba_t fb, int fb_width, viewport_t view
     for (int y = 0; y < ts; y++) {
         for (int x = 0; x < ts; x++) {
             rgba_t pixel = SLICE_AT(fb, (py + y) * fb_width + (px + x));
-            if (!test_rgba_equals(pixel, color)) {
+            if (!rgba_equals(pixel, color)) {
                 return false;
             }
         }
@@ -171,7 +164,7 @@ PRIVATE void test_render_dithered_rectangle_checkerboards_over_background(linear
         for (int x = 0; x < w; x++) {
             rgba_t pixel = SLICE_AT(fb, y * w + x);
             rgba_t expected = ((x + y) % 2 == 0) ? fill : background;
-            assert_test(test_rgba_equals(pixel, expected));
+            assert_test(rgba_equals(pixel, expected));
         }
     }
 
@@ -234,8 +227,8 @@ PRIVATE void test_render_attack_range_tile_occupied_by_enemy_is_dithered_not_sol
     assert_test((enemy_px + enemy_py) % 2 == 0); // sanity: the pixel we check is the "on" one
     rgba_t corner_on = SLICE_AT(fb, enemy_py * GAME_TEST_FB_WIDTH + enemy_px);
     rgba_t corner_off = SLICE_AT(fb, enemy_py * GAME_TEST_FB_WIDTH + (enemy_px + 1));
-    assert_test(test_rgba_equals(corner_on, tint));
-    assert_test(test_rgba_equals(corner_off, tile_walkable));
+    assert_test(rgba_equals(corner_on, tint));
+    assert_test(rgba_equals(corner_off, tile_walkable));
 
     game_deinit(allocator, game);
     LINEAR_ALLOCATOR_POP(allocator, fb);
@@ -557,7 +550,7 @@ PRIVATE void test_render_enemy_active_uses_inactive_hud_buttons(linear_allocator
     rgba_t inactive = { 80, 80, 80, 255 };
     int bx = game.viewport.end_turn_button.x + 1;
     int by = game.viewport.end_turn_button.y + 1;
-    assert_test(test_rgba_equals(SLICE_AT(fb, by * GAME_TEST_FB_WIDTH + bx), inactive));
+    assert_test(rgba_equals(SLICE_AT(fb, by * GAME_TEST_FB_WIDTH + bx), inactive));
 
     game_deinit(allocator, game);
     LINEAR_ALLOCATOR_POP(allocator, fb);
@@ -608,8 +601,8 @@ PRIVATE void test_render_attack_range_tile_occupied_by_ally_is_solid_not_dithere
     assert_test((ally_px + ally_py) % 2 == 0);
     rgba_t corner_on = SLICE_AT(fb, ally_py * GAME_TEST_FB_WIDTH + ally_px);
     rgba_t corner_off = SLICE_AT(fb, ally_py * GAME_TEST_FB_WIDTH + (ally_px + 1));
-    assert_test(test_rgba_equals(corner_on, tint));
-    assert_test(test_rgba_equals(corner_off, tint));
+    assert_test(rgba_equals(corner_on, tint));
+    assert_test(rgba_equals(corner_off, tint));
 
     game_deinit(allocator, game);
     LINEAR_ALLOCATOR_POP(allocator, fb);
