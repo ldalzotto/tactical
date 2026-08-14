@@ -86,6 +86,11 @@ add_executable(app ${APP_SOURCES})
 
 if(APP_COVERAGE)
     target_sources(app PRIVATE src/coverage_stub.c)
+    # coverage_stub.c defines the profile runtime's own registration
+    # functions; instrumenting it would make clang rename them to avoid
+    # colliding with the calls it inserts, breaking the link.
+    set_source_files_properties(src/coverage_stub.c PROPERTIES
+        COMPILE_OPTIONS "-fno-profile-instr-generate;-fno-coverage-mapping")
 endif()
 
 if(APP_BUILD_TESTS)
