@@ -392,6 +392,117 @@ PRIVATE void test_game_selecting_shows_reachable_tiles_and_toggle_shows_attack_r
     game_deinit(allocator, game);
 }
 
+// Ticket 006: clicking a skill button switches the active entity's selected
+// skill and recomputes attack_range_tiles for the new skill's range.
+PRIVATE void test_game_skill_button_switches_attack_range_to_selected_skill(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 5, 1);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 1, 3, SKILL_MELEE);
+    entity_add_skill(p, SKILL_RANGED);
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+
+    // skills[0] (SKILL_MELEE, range 1) is selected by default: only the
+    // adjacent tile is in range, not the far one.
+    assert_test(p->selected_skill == 0);
+    assert_test(test_tile_list_contains(game.render.attack_range_tiles, (position_t){1, 0}));
+    assert_test(!test_tile_list_contains(game.render.attack_range_tiles, (position_t){3, 0}));
+
+    test_click_skill_button(&game, allocator, 1);
+
+    // skills[1] (SKILL_RANGED, range 3) now selected: range extends.
+    assert_test(p->selected_skill == 1);
+    assert_test(test_tile_list_contains(game.render.attack_range_tiles, (position_t){1, 0}));
+    assert_test(test_tile_list_contains(game.render.attack_range_tiles, (position_t){3, 0}));
+
+    game_deinit(allocator, game);
+}
+
+// Skill-button clicks no-op outside their valid conditions: mode NONE (no
+// selection made yet), and an index the entity doesn't have that many
+// skills for (single-skill entity, button index 1).
+// entity_spawn requires all spawns to happen contiguously right after
+// entity_list_init (assert_debug(allocator->cursor == entities->end) in
+// entity.c), so both entities used here -- one multi-skill, one
+// single-skill -- must be spawned upfront, before turn_order_init.
+PRIVATE void test_game_skill_button_pressed_noop_outside_valid_conditions(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 5, 1);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 1, 3, SKILL_MELEE);
+    entity_add_skill(p, SKILL_RANGED);
+    // Single-skill entity, to test the out-of-range button index (1) noops
+    // for an entity that doesn't have that many skills.
+    entity_t* p2 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){4, 0}, 10, 1, 3, SKILL_MELEE);
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, p2);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, 320, 240, 40);
+
+    // GAME_MODE_NONE: nothing selected yet, click is a no-op.
+    test_click_skill_button(&game, allocator, 1);
+    assert_test(p->selected_skill == 0);
+
+    test_click_end_turn(&game, allocator); // p -> p2, no attack toggle pressed
+    assert_test(turn_active_entity(game.turn) == p2);
+    test_click_tile(&game, allocator, p2->position);
+    assert_test(game.mode == GAME_MODE_MOVEMENT);
+
+    test_click_skill_button(&game, allocator, 1); // p2->skill_count == 1: index 1 is out of range
+    assert_test(p2->selected_skill == 0);
+
+    game_deinit(allocator, game);
+}
+
+// Attacking after switching skills uses the newly selected skill's
+// damage/ap_cost, not the default one.
+PRIVATE void test_game_attack_after_skill_switch_uses_new_skill_damage_and_ap_cost(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 5, 1);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 1, 3, SKILL_MELEE);
+    entity_add_skill(p, SKILL_RANGED);
+    // Distance 3: out of SKILL_MELEE.range (1), within SKILL_RANGED.range (3).
+    entity_t* e = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 1, 3, SKILL_MELEE);
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, e);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+
+    // Still on melee (default): e is out of range, clicking it is a no-op.
+    test_click_tile(&game, allocator, e->position);
+    assert_test(e->hp == 10);
+    assert_test(p->ap == 1);
+
+    test_click_skill_button(&game, allocator, 1); // switch to SKILL_RANGED
+    test_click_tile(&game, allocator, e->position);
+
+    assert_test(e->hp == 10 - SKILL_RANGED.damage);
+    assert_test(p->ap == 1 - SKILL_RANGED.ap_cost);
+
+    game_deinit(allocator, game);
+}
+
 const test_case_t g_game_combat_tests[] = {
     { TEST_NAME("game_attack_kills_defender_clamps_hp_and_frees_tile_for_movement"), test_game_attack_kills_defender_clamps_hp_and_frees_tile_for_movement },
     { TEST_NAME("game_entity_pressed_diagonal_and_far_enemy_attack_noop"), test_game_entity_pressed_diagonal_and_far_enemy_attack_noop },
@@ -404,6 +515,9 @@ const test_case_t g_game_combat_tests[] = {
     { TEST_NAME("game_attack_range_tiles_include_occupied_and_beyond"), test_game_attack_range_tiles_include_occupied_and_beyond },
     { TEST_NAME("game_attack_toggle_after_move_selection_does_not_overflow_scratch"), test_game_attack_toggle_after_move_selection_does_not_overflow_scratch },
     { TEST_NAME("game_selecting_shows_reachable_tiles_and_toggle_shows_attack_range_tiles"), test_game_selecting_shows_reachable_tiles_and_toggle_shows_attack_range_tiles },
+    { TEST_NAME("game_skill_button_switches_attack_range_to_selected_skill"), test_game_skill_button_switches_attack_range_to_selected_skill },
+    { TEST_NAME("game_skill_button_pressed_noop_outside_valid_conditions"), test_game_skill_button_pressed_noop_outside_valid_conditions },
+    { TEST_NAME("game_attack_after_skill_switch_uses_new_skill_damage_and_ap_cost"), test_game_attack_after_skill_switch_uses_new_skill_damage_and_ap_cost },
 };
 
 const uint32_t g_game_combat_tests_count = sizeof(g_game_combat_tests) / sizeof(g_game_combat_tests[0]);
