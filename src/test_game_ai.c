@@ -205,6 +205,79 @@ PRIVATE void test_game_ai_ranged_enemy_attacks_from_range_without_closing_on_end
     game_deinit(allocator, game);
 }
 
+// Ticket 005: a multi-skill enemy prefers its highest-damage skill (melee,
+// SKILL_MELEE.damage=5 > SKILL_RANGED.damage=3) and closes distance for it
+// when it has enough mp to reach melee range this turn, rather than settling
+// for ranged just because it's already in range -- see PLAN.md Q9 for why
+// the earlier "stop at whichever skill is in range first" design was wrong.
+PRIVATE void test_game_ai_multi_skill_enemy_closes_to_melee_range_when_reachable(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 4, 1);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3, SKILL_MELEE);
+    // Starts at distance 3: already within SKILL_RANGED.range (3), outside
+    // SKILL_MELEE.range (1), with enough mp (3) to close all the way in.
+    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 2, 3, SKILL_MELEE);
+    entity_add_skill(enemy, SKILL_RANGED);
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, enemy);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, 320, 240, 40);
+
+    test_click_end_turn(&game, allocator);
+
+    assert_test(turn_active_entity(game.turn) == p);
+    // Closed all the way to adjacency (distance 1) instead of stopping at
+    // distance 2 or 3 where ranged was already usable.
+    assert_test(enemy->position.x == 1 && enemy->position.y == 0);
+    assert_test(enemy->mp == 1);
+    assert_test(enemy->ap == 1);
+    // SKILL_MELEE.damage (5), not SKILL_RANGED.damage (3): attacked with the
+    // preferred (higher-damage) skill, since it ended up in range.
+    assert_test(p->hp == 10 - SKILL_MELEE.damage);
+    assert_test(p->alive);
+
+    game_deinit(allocator, game);
+}
+
+// Same setup, but not enough mp to reach melee range this turn -- falls back
+// to ranged (still in range) rather than landing no attack at all.
+PRIVATE void test_game_ai_multi_skill_enemy_falls_back_to_ranged_when_melee_unreachable(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 4, 1);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3, SKILL_MELEE);
+    // Starts at distance 3, but mp=1 only closes to distance 2 -- still
+    // outside SKILL_MELEE.range (1), still within SKILL_RANGED.range (3).
+    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 2, 1, SKILL_MELEE);
+    entity_add_skill(enemy, SKILL_RANGED);
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, enemy);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, 320, 240, 40);
+
+    test_click_end_turn(&game, allocator);
+
+    assert_test(turn_active_entity(game.turn) == p);
+    assert_test(enemy->position.x == 2 && enemy->position.y == 0);
+    assert_test(enemy->mp == 0);
+    assert_test(enemy->ap == 1);
+    // SKILL_RANGED.damage (3): melee was never reachable this turn, so the
+    // fallback (still-in-range) skill was used instead of no attack at all.
+    assert_test(p->hp == 10 - SKILL_RANGED.damage);
+    assert_test(p->alive);
+
+    game_deinit(allocator, game);
+}
+
 const test_case_t g_game_ai_tests[] = {
     { TEST_NAME("game_ai_adjacent_enemy_attacks_without_moving_on_end_turn"), test_game_ai_adjacent_enemy_attacks_without_moving_on_end_turn },
     { TEST_NAME("game_ai_far_enemy_with_enough_mp_closes_and_attacks_on_end_turn"), test_game_ai_far_enemy_with_enough_mp_closes_and_attacks_on_end_turn },
@@ -213,6 +286,8 @@ const test_case_t g_game_ai_tests[] = {
     { TEST_NAME("game_ai_multiple_enemies_act_independently_on_end_turn"), test_game_ai_multiple_enemies_act_independently_on_end_turn },
     { TEST_NAME("game_ai_zero_mp_not_adjacent_does_nothing_on_end_turn"), test_game_ai_zero_mp_not_adjacent_does_nothing_on_end_turn },
     { TEST_NAME("game_ai_ranged_enemy_attacks_from_range_without_closing_on_end_turn"), test_game_ai_ranged_enemy_attacks_from_range_without_closing_on_end_turn },
+    { TEST_NAME("game_ai_multi_skill_enemy_closes_to_melee_range_when_reachable"), test_game_ai_multi_skill_enemy_closes_to_melee_range_when_reachable },
+    { TEST_NAME("game_ai_multi_skill_enemy_falls_back_to_ranged_when_melee_unreachable"), test_game_ai_multi_skill_enemy_falls_back_to_ranged_when_melee_unreachable },
 };
 
 const uint32_t g_game_ai_tests_count = sizeof(g_game_ai_tests) / sizeof(g_game_ai_tests[0]);
