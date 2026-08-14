@@ -27,9 +27,10 @@ PRIVATE void game_check_game_over(game_state_t *game) {
     }
 }
 
-PUBLIC game_state_t game_init(linear_allocator_t *allocator, slice_t grid_align, grid_t grid, slice_t entity_list_align, slice_entity_t entities, slice_t turn_order_align, slice_entity_ptr_t turn_order, int fb_width, int fb_height, int hud_height) {
+PUBLIC game_state_t game_init(linear_allocator_t *allocator, slice_t grid_align, grid_t grid, slice_t entity_list_align, slice_entity_t entities, slice_t skill_list_align, slice_skill_t skills, slice_t turn_order_align, slice_entity_ptr_t turn_order, int fb_width, int fb_height, int hud_height) {
     assert_debug((void*)entities.begin >= (void*)grid.tiles.end);
-    assert_debug((void*)turn_order.begin >= (void*)entities.end);
+    assert_debug((void*)skills.begin >= (void*)entities.end);
+    assert_debug((void*)turn_order.begin >= (void*)skills.end);
 
     viewport_t viewport = layout_compute(fb_width, fb_height, grid.width, grid.height, hud_height);
 
@@ -45,12 +46,15 @@ PUBLIC game_state_t game_init(linear_allocator_t *allocator, slice_t grid_align,
         .grid = grid,
         .entity_list_align = entity_list_align,
         .entities = entities,
+        .skill_list_align = skill_list_align,
+        .skills = skills,
         .turn_order_align = turn_order_align,
         .turn = turn_init(turn_order),
         .viewport = viewport,
         .mode = GAME_MODE_NONE,
         .hover = { 0, 0 },
         .hover_valid = false,
+        .selected_skill = 0,
         .game_over = GAME_OVER_NONE,
         .scratch = scratch,
         .render = {
@@ -72,6 +76,8 @@ PUBLIC void game_deinit(linear_allocator_t *allocator, game_state_t state) {
     linear_allocator_pop(allocator, state.scratch.data);
     turn_order_deinit(allocator, state.turn.capacity);
     linear_allocator_pop(allocator, state.turn_order_align);
+    skill_list_deinit(allocator, state.skills);
+    linear_allocator_pop(allocator, state.skill_list_align);
     entity_list_deinit(allocator, state.entities);
     linear_allocator_pop(allocator, state.entity_list_align);
     grid_deinit(allocator, state.grid);
@@ -90,8 +96,8 @@ PRIVATE bool game_tile_is_reachable(pathing_state_t pathing, grid_t grid, positi
 //   if it has no mp left), nullifies attack_range_tiles. Called eagerly on
 //   any selection/position/mp change, and whenever attack mode turns off.
 // - ATTACK: mirror image -- nullifies reachable_tiles, computes
-//   attack_range_tiles via the same BFS rooted at active->skill.range instead
-//   of mp.
+//   attack_range_tiles via the same BFS rooted at the active entity's
+//   currently-selected skill range instead of mp.
 // Render just reads the cached lists, no per-frame pathing.
 PRIVATE void game_set_mode(game_state_t *game, linear_allocator_t *allocator, game_mode_t mode) {
     render_cache_reset(&game->scratch, &game->render);
@@ -128,14 +134,15 @@ PRIVATE void game_set_mode(game_state_t *game, linear_allocator_t *allocator, ga
         pathing_deinit(allocator, pathing);
         return;
     } else if (mode == GAME_MODE_ATTACK) {
-        pathing_state_t pathing = pathing_compute_distances(allocator, game->grid, game->entities, active, active->position, active->skill.range);
+        int skill_range = SLICE_AT(active->skills, game->selected_skill).range;
+        pathing_state_t pathing = pathing_compute_range(allocator, game->grid, game->entities, active, active->position, skill_range);
 
         slice_t attack_range_align = linear_allocator_push_alignment(&game->scratch, _Alignof(position_t));
         slice_position_t attack_range_tiles = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.attack_range_tiles, 0);
         for (int ty = 0; ty < game->grid.height; ty++) {
             for (int tx = 0; tx < game->grid.width; tx++) {
                 position_t position = { tx, ty };
-                if (game_tile_is_reachable(pathing, game->grid, position, active->skill.range)) {
+                if (game_tile_is_reachable(pathing, game->grid, position, skill_range)) {
                     slice_position_t entry = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.attack_range_tiles, 1);
                     SLICE_DEREF(entry) = position;
                     attack_range_tiles.end = entry.end;
@@ -154,6 +161,7 @@ PRIVATE void game_set_mode(game_state_t *game, linear_allocator_t *allocator, ga
 // becomes active or the game ends.
 PRIVATE void game_advance_turn(game_state_t *game, linear_allocator_t *allocator) {
     game->turn = turn_advance(game->turn);
+    game->selected_skill = 0;
     game_set_mode(game, allocator, GAME_MODE_NONE);
 
     entity_t *active = turn_active_entity(game->turn);
@@ -192,7 +200,7 @@ PRIVATE void game_on_entity_pressed(game_state_t *game, linear_allocator_t *allo
         return;
     }
 
-    if (action_try_attack(allocator, game->grid, game->entities, active, entity)) {
+    if (action_try_attack(allocator, game->grid, game->entities, active, SLICE_AT(active->skills, game->selected_skill), entity)) {
         // If the entity just died, we remove dead entities
         if (!entity->alive) {
             game->turn = turn_remove_dead_entities(game->turn);
@@ -234,6 +242,27 @@ PRIVATE void game_on_attack_toggle_pressed(game_state_t *game, linear_allocator_
     game_set_mode(game, allocator, game->mode == GAME_MODE_ATTACK ? GAME_MODE_MOVEMENT : GAME_MODE_ATTACK);
 }
 
+// Sets game->selected_skill to index and recomputes the range preview.
+// No-op if not player-controlled, no mode active, or index out of range.
+// Safe to call repeatedly: game_set_mode's render_cache_reset rewinds
+// game->scratch before each re-push.
+PRIVATE void game_on_skill_button_pressed(game_state_t *game, linear_allocator_t *allocator, int index) {
+    assert_debug(game->game_over == GAME_OVER_NONE);
+    entity_t *active = turn_active_entity(game->turn);
+    if (active->team != ENTITY_TEAM_PLAYER) {
+        return;
+    }
+    if (game->mode == GAME_MODE_NONE) {
+        return;
+    }
+    if (index < 0 || index >= entity_skill_count(active)) {
+        return;
+    }
+
+    game->selected_skill = index;
+    game_set_mode(game, allocator, game->mode);
+}
+
 PRIVATE void game_on_end_turn_pressed(game_state_t *game, linear_allocator_t *allocator) {
     assert_debug(game->game_over == GAME_OVER_NONE);
     entity_t *active = turn_active_entity(game->turn);
@@ -258,6 +287,23 @@ PUBLIC void game_on_input_event(game_state_t *game, linear_allocator_t *allocato
         if (point_in_rect(game->viewport.attack_button, event.x, event.y)) {
             game_on_attack_toggle_pressed(game, allocator);
             return;
+        }
+
+        // Hit-test skill buttons only when render_hud would draw them (same
+        // gate as there), so a click elsewhere falls through to the grid.
+        entity_t *active_for_skill_buttons = turn_active_entity(game->turn);
+        if (active_for_skill_buttons->team == ENTITY_TEAM_PLAYER && game->mode != GAME_MODE_NONE && entity_skill_count(active_for_skill_buttons) > 1) {
+            // Clamped to VIEWPORT_MAX_SKILL_BUTTONS, same as render_hud.
+            int button_count = entity_skill_count(active_for_skill_buttons);
+            if (button_count > VIEWPORT_MAX_SKILL_BUTTONS) {
+                button_count = VIEWPORT_MAX_SKILL_BUTTONS;
+            }
+            for (int i = 0; i < button_count; i++) {
+                if (point_in_rect(SLICE_AT(viewport_skill_buttons(&game->viewport), i), event.x, event.y)) {
+                    game_on_skill_button_pressed(game, allocator, i);
+                    return;
+                }
+            }
         }
 
         int tx, ty;

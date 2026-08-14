@@ -12,7 +12,7 @@ PUBLIC void entity_list_deinit(linear_allocator_t *allocator, slice_entity_t lis
     LINEAR_ALLOCATOR_POP(allocator, list);
 }
 
-PUBLIC entity_t* entity_spawn(linear_allocator_t *allocator, slice_entity_t *entities, entity_team_t team, position_t position, int hp, int ap, int mp, skill_t skill) {
+PUBLIC entity_t* entity_spawn(linear_allocator_t *allocator, slice_entity_t *entities, entity_team_t team, position_t position, int hp, int ap, int mp) {
     // We are allowed to push an entity only at the same time where the list is created. For now.
     assert_debug(allocator->cursor == entities->end);
 
@@ -29,12 +29,38 @@ PUBLIC entity_t* entity_spawn(linear_allocator_t *allocator, slice_entity_t *ent
         .mp = mp,
         .max_mp = mp,
         .alive = true,
-        .skill = skill,
+        .skills = {0},
     };
 
     entities->end = entity_s.end;
 
     return &SLICE_DEREF(entity_s);
+}
+
+PUBLIC int entity_skill_count(entity_t *entity) {
+    return (int)SLICE_TYPESIZE(entity->skills);
+}
+
+PUBLIC slice_skill_t skill_list_init(linear_allocator_t *allocator) {
+    slice_skill_t list;
+    list = LINEAR_ALLOCATOR_PUSH(allocator, list, 0);
+    return list;
+}
+
+PUBLIC void skill_list_deinit(linear_allocator_t *allocator, slice_skill_t list) {
+    LINEAR_ALLOCATOR_POP(allocator, list);
+}
+
+PUBLIC skill_t* skill_list_add(linear_allocator_t *allocator, slice_skill_t *list, skill_t skill) {
+    // Same append-in-place discipline as entity_spawn/turn_order_add.
+    assert_debug(allocator->cursor == list->end);
+
+    slice_skill_t entry;
+    entry = LINEAR_ALLOCATOR_PUSH(allocator, entry, 1);
+    SLICE_DEREF(entry) = skill;
+
+    list->end = entry.end;
+    return &SLICE_DEREF(entry);
 }
 
 PUBLIC entity_t *entity_find_at(slice_entity_t list, position_t position) {

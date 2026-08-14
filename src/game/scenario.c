@@ -9,13 +9,49 @@ PUBLIC game_state_t scenario_setup_default(linear_allocator_t* allocator, int gr
 
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
-    entity_t *p1 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){1, 2}, 10, 1, 3, SKILL_RANGED);
-    entity_t *p2 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){1, 5}, 10, 1, 3, SKILL_MELEE);
-    entity_t *p3 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){1, 8}, 10, 1, 3, SKILL_MELEE);
+    entity_t *p1 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){1, 2}, 10, 1, 3);
+    entity_t *p2 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){1, 5}, 10, 1, 3);
+    entity_t *p3 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){1, 8}, 10, 1, 3);
+    entity_t *e1 = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){14, 2}, 10, 1, 3);
+    entity_t *e2 = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){14, 5}, 10, 1, 3);
+    entity_t *e3 = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){14, 8}, 10, 1, 3);
 
-    entity_t *e1 = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){14, 2}, 10, 1, 3, SKILL_RANGED);
-    entity_t *e2 = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){14, 5}, 10, 1, 3, SKILL_MELEE);
-    entity_t *e3 = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){14, 8}, 10, 1, 3, SKILL_MELEE);
+    // Every entity gets both skills, populated into the shared skill list
+    // after every entity exists (entity_spawn requires no interleaved
+    // spawns). Exercises AI skill choice and player skill selection on both
+    // teams by default, not just in unit tests.
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+
+    skill_t *p1_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_RANGED);
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p1->skills = (slice_skill_t){ .begin = p1_skills_begin, .end = skills.end };
+
+    skill_t *p2_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    skill_list_add(allocator, &skills, SKILL_RANGED);
+    p2->skills = (slice_skill_t){ .begin = p2_skills_begin, .end = skills.end };
+
+    skill_t *p3_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    skill_list_add(allocator, &skills, SKILL_RANGED);
+    p3->skills = (slice_skill_t){ .begin = p3_skills_begin, .end = skills.end };
+
+    skill_t *e1_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_RANGED);
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e1->skills = (slice_skill_t){ .begin = e1_skills_begin, .end = skills.end };
+
+    skill_t *e2_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    skill_list_add(allocator, &skills, SKILL_RANGED);
+    e2->skills = (slice_skill_t){ .begin = e2_skills_begin, .end = skills.end };
+
+    skill_t *e3_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    skill_list_add(allocator, &skills, SKILL_RANGED);
+    e3->skills = (slice_skill_t){ .begin = e3_skills_begin, .end = skills.end };
 
     // Turn order is authored here, the same way the roster above is: one
     // call per entity, in the exact sequence it should act.
@@ -28,5 +64,5 @@ PUBLIC game_state_t scenario_setup_default(linear_allocator_t* allocator, int gr
     turn_order_add(allocator, &order, p3);
     turn_order_add(allocator, &order, e3);
 
-    return game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, fb_width, fb_height, hud_height);
+    return game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, fb_width, fb_height, hud_height);
 }

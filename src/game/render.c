@@ -1,9 +1,8 @@
 #include "render.h"
 
-// Colors -- see the T12 ticket's drawing spec for the exact values below;
-// anything not explicitly pinned there (the "lighter" gridline fill, entity
-// square/HP-bar insets, HUD background, AP/MP indicator sizing) is a
-// reasonable implementation choice, not a spec value.
+// Colors. Some values (the "lighter" gridline fill, entity square/HP-bar
+// insets, HUD background, AP/MP indicator sizing) are implementation
+// choices rather than pinned spec values.
 static const rgba_t COLOR_TILE_WALKABLE = { 40, 40, 40, 255 };
 static const rgba_t COLOR_TILE_WALKABLE_INSET = { 60, 60, 60, 255 };
 static const rgba_t COLOR_TILE_OBSTACLE = { 10, 10, 10, 255 };
@@ -11,6 +10,9 @@ static const rgba_t COLOR_TILE_OBSTACLE_INSET = { 30, 30, 30, 255 };
 static const rgba_t COLOR_REACHABLE_TINT = { 80, 140, 220, 255 };
 static const rgba_t COLOR_ATTACK_RANGE_TINT = { 230, 140, 60, 255 };
 static const rgba_t COLOR_WHITE = { 255, 255, 255, 255 };
+// Always-on "whose turn it is" marker; distinct from COLOR_WHITE so it
+// doesn't collide with the mode-gated selection outline.
+static const rgba_t COLOR_TURN_INDICATOR = { 250, 210, 40, 255 };
 static const rgba_t COLOR_PLAYER = { 60, 120, 255, 255 };
 static const rgba_t COLOR_ENEMY = { 220, 60, 60, 255 };
 static const rgba_t COLOR_HP_BG = { 120, 20, 20, 255 };
@@ -21,12 +23,19 @@ static const rgba_t COLOR_END_TURN_INACTIVE = { 80, 80, 80, 255 };
 static const rgba_t COLOR_ATTACK_BUTTON_ON = { 220, 60, 60, 255 };
 static const rgba_t COLOR_ATTACK_BUTTON_AVAILABLE = { 230, 140, 60, 255 };
 static const rgba_t COLOR_ATTACK_BUTTON_INACTIVE = { 80, 80, 80, 255 };
+// Same value as COLOR_ATTACK_BUTTON_AVAILABLE: intentional echo, both mark
+// "the active choice".
+static const rgba_t COLOR_SKILL_BUTTON_SELECTED = { 230, 140, 60, 255 };
+static const rgba_t COLOR_SKILL_BUTTON_AVAILABLE = { 90, 90, 110, 255 };
 static const rgba_t COLOR_AP_PIP = { 60, 120, 255, 255 };
 static const rgba_t COLOR_MP_PIP = { 60, 200, 60, 255 };
 static const rgba_t COLOR_WIN = { 0, 200, 0, 255 };
 static const rgba_t COLOR_LOSE = { 200, 0, 0, 255 };
 
 #define OUTLINE_THICKNESS 2
+// Small square, inset past the OUTLINE_THICKNESS-px selection outline.
+#define TURN_INDICATOR_SIZE 6
+#define TURN_INDICATOR_INSET (OUTLINE_THICKNESS + 2)
 
 // Draws a 2px-thick white rectangular outline as 4 thin edge rects, since
 // graphics.h has no dedicated outline/stroke primitive.
@@ -61,12 +70,25 @@ PRIVATE void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
         graphics_draw_rectangle(fb, fb_width, px, py, ts, ts, COLOR_REACHABLE_TINT);
     }
 
+    entity_t *attacker = turn_active_entity(game.turn);
     for (SLICE_FOREACH(game.render.attack_range_tiles, tile_s)) {
         position_t tile = SLICE_DEREF(tile_s);
         int px, py;
         grid_to_screen(game.viewport, tile.x, tile.y, &px, &py);
         int ts = game.viewport.tile_size;
-        graphics_draw_rectangle(fb, fb_width, px, py, ts, ts, COLOR_ATTACK_RANGE_TINT);
+
+        // Targetable (opposing-team) tiles draw dithered so the highlight
+        // stays visible under the entity's opaque sprite, drawn later in
+        // render_entities. Allies fall back to solid, though in practice
+        // they never reach attack_range_tiles since they block the BFS
+        // (pathing_compute_range's mark_occupied_reachable).
+        entity_t *occupant = entity_find_at(game.entities, tile);
+        bool targetable = occupant != 0 && occupant->team != attacker->team;
+        if (targetable) {
+            graphics_draw_rectangle_dithered(fb, fb_width, px, py, ts, ts, COLOR_ATTACK_RANGE_TINT);
+        } else {
+            graphics_draw_rectangle(fb, fb_width, px, py, ts, ts, COLOR_ATTACK_RANGE_TINT);
+        }
     }
 
     if (game.hover_valid) {
@@ -123,6 +145,12 @@ PRIVATE void render_entities(slice_rgba_t fb, int fb_width, game_state_t game) {
         rgba_t color = entity->team == ENTITY_TEAM_PLAYER ? COLOR_PLAYER : COLOR_ENEMY;
         graphics_draw_rectangle(fb, fb_width, square_x, square_top, square_width, square_height, color);
 
+        if (entity == active) {
+            // Always visible, regardless of mode. Distinct from the outline
+            // below so the two never look identical when both apply.
+            graphics_draw_rectangle(fb, fb_width, px + TURN_INDICATOR_INSET, py + TURN_INDICATOR_INSET, TURN_INDICATOR_SIZE, TURN_INDICATOR_SIZE, COLOR_TURN_INDICATOR);
+        }
+
         if (game.mode != GAME_MODE_NONE && entity == active) {
             render_draw_outline(fb, fb_width, (rect_t){px, py, ts, ts}, COLOR_WHITE);
         }
@@ -170,6 +198,24 @@ PRIVATE void render_hud(slice_rgba_t fb, int fb_width, game_state_t game) {
         attack_button_color = COLOR_ATTACK_BUTTON_AVAILABLE;
     }
     graphics_draw_rectangle(fb, fb_width, attack_button.x, attack_button.y, attack_button.width, attack_button.height, attack_button_color);
+
+    // Skill buttons only meaningful once a mode is active (matches
+    // game_on_skill_button_pressed's own gate) and only shown at all when
+    // there's an actual choice to make -- a single-skill entity has nothing
+    // to switch between, so drawing an inert button would just be clutter.
+    if (active->team == ENTITY_TEAM_PLAYER && game.mode != GAME_MODE_NONE && entity_skill_count(active) > 1) {
+        // Clamped to VIEWPORT_MAX_SKILL_BUTTONS -- see
+        // game_on_input_event's matching clamp in game.c.
+        int button_count = entity_skill_count(active);
+        if (button_count > VIEWPORT_MAX_SKILL_BUTTONS) {
+            button_count = VIEWPORT_MAX_SKILL_BUTTONS;
+        }
+        for (int i = 0; i < button_count; i++) {
+            rect_t skill_button = SLICE_AT(viewport_skill_buttons(&game.viewport), i);
+            rgba_t skill_button_color = (i == game.selected_skill) ? COLOR_SKILL_BUTTON_SELECTED : COLOR_SKILL_BUTTON_AVAILABLE;
+            graphics_draw_rectangle(fb, fb_width, skill_button.x, skill_button.y, skill_button.width, skill_button.height, skill_button_color);
+        }
+    }
 
     if (game.mode == GAME_MODE_NONE) {
         return;
