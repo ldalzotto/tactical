@@ -13,9 +13,7 @@
 #define GAME_SCRATCH_CAPACITY 256
 
 PRIVATE void game_check_game_over(game_state_t *game) {
-    if (game->game_over != GAME_OVER_NONE) {
-        return;
-    }
+    assert_debug(game->game_over == GAME_OVER_NONE);
 
     if (entity_alive_count(game->entities, ENTITY_TEAM_ENEMY) == 0) {
         game->game_over = GAME_OVER_WIN;
@@ -220,9 +218,11 @@ PRIVATE void game_on_tile_pressed(game_state_t *game, linear_allocator_t *alloca
         return;
     }
 
-    if (entity_find_at(game->entities, target) != 0) {
-        return;
-    }
+    // The caller (game_on_input_event) already routed occupied tiles to
+    // game_on_entity_pressed; reaching here with an entity on `target` would
+    // be a dispatch bug, so assert the invariant instead of silently
+    // no-oping on a tile the player can't actually select.
+    assert_debug(entity_find_at(game->entities, target) == 0);
 
     if (action_try_move(allocator, game->grid, game->entities, active, target)) {
         game_set_mode(game, allocator, GAME_MODE_MOVEMENT);
@@ -249,15 +249,13 @@ PRIVATE void game_on_attack_toggle_pressed(game_state_t *game, linear_allocator_
 PRIVATE void game_on_skill_button_pressed(game_state_t *game, linear_allocator_t *allocator, int index) {
     assert_debug(game->game_over == GAME_OVER_NONE);
     entity_t *active = turn_active_entity(game->turn);
-    if (active->team != ENTITY_TEAM_PLAYER) {
-        return;
-    }
-    if (game->mode == GAME_MODE_NONE) {
-        return;
-    }
-    if (index < 0 || index >= entity_skill_count(active)) {
-        return;
-    }
+    // game_on_input_event only calls this once the same conditions hold (see
+    // the hit-test gate there), so these are preconditions, not runtime
+    // no-ops: assert them to catch dispatch bugs without leaving dead
+    // coverage-only branches in the call path.
+    assert_debug(active->team == ENTITY_TEAM_PLAYER);
+    assert_debug(game->mode != GAME_MODE_NONE);
+    assert_debug(index >= 0 && index < entity_skill_count(active));
 
     game->selected_skill = index;
     game_set_mode(game, allocator, game->mode);
