@@ -163,7 +163,8 @@ PUBLIC entity_t* ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, 
         return 0;
     }
 
-    enemy->selected_skill = ai_preferred_skill_index(enemy);
+    int preferred = ai_preferred_skill_index(enemy);
+    enemy->selected_skill = preferred;
 
     while (enemy->mp > 0 && !skill_target_in_range(allocator, grid, entities, enemy, target)) {
         if (!ai_step_toward(allocator, grid, entities, enemy, target)) {
@@ -172,10 +173,13 @@ PUBLIC entity_t* ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, 
     }
 
     int attack_skill = ai_best_in_range_skill_index(allocator, grid, entities, enemy, target);
+    // ai_best_in_range_skill_index probes by mutating selected_skill; leave
+    // it on `preferred` (the enemy's real preference) rather than whatever
+    // skill the probe loop happened to land on last, on the no-attack path.
+    enemy->selected_skill = attack_skill >= 0 ? attack_skill : preferred;
     if (attack_skill < 0) {
         return 0;
     }
-    enemy->selected_skill = attack_skill;
 
     return action_try_attack(allocator, grid, entities, enemy, target) ? target : 0;
 }

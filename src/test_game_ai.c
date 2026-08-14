@@ -210,6 +210,11 @@ PRIVATE void test_game_ai_ranged_enemy_attacks_from_range_without_closing_on_end
 // when it has enough mp to reach melee range this turn, rather than settling
 // for ranged just because it's already in range -- see PLAN.md Q9 for why
 // the earlier "stop at whichever skill is in range first" design was wrong.
+// Enemy is spawned with SKILL_RANGED as skills[0] (the entity_spawn default
+// selected_skill) and SKILL_MELEE added second, deliberately so the default
+// selection is the WEAKER skill -- this way the test only passes if
+// ai_preferred_skill_index actually picks by damage, not by coincidentally
+// matching whatever skills[0]/entity_spawn's argument happened to be.
 PRIVATE void test_game_ai_multi_skill_enemy_closes_to_melee_range_when_reachable(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 1);
@@ -218,8 +223,8 @@ PRIVATE void test_game_ai_multi_skill_enemy_closes_to_melee_range_when_reachable
     entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3, SKILL_MELEE);
     // Starts at distance 3: already within SKILL_RANGED.range (3), outside
     // SKILL_MELEE.range (1), with enough mp (3) to close all the way in.
-    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 2, 3, SKILL_MELEE);
-    entity_add_skill(enemy, SKILL_RANGED);
+    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 2, 3, SKILL_RANGED);
+    entity_add_skill(enemy, SKILL_MELEE);
 
     slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
     slice_entity_ptr_t order = turn_order_init(allocator);
