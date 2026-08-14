@@ -242,12 +242,10 @@ PRIVATE void game_on_attack_toggle_pressed(game_state_t *game, linear_allocator_
     game_set_mode(game, allocator, game->mode == GAME_MODE_ATTACK ? GAME_MODE_MOVEMENT : GAME_MODE_ATTACK);
 }
 
-// Selects entity_t.skills[index] as the player's active skill (game->selected_skill)
-// and recomputes the range preview for it. No-op outside player control / no
-// active mode / an index the entity doesn't have that many skills for.
-// Safe to call repeatedly (including with the same mode already active) --
-// game_set_mode's render_cache_reset always pops back to the pre-selection
-// watermark before re-pushing, so this can't leak/overflow game->scratch.
+// Sets game->selected_skill to index and recomputes the range preview.
+// No-op if not player-controlled, no mode active, or index out of range.
+// Safe to call repeatedly: game_set_mode's render_cache_reset rewinds
+// game->scratch before each re-push.
 PRIVATE void game_on_skill_button_pressed(game_state_t *game, linear_allocator_t *allocator, int index) {
     assert_debug(game->game_over == GAME_OVER_NONE);
     entity_t *active = turn_active_entity(game->turn);
@@ -291,15 +289,11 @@ PUBLIC void game_on_input_event(game_state_t *game, linear_allocator_t *allocato
             return;
         }
 
-        // Only hit-test skill buttons when render_hud would actually be
-        // drawing them (same gate as there): otherwise nothing occupies
-        // that screen region and a click there should fall through to the
-        // grid underneath it instead of being silently swallowed.
+        // Hit-test skill buttons only when render_hud would draw them (same
+        // gate as there), so a click elsewhere falls through to the grid.
         entity_t *active_for_skill_buttons = turn_active_entity(game->turn);
         if (active_for_skill_buttons->team == ENTITY_TEAM_PLAYER && game->mode != GAME_MODE_NONE && entity_skill_count(active_for_skill_buttons) > 1) {
-            // Clamped to VIEWPORT_MAX_SKILL_BUTTONS: the HUD only has room to
-            // draw/hit-test that many buttons, however many skills the
-            // entity actually has (see render_hud's matching clamp).
+            // Clamped to VIEWPORT_MAX_SKILL_BUTTONS, same as render_hud.
             int button_count = entity_skill_count(active_for_skill_buttons);
             if (button_count > VIEWPORT_MAX_SKILL_BUTTONS) {
                 button_count = VIEWPORT_MAX_SKILL_BUTTONS;

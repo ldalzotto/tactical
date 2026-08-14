@@ -28,23 +28,16 @@ PUBLIC void pathing_deinit(linear_allocator_t *allocator, pathing_state_t state)
 // 4-directional neighbors, capacity width*height (can't overflow). Caller
 // must pathing_deinit the result when done with it.
 //
-// For movement legality and AI pathfinding: a tile occupied by a
-// non-excluded entity gets no distance at all -- unreachable, full stop, a
-// mover can't stand on or pass through it.
+// A tile occupied by a non-excluded entity gets no distance -- unreachable,
+// since a mover can't stand on or pass through it.
 PUBLIC pathing_state_t pathing_compute_distances(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* excluded, position_t from, int max_steps);
 
-// Same allocation/BFS shape as pathing_compute_distances, but for skill
-// range instead of movement: a tile occupied by a non-excluded entity still
-// gets a distance (d+1 from whichever neighbor reached it first) so it
-// shows up as reachable-for-targeting, but it is NOT enqueued into the
-// frontier, so the BFS never expands past it -- the occupant still occludes
-// tiles behind it (a target is an obstacle, not a window), it just also
-// gets to be its own valid destination.
+// Same as pathing_compute_distances, but for skill range: an occupied tile
+// still gets a distance (reachable-for-targeting -- a target is an obstacle,
+// not a window) but isn't enqueued, so the BFS doesn't expand past it.
 //
-// Deliberately a separate function, not a flag on pathing_compute_distances:
-// range is expected to grow real geometric line-of-sight occlusion instead
-// of this BFS approximation, at which point it'll diverge from navigation
-// entirely rather than staying a variant of it.
+// Kept as a separate function rather than a flag: range is expected to grow
+// real line-of-sight occlusion later and diverge from navigation entirely.
 PUBLIC pathing_state_t pathing_compute_range(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* excluded, position_t from, int max_steps);
 
 PUBLIC int pathing_distance_at(pathing_state_t state, grid_t grid, position_t position); // -1 if unreached OR out of bounds -- this is a defensive query (arbitrary coords from clicks later), do NOT make it panic like grid_tile_at does

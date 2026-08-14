@@ -213,8 +213,8 @@ PRIVATE void test_render_attack_range_tile_occupied_by_enemy_is_dithered_not_sol
     // there. Grid has no obstacles, so every tile is walkable.
     rgba_t tile_walkable = { 40, 40, 40, 255 };
 
-    // (1, 0): in range, unoccupied -- still a full solid tint fill, same as
-    // before ticket 004 (dithering only applies to occupied tiles).
+    // (1, 0): in range, unoccupied -- full solid tint fill (dithering only
+    // applies to occupied tiles).
     assert_test(test_tile_fully_color(fb, GAME_TEST_FB_WIDTH, game.viewport, (position_t){1, 0}, tint));
 
     // enemy's own tile: two horizontally-adjacent pixels in the top-left

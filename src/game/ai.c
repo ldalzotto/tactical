@@ -97,10 +97,8 @@ PRIVATE bool ai_step_toward(linear_allocator_t *allocator, grid_t grid, slice_en
     return action_try_move(allocator, grid, entities, enemy, best_position);
 }
 
-// True if a beats b as the "preferred" skill: higher damage, or equal
-// damage with a lower ap_cost. Equal on both keeps whichever was found
-// first (list order), so index 0 wins ties -- deterministic, no reliance on
-// skill_t equality/ordering beyond what the AI actually cares about.
+// True if a beats b as the "preferred" skill: higher damage, tie-broken by
+// lower ap_cost, then list order (first found wins).
 PRIVATE bool ai_skill_beats(skill_t a, skill_t b) {
     if (a.damage != b.damage) {
         return a.damage > b.damage;
@@ -108,13 +106,9 @@ PRIVATE bool ai_skill_beats(skill_t a, skill_t b) {
     return a.ap_cost < b.ap_cost;
 }
 
-// The enemy's strongest skill by damage (ties: lower ap_cost, then list
-// order) -- what movement should aim to get into range of, so a multi-skill
-// AI closes distance for its best option instead of settling for whichever
-// skill happens to be in range first. See ticket 005 / PLAN.md Q9: an
-// earlier "stop moving once ANY skill is in range" design made higher-
-// damage skills structurally unreachable whenever a longer-range weaker
-// skill was available.
+// Enemy's strongest skill by damage (see ai_skill_beats) -- what movement
+// aims to get in range of, so the AI closes for its best option instead of
+// stopping at the first skill in range.
 PRIVATE skill_t* ai_preferred_skill(entity_t *enemy) {
     skill_t *best = 0;
     for (SLICE_FOREACH(enemy->skills, skill_s)) {
@@ -126,9 +120,8 @@ PRIVATE skill_t* ai_preferred_skill(entity_t *enemy) {
     return best;
 }
 
-// Among the enemy's skills currently in range of `target`, the one with the
-// highest damage (ties: lower ap_cost, then list order), or 0 if none are
-// in range.
+// Highest-damage skill (see ai_skill_beats) among those currently in range
+// of `target`, or 0 if none are in range.
 PRIVATE skill_t* ai_best_in_range_skill(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *enemy, entity_t *target) {
     skill_t *best = 0;
     for (SLICE_FOREACH(enemy->skills, skill_s)) {
@@ -143,19 +136,11 @@ PRIVATE skill_t* ai_best_in_range_skill(linear_allocator_t *allocator, grid_t gr
     return best;
 }
 
-// Runs one enemy's turn:
-// - find nearest ALIVE player entity via BFS rooted at the enemy's tile (skip_entity=enemy)
-// - selects the enemy's preferred (highest-damage) skill and, while mp>0 and
-//   out of that skill's range: BFS rooted at the TARGET's tile
-//   (skip_entity=ENTITY_ID_NONE) for a distance-to-target field, step to the
-//   orthogonal neighbor (order: up, right, down, left) with smallest
-//   distance-to-target via action_try_move, one tile at a time, then recheck
-// - once movement stops (in range, or out of mp), attacks with whichever of
-//   the enemy's skills is both currently in range AND highest damage --
-//   this may be a weaker skill than preferred, if preferred wasn't
-//   reachable this turn
-// - no-op if no alive player entities remain, or nothing ends up in range
-// Returns the attacked entity, or 0 if no attack landed.
+// Runs one enemy's turn: find the nearest alive player entity, step toward
+// it (one tile at a time) until ai_preferred_skill is in range or mp runs
+// out, then attack with ai_best_in_range_skill (may be weaker than
+// preferred if preferred never came into range).
+// Returns the attacked entity, or 0 if no target/no attack landed.
 PUBLIC entity_t* ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *enemy) {
     entity_t* target = ai_find_nearest_player(allocator, grid, entities, enemy);
     if (target == 0) {

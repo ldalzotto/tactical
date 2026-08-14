@@ -26,10 +26,7 @@ typedef struct {
     entity_team_t team;
     int hp, max_hp, ap, max_ap, mp, max_mp;
     bool alive;
-    // A sub-range of a top-level skill list (see skill_list_init/skill_list_add),
-    // assigned once the entity's skills have been populated there. Not owned
-    // by the entity list itself -- see game_init's grid/entities/skills/turn_order
-    // layout.
+    // Sub-range of a shared skill_list (see skill_list_add), not owned here.
     slice_skill_t skills;
 } entity_t;
 
@@ -37,12 +34,10 @@ SLICE_DEFINE(entity_t);
 
 PUBLIC slice_entity_t entity_list_init(linear_allocator_t *allocator);
 PUBLIC void entity_list_deinit(linear_allocator_t *allocator, slice_entity_t list);
-// Spawns with no skills (skills = {0,0}); assign entity->skills afterward
-// once its skills have been populated in the top-level skill list.
+// Spawns with skills empty; assign entity->skills after populating them via skill_list_add.
 PUBLIC entity_t* entity_spawn(linear_allocator_t *allocator, slice_entity_t* list, entity_team_t team, position_t position, int hp, int ap, int mp);
 PUBLIC int entity_skill_count(entity_t *entity);
-// A shared, contiguous list every entity's `skills` slice is a sub-range of --
-// same append-in-place discipline as entity_spawn/turn_order_add.
+// Shared, contiguous list every entity's `skills` is a sub-range of.
 PUBLIC slice_skill_t skill_list_init(linear_allocator_t *allocator);
 PUBLIC void skill_list_deinit(linear_allocator_t *allocator, slice_skill_t list);
 PUBLIC skill_t* skill_list_add(linear_allocator_t *allocator, slice_skill_t *list, skill_t skill);

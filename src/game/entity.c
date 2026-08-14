@@ -52,9 +52,7 @@ PUBLIC void skill_list_deinit(linear_allocator_t *allocator, slice_skill_t list)
 }
 
 PUBLIC skill_t* skill_list_add(linear_allocator_t *allocator, slice_skill_t *list, skill_t skill) {
-    // Same append-in-place discipline as entity_spawn/turn_order_add: only
-    // allowed right after the previous add, with nothing else pushed in
-    // between.
+    // Same append-in-place discipline as entity_spawn/turn_order_add.
     assert_debug(allocator->cursor == list->end);
 
     slice_skill_t entry;

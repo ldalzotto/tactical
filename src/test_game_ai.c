@@ -271,14 +271,13 @@ PRIVATE void test_game_ai_ranged_enemy_attacks_from_range_without_closing_on_end
     game_deinit(allocator, game);
 }
 
-// Ticket 005: a multi-skill enemy prefers its highest-damage skill (melee,
+// A multi-skill enemy prefers its highest-damage skill (melee,
 // SKILL_MELEE.damage=5 > SKILL_RANGED.damage=3) and closes distance for it
 // when it has enough mp to reach melee range this turn, rather than settling
-// for ranged just because it's already in range -- see PLAN.md Q9 for why
-// the earlier "stop at whichever skill is in range first" design was wrong.
+// for ranged just because it's already in range.
 // Enemy's skills are added SKILL_RANGED then SKILL_MELEE, deliberately so
 // skills[0] is the WEAKER skill -- this way the test only passes if
-// ai_preferred_skill_index actually picks by damage, not by coincidentally
+// ai_preferred_skill actually picks by damage, not by coincidentally
 // matching whichever skill happens to be first in the list.
 PRIVATE void test_game_ai_multi_skill_enemy_closes_to_melee_range_when_reachable(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);

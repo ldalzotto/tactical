@@ -52,9 +52,8 @@ PUBLIC viewport_t layout_compute(int fb_width, int fb_height, int grid_width, in
         .timeline_rect = timeline_rect,
     };
 
-    // Skill buttons: a row of VIEWPORT_MAX_SKILL_BUTTONS, same size as
-    // attack_button, immediately to its left -- same right-anchored button
-    // strip, just extended.
+    // Skill buttons: row of VIEWPORT_MAX_SKILL_BUTTONS, same size as
+    // attack_button, extending the button strip to its left.
     int i = 0;
     for (SLICE_FOREACH(viewport_skill_buttons(&viewport), sb)) {
         SLICE_DEREF(sb) = (rect_t){
