@@ -6,13 +6,6 @@
 #include "pathing.h"
 #include "render_cache.h"
 
-// game.c is the one place that combines layout.h's screen geometry with
-// entity.h's game data, so it's the right place to enforce the coupling
-// layout.h/.c deliberately doesn't know about: viewport_t.skill_buttons and
-// entity_t.skills must stay the same length, or render_hud/game_on_input_event
-// (which index one array by the other's count) risk an out-of-bounds read.
-_Static_assert(VIEWPORT_MAX_SKILL_BUTTONS == ENTITY_MAX_SKILLS, "viewport_t.skill_buttons must have one slot per entity_t.skills slot");
-
 // Fixed size for game->scratch. Hosts reachable_tiles (move range) and
 // attack_range_tiles (skill range), mutually exclusive -- whichever is
 // off-mode stays nullified (see render_cache_reset), so scratch only ever
@@ -34,9 +27,10 @@ PRIVATE void game_check_game_over(game_state_t *game) {
     }
 }
 
-PUBLIC game_state_t game_init(linear_allocator_t *allocator, slice_t grid_align, grid_t grid, slice_t entity_list_align, slice_entity_t entities, slice_t turn_order_align, slice_entity_ptr_t turn_order, int fb_width, int fb_height, int hud_height) {
+PUBLIC game_state_t game_init(linear_allocator_t *allocator, slice_t grid_align, grid_t grid, slice_t entity_list_align, slice_entity_t entities, slice_t skill_list_align, slice_skill_t skills, slice_t turn_order_align, slice_entity_ptr_t turn_order, int fb_width, int fb_height, int hud_height) {
     assert_debug((void*)entities.begin >= (void*)grid.tiles.end);
-    assert_debug((void*)turn_order.begin >= (void*)entities.end);
+    assert_debug((void*)skills.begin >= (void*)entities.end);
+    assert_debug((void*)turn_order.begin >= (void*)skills.end);
 
     viewport_t viewport = layout_compute(fb_width, fb_height, grid.width, grid.height, hud_height);
 
@@ -52,6 +46,8 @@ PUBLIC game_state_t game_init(linear_allocator_t *allocator, slice_t grid_align,
         .grid = grid,
         .entity_list_align = entity_list_align,
         .entities = entities,
+        .skill_list_align = skill_list_align,
+        .skills = skills,
         .turn_order_align = turn_order_align,
         .turn = turn_init(turn_order),
         .viewport = viewport,
@@ -80,6 +76,8 @@ PUBLIC void game_deinit(linear_allocator_t *allocator, game_state_t state) {
     linear_allocator_pop(allocator, state.scratch.data);
     turn_order_deinit(allocator, state.turn.capacity);
     linear_allocator_pop(allocator, state.turn_order_align);
+    skill_list_deinit(allocator, state.skills);
+    linear_allocator_pop(allocator, state.skill_list_align);
     entity_list_deinit(allocator, state.entities);
     linear_allocator_pop(allocator, state.entity_list_align);
     grid_deinit(allocator, state.grid);
@@ -136,7 +134,7 @@ PRIVATE void game_set_mode(game_state_t *game, linear_allocator_t *allocator, ga
         pathing_deinit(allocator, pathing);
         return;
     } else if (mode == GAME_MODE_ATTACK) {
-        int skill_range = active->skills[game->selected_skill].range;
+        int skill_range = SLICE_AT(active->skills, game->selected_skill).range;
         // pass_through_opposing_team_of=active: attack-range preview treats
         // other enemies as passable so tiles behind them stay reachable-for-
         // targeting -- see ticket 003 / PLAN.md Q1-Q2.
@@ -205,7 +203,7 @@ PRIVATE void game_on_entity_pressed(game_state_t *game, linear_allocator_t *allo
         return;
     }
 
-    if (action_try_attack(allocator, game->grid, game->entities, active, active->skills[game->selected_skill], entity)) {
+    if (action_try_attack(allocator, game->grid, game->entities, active, SLICE_AT(active->skills, game->selected_skill), entity)) {
         // If the entity just died, we remove dead entities
         if (!entity->alive) {
             game->turn = turn_remove_dead_entities(game->turn);
@@ -262,7 +260,7 @@ PRIVATE void game_on_skill_button_pressed(game_state_t *game, linear_allocator_t
     if (game->mode == GAME_MODE_NONE) {
         return;
     }
-    if (index < 0 || index >= active->skill_count) {
+    if (index < 0 || index >= entity_skill_count(active)) {
         return;
     }
 
@@ -301,8 +299,15 @@ PUBLIC void game_on_input_event(game_state_t *game, linear_allocator_t *allocato
         // that screen region and a click there should fall through to the
         // grid underneath it instead of being silently swallowed.
         entity_t *active_for_skill_buttons = turn_active_entity(game->turn);
-        if (active_for_skill_buttons->team == ENTITY_TEAM_PLAYER && game->mode != GAME_MODE_NONE && active_for_skill_buttons->skill_count > 1) {
-            for (int i = 0; i < active_for_skill_buttons->skill_count; i++) {
+        if (active_for_skill_buttons->team == ENTITY_TEAM_PLAYER && game->mode != GAME_MODE_NONE && entity_skill_count(active_for_skill_buttons) > 1) {
+            // Clamped to VIEWPORT_MAX_SKILL_BUTTONS: the HUD only has room to
+            // draw/hit-test that many buttons, however many skills the
+            // entity actually has (see render_hud's matching clamp).
+            int button_count = entity_skill_count(active_for_skill_buttons);
+            if (button_count > VIEWPORT_MAX_SKILL_BUTTONS) {
+                button_count = VIEWPORT_MAX_SKILL_BUTTONS;
+            }
+            for (int i = 0; i < button_count; i++) {
                 if (point_in_rect(game->viewport.skill_buttons[i], event.x, event.y)) {
                     game_on_skill_button_pressed(game, allocator, i);
                     return;

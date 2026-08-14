@@ -11,15 +11,24 @@ PRIVATE void test_game_ai_adjacent_enemy_attacks_without_moving_on_end_turn(line
     grid_t grid = grid_init(allocator, 4, 4);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
-    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3, SKILL_MELEE);
-    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){1, 0}, 10, 2, 3, SKILL_MELEE);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
+    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){1, 0}, 10, 2, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *enemy_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    enemy->skills = (slice_skill_t){ .begin = enemy_skills_begin, .end = skills.end };
 
     slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
     slice_entity_ptr_t order = turn_order_init(allocator);
     turn_order_add(allocator, &order, p);
     turn_order_add(allocator, &order, enemy);
 
-    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, 320, 240, 40);
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
 
     test_click_end_turn(&game, allocator);
 
@@ -37,15 +46,24 @@ PRIVATE void test_game_ai_far_enemy_with_enough_mp_closes_and_attacks_on_end_tur
     grid_t grid = grid_init(allocator, 5, 1);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
-    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3, SKILL_MELEE);
-    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){4, 0}, 10, 2, 4, SKILL_MELEE);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
+    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){4, 0}, 10, 2, 4);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *enemy_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    enemy->skills = (slice_skill_t){ .begin = enemy_skills_begin, .end = skills.end };
 
     slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
     slice_entity_ptr_t order = turn_order_init(allocator);
     turn_order_add(allocator, &order, p);
     turn_order_add(allocator, &order, enemy);
 
-    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, 320, 240, 40);
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
 
     test_click_end_turn(&game, allocator);
 
@@ -64,15 +82,24 @@ PRIVATE void test_game_ai_insufficient_mp_moves_partial_no_attack_on_end_turn(li
     grid_t grid = grid_init(allocator, 5, 1);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
-    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3, SKILL_MELEE);
-    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){4, 0}, 10, 2, 1, SKILL_MELEE);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
+    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){4, 0}, 10, 2, 1);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *enemy_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    enemy->skills = (slice_skill_t){ .begin = enemy_skills_begin, .end = skills.end };
 
     slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
     slice_entity_ptr_t order = turn_order_init(allocator);
     turn_order_add(allocator, &order, p);
     turn_order_add(allocator, &order, enemy);
 
-    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, 320, 240, 40);
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
 
     test_click_end_turn(&game, allocator);
 
@@ -80,7 +107,7 @@ PRIVATE void test_game_ai_insufficient_mp_moves_partial_no_attack_on_end_turn(li
     assert_test(enemy->position.x == 3 && enemy->position.y == 0);
     assert_test(enemy->mp == 0);
     assert_test(enemy->ap == 2);
-    assert_test(!skill_target_in_range(allocator, grid, entities, enemy, enemy->skills[0], p));
+    assert_test(!skill_target_in_range(allocator, grid, entities, enemy, SLICE_AT(enemy->skills, 0), p));
     assert_test(p->hp == 10);
 
     game_deinit(allocator, game);
@@ -94,20 +121,29 @@ PRIVATE void test_game_ai_obstacle_forces_detour_on_end_turn(linear_allocator_t 
 
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
-    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){4, 1}, 10, 2, 3, SKILL_MELEE);
-    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){0, 1}, 10, 2, 8, SKILL_MELEE);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){4, 1}, 10, 2, 3);
+    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){0, 1}, 10, 2, 8);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *enemy_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    enemy->skills = (slice_skill_t){ .begin = enemy_skills_begin, .end = skills.end };
 
     slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
     slice_entity_ptr_t order = turn_order_init(allocator);
     turn_order_add(allocator, &order, p);
     turn_order_add(allocator, &order, enemy);
 
-    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, 320, 240, 40);
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
 
     test_click_end_turn(&game, allocator);
 
     assert_test(turn_active_entity(game.turn) == p);
-    assert_test(skill_target_in_range(allocator, grid, entities, enemy, enemy->skills[0], p));
+    assert_test(skill_target_in_range(allocator, grid, entities, enemy, SLICE_AT(enemy->skills, 0), p));
     assert_test(p->hp == 5);
     assert_test(enemy->ap == 1);
 
@@ -119,9 +155,21 @@ PRIVATE void test_game_ai_multiple_enemies_act_independently_on_end_turn(linear_
     grid_t grid = grid_init(allocator, 4, 4);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
-    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 30, 2, 3, SKILL_MELEE);
-    entity_t* enemy_a = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 2, 3, SKILL_MELEE);
-    entity_t* enemy_b = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){0, 3}, 10, 2, 3, SKILL_MELEE);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 30, 2, 3);
+    entity_t* enemy_a = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 2, 3);
+    entity_t* enemy_b = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){0, 3}, 10, 2, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *enemy_a_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    enemy_a->skills = (slice_skill_t){ .begin = enemy_a_skills_begin, .end = skills.end };
+    skill_t *enemy_b_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    enemy_b->skills = (slice_skill_t){ .begin = enemy_b_skills_begin, .end = skills.end };
 
     slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
     slice_entity_ptr_t order = turn_order_init(allocator);
@@ -129,7 +177,7 @@ PRIVATE void test_game_ai_multiple_enemies_act_independently_on_end_turn(linear_
     turn_order_add(allocator, &order, enemy_a);
     turn_order_add(allocator, &order, enemy_b);
 
-    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, 320, 240, 40);
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
 
     // One end-turn press plays out both enemies' turns in order, back
     // around to the player.
@@ -156,15 +204,24 @@ PRIVATE void test_game_ai_zero_mp_not_adjacent_does_nothing_on_end_turn(linear_a
     grid_t grid = grid_init(allocator, 4, 4);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
-    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3, SKILL_MELEE);
-    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 3}, 10, 2, 0, SKILL_MELEE);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
+    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 3}, 10, 2, 0);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *enemy_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    enemy->skills = (slice_skill_t){ .begin = enemy_skills_begin, .end = skills.end };
 
     slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
     slice_entity_ptr_t order = turn_order_init(allocator);
     turn_order_add(allocator, &order, p);
     turn_order_add(allocator, &order, enemy);
 
-    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, 320, 240, 40);
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
 
     test_click_end_turn(&game, allocator);
 
@@ -182,15 +239,24 @@ PRIVATE void test_game_ai_ranged_enemy_attacks_from_range_without_closing_on_end
     grid_t grid = grid_init(allocator, 4, 1);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
-    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3, SKILL_MELEE);
-    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 2, 3, SKILL_RANGED);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
+    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 2, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *enemy_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_RANGED);
+    enemy->skills = (slice_skill_t){ .begin = enemy_skills_begin, .end = skills.end };
 
     slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
     slice_entity_ptr_t order = turn_order_init(allocator);
     turn_order_add(allocator, &order, p);
     turn_order_add(allocator, &order, enemy);
 
-    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, 320, 240, 40);
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
 
     test_click_end_turn(&game, allocator);
 
@@ -210,28 +276,36 @@ PRIVATE void test_game_ai_ranged_enemy_attacks_from_range_without_closing_on_end
 // when it has enough mp to reach melee range this turn, rather than settling
 // for ranged just because it's already in range -- see PLAN.md Q9 for why
 // the earlier "stop at whichever skill is in range first" design was wrong.
-// Enemy is spawned with SKILL_RANGED as skills[0] (entity_spawn's default
-// skill) and SKILL_MELEE added second, deliberately so skills[0] is the
-// WEAKER skill -- this way the test only passes if
+// Enemy's skills are added SKILL_RANGED then SKILL_MELEE, deliberately so
+// skills[0] is the WEAKER skill -- this way the test only passes if
 // ai_preferred_skill_index actually picks by damage, not by coincidentally
-// matching whatever skills[0]/entity_spawn's argument happened to be.
+// matching whichever skill happens to be first in the list.
 PRIVATE void test_game_ai_multi_skill_enemy_closes_to_melee_range_when_reachable(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 1);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
-    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3, SKILL_MELEE);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
     // Starts at distance 3: already within SKILL_RANGED.range (3), outside
     // SKILL_MELEE.range (1), with enough mp (3) to close all the way in.
-    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 2, 3, SKILL_RANGED);
-    entity_add_skill(enemy, SKILL_MELEE);
+    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 2, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *enemy_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_RANGED);
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    enemy->skills = (slice_skill_t){ .begin = enemy_skills_begin, .end = skills.end };
 
     slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
     slice_entity_ptr_t order = turn_order_init(allocator);
     turn_order_add(allocator, &order, p);
     turn_order_add(allocator, &order, enemy);
 
-    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, 320, 240, 40);
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
 
     test_click_end_turn(&game, allocator);
 
@@ -256,18 +330,27 @@ PRIVATE void test_game_ai_multi_skill_enemy_falls_back_to_ranged_when_melee_unre
     grid_t grid = grid_init(allocator, 4, 1);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
-    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3, SKILL_MELEE);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
     // Starts at distance 3, but mp=1 only closes to distance 2 -- still
     // outside SKILL_MELEE.range (1), still within SKILL_RANGED.range (3).
-    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 2, 1, SKILL_MELEE);
-    entity_add_skill(enemy, SKILL_RANGED);
+    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 2, 1);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *enemy_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    skill_list_add(allocator, &skills, SKILL_RANGED);
+    enemy->skills = (slice_skill_t){ .begin = enemy_skills_begin, .end = skills.end };
 
     slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
     slice_entity_ptr_t order = turn_order_init(allocator);
     turn_order_add(allocator, &order, p);
     turn_order_add(allocator, &order, enemy);
 
-    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, 320, 240, 40);
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
 
     test_click_end_turn(&game, allocator);
 
