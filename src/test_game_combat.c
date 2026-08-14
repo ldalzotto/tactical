@@ -675,6 +675,45 @@ PRIVATE void test_game_attack_after_skill_switch_uses_new_skill_damage_and_ap_co
     game_deinit(allocator, game);
 }
 
+PRIVATE void test_game_attack_toggle_then_ally_click_is_noop(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 4, 1);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
+    entity_t* ally = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){1, 0}, 10, 2, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *ally_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    ally->skills = (slice_skill_t){ .begin = ally_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, ally);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    assert_test(game.mode == GAME_MODE_ATTACK);
+
+    // In attack mode, clicking an ally still routes through
+    // action_try_attack, which rejects same-team targets.
+    test_click_tile(&game, allocator, ally->position);
+
+    assert_test(p->ap == 2);
+    assert_test(ally->hp == 10);
+    assert_test(game.mode == GAME_MODE_ATTACK);
+
+    game_deinit(allocator, game);
+}
+
 const test_case_t g_game_combat_tests[] = {
     { TEST_NAME("game_attack_kills_defender_clamps_hp_and_frees_tile_for_movement"), test_game_attack_kills_defender_clamps_hp_and_frees_tile_for_movement },
     { TEST_NAME("game_entity_pressed_diagonal_and_far_enemy_attack_noop"), test_game_entity_pressed_diagonal_and_far_enemy_attack_noop },
@@ -691,6 +730,7 @@ const test_case_t g_game_combat_tests[] = {
     { TEST_NAME("game_skill_button_pressed_noop_outside_valid_conditions"), test_game_skill_button_pressed_noop_outside_valid_conditions },
     { TEST_NAME("game_skill_button_pressed_noop_when_mode_none_or_index_out_of_range"), test_game_skill_button_pressed_noop_when_mode_none_or_index_out_of_range },
     { TEST_NAME("game_attack_after_skill_switch_uses_new_skill_damage_and_ap_cost"), test_game_attack_after_skill_switch_uses_new_skill_damage_and_ap_cost },
+    { TEST_NAME("game_attack_toggle_then_ally_click_is_noop"), test_game_attack_toggle_then_ally_click_is_noop },
 };
 
 const uint32_t g_game_combat_tests_count = sizeof(g_game_combat_tests) / sizeof(g_game_combat_tests[0]);
