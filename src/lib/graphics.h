@@ -3,6 +3,7 @@
 #include "linkage.h"
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #include "memory.h"
 
@@ -14,6 +15,8 @@ typedef struct {
 } rgba_t;
 
 SLICE_DEFINE(rgba_t);
+
+bool rgba_equals(rgba_t a, rgba_t b);
 
 PUBLIC void graphics_draw_rectangle(slice_rgba_t framebuffer, int fb_width, int x, int y, int width, int height, rgba_t color);
 
