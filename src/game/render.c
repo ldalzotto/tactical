@@ -97,6 +97,8 @@ PRIVATE void render_hp_bar(slice_rgba_t fb, int fb_width, int px, int py, int ts
 }
 
 PRIVATE void render_entities(slice_rgba_t fb, int fb_width, game_state_t game) {
+    entity_t *active = turn_active_entity(game.turn);
+
     for ( SLICE_FOREACH(game.entities, entity_s) ) {
         entity_t *entity = &SLICE_DEREF(entity_s);
         if (!entity->alive) {
@@ -121,7 +123,7 @@ PRIVATE void render_entities(slice_rgba_t fb, int fb_width, game_state_t game) {
         rgba_t color = entity->team == ENTITY_TEAM_PLAYER ? COLOR_PLAYER : COLOR_ENEMY;
         graphics_draw_rectangle(fb, fb_width, square_x, square_top, square_width, square_height, color);
 
-        if (entity == game.selected_entity) {
+        if (game.mode != GAME_MODE_NONE && entity == active) {
             render_draw_outline(fb, fb_width, (rect_t){px, py, ts, ts}, COLOR_WHITE);
         }
     }
@@ -160,19 +162,19 @@ PRIVATE void render_hud(slice_rgba_t fb, int fb_width, game_state_t game) {
 
     rect_t attack_button = game.viewport.attack_button;
     rgba_t attack_button_color;
-    if (active->team != ENTITY_TEAM_PLAYER || game.selected_entity == 0) {
+    if (active->team != ENTITY_TEAM_PLAYER || game.mode == GAME_MODE_NONE) {
         attack_button_color = COLOR_ATTACK_BUTTON_INACTIVE;
-    } else if (game.attack_mode) {
+    } else if (game.mode == GAME_MODE_ATTACK) {
         attack_button_color = COLOR_ATTACK_BUTTON_ON;
     } else {
         attack_button_color = COLOR_ATTACK_BUTTON_AVAILABLE;
     }
     graphics_draw_rectangle(fb, fb_width, attack_button.x, attack_button.y, attack_button.width, attack_button.height, attack_button_color);
 
-    if (game.selected_entity == 0) {
+    if (game.mode == GAME_MODE_NONE) {
         return;
     }
-    entity_t *selected = game.selected_entity;
+    entity_t *selected = active;
 
     int pip_size = 10;
     int pip_gap = 4;

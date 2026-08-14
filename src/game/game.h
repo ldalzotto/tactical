@@ -19,6 +19,17 @@ typedef enum {
     GAME_OVER_LOSE = 2,
 } game_over_t;
 
+// Whether the turn's active entity (turn_active_entity) has been selected by
+// the player this turn, and if so, whether entity_pressed on an enemy
+// attempts an attack instead of a no-op. NONE and MOVEMENT both show
+// render.reachable_tiles (NONE leaves it empty); ATTACK shows
+// render.attack_range_tiles instead.
+typedef enum {
+    GAME_MODE_NONE = 0,
+    GAME_MODE_MOVEMENT = 1,
+    GAME_MODE_ATTACK = 2,
+} game_mode_t;
+
 typedef struct {
     slice_t grid_align;
     grid_t grid;
@@ -27,10 +38,7 @@ typedef struct {
     slice_t turn_order_align;
     turn_state_t turn;
     viewport_t viewport;
-    // TODO: This is a temporary state that has to be removed.
-    entity_t* selected_entity; // 0 if none
-    bool attack_mode;          // on: entity_pressed on an enemy attempts an attack instead of a
-                                // no-op; renderer shows render.attack_range_tiles
+    game_mode_t mode;
     position_t hover;
     bool hover_valid;
     game_over_t game_over;

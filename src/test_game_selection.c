@@ -24,12 +24,12 @@ PRIVATE void test_game_entity_pressed_selects_only_the_active_entity(linear_allo
     assert_test(turn_active_entity(game.turn) == p1);
 
     test_click_tile(&game, allocator, p1->position);
-    assert_test(game.selected_entity == p1);
+    assert_test(game.mode == GAME_MODE_MOVEMENT && turn_active_entity(game.turn) == p1);
 
     // p2 isn't the active entity: pressing it is a no-op, including as an
     // attack target -- same-team damage never lands.
     test_click_tile(&game, allocator, p2->position);
-    assert_test(game.selected_entity == p1);
+    assert_test(game.mode == GAME_MODE_MOVEMENT && turn_active_entity(game.turn) == p1);
     assert_test(p1->ap == 2);
     assert_test(p2->hp == 10);
 
@@ -50,7 +50,7 @@ PRIVATE void test_game_entity_pressed_enemy_active_noops(linear_allocator_t *all
     game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     test_click_tile(&game, allocator, e1->position);
-    assert_test(game.selected_entity == 0);
+    assert_test(game.mode == GAME_MODE_NONE);
 
     game_deinit(allocator, game);
 }
@@ -74,13 +74,13 @@ PRIVATE void test_game_end_turn_advances_past_a_harmless_enemy_and_deselects(lin
     p->mp = 0;
 
     test_click_tile(&game, allocator, p->position);
-    assert_test(game.selected_entity == p);
+    assert_test(game.mode == GAME_MODE_MOVEMENT && turn_active_entity(game.turn) == p);
 
     test_click_end_turn(&game, allocator);
 
     // e's turn happened (harmlessly) and the cursor wrapped back to p.
     assert_test(turn_active_entity(game.turn) == p);
-    assert_test(game.selected_entity == 0);
+    assert_test(game.mode == GAME_MODE_NONE);
 
     entity_t *player = p;
     assert_test(player->ap == player->max_ap);
@@ -175,14 +175,14 @@ PRIVATE void test_game_on_input_event_click_in_end_turn_button_behaves_like_end_
     p->mp = 0;
 
     test_click_tile(&game, allocator, p->position);
-    assert_test(game.selected_entity == p);
+    assert_test(game.mode == GAME_MODE_MOVEMENT && turn_active_entity(game.turn) == p);
 
     assert_test(point_in_rect(game.viewport.end_turn_button, 260, 215));
     input_event_t click = { .type = INPUT_EVENT_MOUSE_CLICK, .x = 260, .y = 215 };
     game_on_input_event(&game, allocator, click);
 
     assert_test(turn_active_entity(game.turn) == p);
-    assert_test(game.selected_entity == 0);
+    assert_test(game.mode == GAME_MODE_NONE);
 
     entity_t *player = p;
     assert_test(player->ap == player->max_ap);
@@ -211,7 +211,7 @@ PRIVATE void test_game_on_input_event_click_on_entity_tile_behaves_like_entity_p
     input_event_t click = { .type = INPUT_EVENT_MOUSE_CLICK, .x = px + 1, .y = py + 1 };
     game_on_input_event(&game, allocator, click);
 
-    assert_test(game.selected_entity == p1);
+    assert_test(game.mode == GAME_MODE_MOVEMENT && turn_active_entity(game.turn) == p1);
 
     game_deinit(allocator, game);
 }

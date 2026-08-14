@@ -63,10 +63,10 @@ PRIVATE void test_game_entity_pressed_diagonal_and_far_enemy_attack_noop(linear_
     game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, 320, 240, 40);
 
     test_click_tile(&game, allocator, p->position);
-    assert_test(game.selected_entity == p);
+    assert_test(game.mode == GAME_MODE_MOVEMENT && turn_active_entity(game.turn) == p);
 
     test_click_attack_toggle(&game, allocator);
-    assert_test(game.attack_mode);
+    assert_test(game.mode == GAME_MODE_ATTACK);
 
     // Diagonal doesn't count as adjacent: pressing it is a no-op.
     test_click_tile(&game, allocator, diagonal->position);
@@ -127,7 +127,7 @@ PRIVATE void test_game_entity_pressed_adjacent_enemy_attacks_then_noops_when_ap_
     game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     test_click_tile(&game, allocator, p->position);
-    assert_test(game.selected_entity == p);
+    assert_test(game.mode == GAME_MODE_MOVEMENT && turn_active_entity(game.turn) == p);
 
     test_click_attack_toggle(&game, allocator);
     test_click_tile(&game, allocator, e->position);
@@ -135,7 +135,7 @@ PRIVATE void test_game_entity_pressed_adjacent_enemy_attacks_then_noops_when_ap_
     assert_test(e->hp == 5);
     assert_test(e->alive);
     // A successful attack closes attack mode automatically.
-    assert_test(!game.attack_mode);
+    assert_test(game.mode == GAME_MODE_MOVEMENT);
 
     test_click_attack_toggle(&game, allocator);
     test_click_tile(&game, allocator, e->position);
@@ -161,7 +161,7 @@ PRIVATE void test_game_ranged_attack_hits_at_max_range_without_moving(linear_all
     game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, 320, 240, 40);
 
     test_click_tile(&game, allocator, p->position);
-    assert_test(game.selected_entity == p);
+    assert_test(game.mode == GAME_MODE_MOVEMENT && turn_active_entity(game.turn) == p);
 
     test_click_attack_toggle(&game, allocator);
 
@@ -262,13 +262,13 @@ PRIVATE void test_game_attack_toggle_after_move_selection_does_not_overflow_scra
     test_click_attack_toggle(&game, allocator);
     assert_test(!expect_panic_end());
 
-    assert_test(game.attack_mode);
+    assert_test(game.mode == GAME_MODE_ATTACK);
     assert_test(SLICE_TYPESIZE(game.render.attack_range_tiles) > 0);
     assert_test(SLICE_TYPESIZE(game.render.reachable_tiles) == 0);
 
     // Toggling back off restores reachable_tiles and nullifies attack_range_tiles.
     test_click_attack_toggle(&game, allocator);
-    assert_test(!game.attack_mode);
+    assert_test(game.mode == GAME_MODE_MOVEMENT);
     assert_test(SLICE_TYPESIZE(game.render.reachable_tiles) > 0);
     assert_test(SLICE_TYPESIZE(game.render.attack_range_tiles) == 0);
 

@@ -29,7 +29,7 @@ PRIVATE void test_game_selecting_entity_computes_reachable_tiles_within_mp_and_m
     game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, 320, 240, 40);
 
     test_click_tile(&game, allocator, p->position);
-    assert_test(game.selected_entity == p);
+    assert_test(game.mode == GAME_MODE_MOVEMENT && turn_active_entity(game.turn) == p);
 
     // mp is 2: (0,0) is dist 0 (excluded, it's where the mover stands),
     // (2,0) is dist 2 (in range), (3,0) is dist 3 and (3,3) is dist 6 (both

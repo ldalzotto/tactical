@@ -16,11 +16,11 @@ typedef struct {
     slice_t reachable_align;           // alignment padding before reachable_tiles when non-empty;
                                         // zero-length marker at the scratch cursor when empty
     slice_position_t reachable_tiles;  // tiles the selected entity can currently reach; resliced
-                                        // on each recompute; nullified while attack_mode is on
+                                        // on each recompute; nullified while mode is GAME_MODE_ATTACK
     slice_t attack_range_align;        // same marker pattern as reachable_align, but for
                                         // attack_range_tiles; always the topmost scratch region
     slice_position_t attack_range_tiles; // tiles in the selected entity's skill range; populated
-                                          // only while attack_mode is on, nullified otherwise
+                                          // only while mode is GAME_MODE_ATTACK, nullified otherwise
 } render_cache_t;
 
 // Pops both range caches to nothing, then pushes fresh empty markers for

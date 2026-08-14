@@ -48,8 +48,7 @@ PUBLIC game_state_t game_init(linear_allocator_t *allocator, slice_t grid_align,
         .turn_order_align = turn_order_align,
         .turn = turn_init(turn_order),
         .viewport = viewport,
-        .selected_entity = 0,
-        .attack_mode = false,
+        .mode = GAME_MODE_NONE,
         .hover = { 0, 0 },
         .hover_valid = false,
         .game_over = GAME_OVER_NONE,
@@ -84,34 +83,39 @@ PRIVATE bool game_tile_is_reachable(pathing_state_t pathing, grid_t grid, positi
     return dist > 0 && dist <= mp;
 }
 
-// Turns attack mode on/off. reachable_tiles and attack_range_tiles are
-// mutually exclusive, so each branch nullifies the one it isn't populating:
-// - off: recomputes reachable_tiles for the current selection (empty if none,
-//   or no mp left), nullifies attack_range_tiles. Called eagerly on any
-//   selection/position/mp change, and whenever attack mode turns off.
-// - on: mirror image -- nullifies reachable_tiles, computes attack_range_tiles
-//   via the same BFS rooted at selected->skill.range instead of mp. Callers
-//   only turn this on with a live selection.
+// Switches to `mode`. reachable_tiles and attack_range_tiles are mutually
+// exclusive, so each branch nullifies the one it isn't populating:
+// - NONE: nullifies both -- nothing selected, nothing to show.
+// - MOVEMENT: recomputes reachable_tiles for the turn's active entity (empty
+//   if it has no mp left), nullifies attack_range_tiles. Called eagerly on
+//   any selection/position/mp change, and whenever attack mode turns off.
+// - ATTACK: mirror image -- nullifies reachable_tiles, computes
+//   attack_range_tiles via the same BFS rooted at active->skill.range instead
+//   of mp.
 // Render just reads the cached lists, no per-frame pathing.
-PRIVATE void game_set_attack_mode(game_state_t *game, linear_allocator_t *allocator, bool on) {
+PRIVATE void game_set_mode(game_state_t *game, linear_allocator_t *allocator, game_mode_t mode) {
     render_cache_reset(&game->scratch, &game->render);
+    game->mode = mode;
 
-    if (!on) {
-        game->attack_mode = false;
+    if (mode == GAME_MODE_NONE) {
+        return;
+    }
 
-        entity_t *selected = game->selected_entity;
-        if (selected == 0 || selected->mp <= 0) {
+    entity_t *active = turn_active_entity(game->turn);
+
+    if (mode == GAME_MODE_MOVEMENT) {
+        if (active->mp <= 0) {
             return;
         }
 
-        pathing_state_t pathing = pathing_compute_distances(allocator, game->grid, game->entities, selected, selected->position, selected->mp);
+        pathing_state_t pathing = pathing_compute_distances(allocator, game->grid, game->entities, active, active->position, active->mp);
 
         slice_t reachable_align = linear_allocator_push_alignment(&game->scratch, _Alignof(position_t));
         slice_position_t reachable_tiles = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.reachable_tiles, 0);
         for (int ty = 0; ty < game->grid.height; ty++) {
             for (int tx = 0; tx < game->grid.width; tx++) {
                 position_t position = { tx, ty };
-                if (game_tile_is_reachable(pathing, game->grid, position, selected->mp)) {
+                if (game_tile_is_reachable(pathing, game->grid, position, active->mp)) {
                     slice_position_t entry = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.reachable_tiles, 1);
                     SLICE_DEREF(entry) = position;
                     reachable_tiles.end = entry.end;
@@ -123,31 +127,26 @@ PRIVATE void game_set_attack_mode(game_state_t *game, linear_allocator_t *alloca
 
         pathing_deinit(allocator, pathing);
         return;
-    }
+    } else if (mode == GAME_MODE_ATTACK) {
+        pathing_state_t pathing = pathing_compute_distances(allocator, game->grid, game->entities, active, active->position, active->skill.range);
 
-    entity_t *selected = game->selected_entity;
-    assert_debug(selected != 0);
-
-    pathing_state_t pathing = pathing_compute_distances(allocator, game->grid, game->entities, selected, selected->position, selected->skill.range);
-
-    slice_t attack_range_align = linear_allocator_push_alignment(&game->scratch, _Alignof(position_t));
-    slice_position_t attack_range_tiles = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.attack_range_tiles, 0);
-    for (int ty = 0; ty < game->grid.height; ty++) {
-        for (int tx = 0; tx < game->grid.width; tx++) {
-            position_t position = { tx, ty };
-            if (game_tile_is_reachable(pathing, game->grid, position, selected->skill.range)) {
-                slice_position_t entry = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.attack_range_tiles, 1);
-                SLICE_DEREF(entry) = position;
-                attack_range_tiles.end = entry.end;
+        slice_t attack_range_align = linear_allocator_push_alignment(&game->scratch, _Alignof(position_t));
+        slice_position_t attack_range_tiles = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.attack_range_tiles, 0);
+        for (int ty = 0; ty < game->grid.height; ty++) {
+            for (int tx = 0; tx < game->grid.width; tx++) {
+                position_t position = { tx, ty };
+                if (game_tile_is_reachable(pathing, game->grid, position, active->skill.range)) {
+                    slice_position_t entry = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.attack_range_tiles, 1);
+                    SLICE_DEREF(entry) = position;
+                    attack_range_tiles.end = entry.end;
+                }
             }
         }
+
+        render_cache_write_attack_range(&game->render, attack_range_align, attack_range_tiles);
+
+        pathing_deinit(allocator, pathing);
     }
-
-    render_cache_write_attack_range(&game->render, attack_range_align, attack_range_tiles);
-
-    pathing_deinit(allocator, pathing);
-
-    game->attack_mode = true;
 }
 
 // Advances the cursor past the entity that just finished acting, then lets
@@ -155,8 +154,7 @@ PRIVATE void game_set_attack_mode(game_state_t *game, linear_allocator_t *alloca
 // becomes active or the game ends.
 PRIVATE void game_advance_turn(game_state_t *game, linear_allocator_t *allocator) {
     game->turn = turn_advance(game->turn);
-    game->selected_entity = 0;
-    game_set_attack_mode(game, allocator, false);
+    game_set_mode(game, allocator, GAME_MODE_NONE);
 
     entity_t *active = turn_active_entity(game->turn);
     while (game->game_over == GAME_OVER_NONE && active->team == ENTITY_TEAM_ENEMY) {
@@ -186,26 +184,21 @@ PRIVATE void game_on_entity_pressed(game_state_t *game, linear_allocator_t *allo
 
     entity_t *pressed = entity;
     if (pressed == active) {
-        game->selected_entity = entity;
-        game_set_attack_mode(game, allocator, false);
+        game_set_mode(game, allocator, GAME_MODE_MOVEMENT);
         return;
     }
 
-    if (game->selected_entity == 0) {
+    if (game->mode != GAME_MODE_ATTACK) {
         return;
     }
 
-    if (!game->attack_mode) {
-        return;
-    }
-
-    if (action_try_attack(allocator, game->grid, game->entities, game->selected_entity, entity)) {
+    if (action_try_attack(allocator, game->grid, game->entities, active, entity)) {
         // If the entity just died, we remove dead entities
         if (!entity->alive) {
             game->turn = turn_remove_dead_entities(game->turn);
         }
         game_check_game_over(game);
-        game_set_attack_mode(game, allocator, false);
+        game_set_mode(game, allocator, GAME_MODE_MOVEMENT);
     }
 }
 
@@ -215,7 +208,7 @@ PRIVATE void game_on_tile_pressed(game_state_t *game, linear_allocator_t *alloca
     if (active->team != ENTITY_TEAM_PLAYER) {
         return;
     }
-    if (game->selected_entity == 0) {
+    if (game->mode == GAME_MODE_NONE) {
         return;
     }
 
@@ -223,8 +216,8 @@ PRIVATE void game_on_tile_pressed(game_state_t *game, linear_allocator_t *alloca
         return;
     }
 
-    if (action_try_move(allocator, game->grid, game->entities, game->selected_entity, target)) {
-        game_set_attack_mode(game, allocator, false);
+    if (action_try_move(allocator, game->grid, game->entities, active, target)) {
+        game_set_mode(game, allocator, GAME_MODE_MOVEMENT);
     }
 }
 
@@ -234,11 +227,11 @@ PRIVATE void game_on_attack_toggle_pressed(game_state_t *game, linear_allocator_
     if (active->team != ENTITY_TEAM_PLAYER) {
         return;
     }
-    if (game->selected_entity == 0) {
+    if (game->mode == GAME_MODE_NONE) {
         return;
     }
 
-    game_set_attack_mode(game, allocator, !game->attack_mode);
+    game_set_mode(game, allocator, game->mode == GAME_MODE_ATTACK ? GAME_MODE_MOVEMENT : GAME_MODE_ATTACK);
 }
 
 PRIVATE void game_on_end_turn_pressed(game_state_t *game, linear_allocator_t *allocator) {
