@@ -51,7 +51,8 @@ PRIVATE void test_game_attack_kills_defender_clamps_hp_and_frees_tile_for_moveme
     test_click_tile(&game, allocator, (position_t){1, 0});
 
     entity_t *entity = p;
-    assert_test(entity->position.x == 1 && entity->position.y == 0);
+    assert_test(entity->position.x == 1);
+    assert_test(entity->position.y == 0);
     assert_test(entity->mp == 4);
 
     game_deinit(allocator, game);
@@ -87,7 +88,8 @@ PRIVATE void test_game_entity_pressed_diagonal_and_far_enemy_attack_noop(linear_
     game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
 
     test_click_tile(&game, allocator, p->position);
-    assert_test(game.mode == GAME_MODE_MOVEMENT && turn_active_entity(game.turn) == p);
+    assert_test(game.mode == GAME_MODE_MOVEMENT);
+    assert_test(turn_active_entity(game.turn) == p);
 
     test_click_attack_toggle(&game, allocator);
     assert_test(game.mode == GAME_MODE_ATTACK);
@@ -172,7 +174,8 @@ PRIVATE void test_game_entity_pressed_adjacent_enemy_attacks_then_noops_when_ap_
     game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     test_click_tile(&game, allocator, p->position);
-    assert_test(game.mode == GAME_MODE_MOVEMENT && turn_active_entity(game.turn) == p);
+    assert_test(game.mode == GAME_MODE_MOVEMENT);
+    assert_test(turn_active_entity(game.turn) == p);
 
     test_click_attack_toggle(&game, allocator);
     test_click_tile(&game, allocator, e->position);
@@ -215,7 +218,8 @@ PRIVATE void test_game_ranged_attack_hits_at_max_range_without_moving(linear_all
     game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
 
     test_click_tile(&game, allocator, p->position);
-    assert_test(game.mode == GAME_MODE_MOVEMENT && turn_active_entity(game.turn) == p);
+    assert_test(game.mode == GAME_MODE_MOVEMENT);
+    assert_test(turn_active_entity(game.turn) == p);
 
     test_click_attack_toggle(&game, allocator);
 
@@ -224,7 +228,8 @@ PRIVATE void test_game_ranged_attack_hits_at_max_range_without_moving(linear_all
 
     assert_test(e->hp == 7);
     assert_test(p->ap == 0);
-    assert_test(p->position.x == 0 && p->position.y == 0);
+    assert_test(p->position.x == 0);
+    assert_test(p->position.y == 0);
 
     game_deinit(allocator, game);
 }

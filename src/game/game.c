@@ -84,7 +84,10 @@ PUBLIC void game_deinit(linear_allocator_t *allocator, game_state_t state) {
 
 PRIVATE bool game_tile_is_reachable(pathing_state_t pathing, grid_t grid, position_t position, int mp) {
     int dist = pathing_distance_at(pathing, grid, position);
-    return dist > 0 && dist <= mp;
+    // The BFS is capped at mp, so a reached tile can never exceed mp; the
+    // upper bound is an invariant rather than a runtime filter.
+    assert_debug(dist <= mp);
+    return dist > 0;
 }
 
 // Switches to `mode`. reachable_tiles and attack_range_tiles are mutually
@@ -131,7 +134,11 @@ PRIVATE void game_set_mode(game_state_t *game, linear_allocator_t *allocator, ga
 
         pathing_deinit(allocator, pathing);
         return;
-    } else if (mode == GAME_MODE_ATTACK) {
+    } else {
+        // mode is an enum with only NONE/MOVEMENT/ATTACK; after the two
+        // returns above, ATTACK is the only remaining possibility.
+        assert_debug(mode == GAME_MODE_ATTACK);
+
         int skill_range = SLICE_AT(active->skills, game->selected_skill).range;
         pathing_state_t pathing = pathing_compute_range(allocator, game->grid, game->entities, active, active->position, skill_range);
 
@@ -255,7 +262,8 @@ PRIVATE void game_on_skill_button_pressed(game_state_t *game, linear_allocator_t
     // coverage-only branches in the call path.
     assert_debug(active->team == ENTITY_TEAM_PLAYER);
     assert_debug(game->mode != GAME_MODE_NONE);
-    assert_debug(index >= 0 && index < entity_skill_count(active));
+    assert_debug(index >= 0);
+    assert_debug(index < entity_skill_count(active));
 
     game->selected_skill = index;
     game_set_mode(game, allocator, game->mode);
@@ -316,7 +324,11 @@ PUBLIC void game_on_input_event(game_state_t *game, linear_allocator_t *allocato
         } else {
             game_on_tile_pressed(game, allocator, target);
         }
-    } else if (event.type == INPUT_EVENT_MOUSE_MOVE) {
+    } else {
+        // input_event_type_t only has MOUSE_MOVE and MOUSE_CLICK, so after
+        // the click branch above this is always a mouse move.
+        assert_debug(event.type == INPUT_EVENT_MOUSE_MOVE);
+
         int tx, ty;
         bool valid = screen_to_grid(game->viewport, event.x, event.y, &tx, &ty);
         game->hover_valid = valid;

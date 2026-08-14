@@ -47,10 +47,12 @@ PRIVATE void test_screen_to_grid_corners(linear_allocator_t *allocator) {
     int tx, ty;
 
     assert_test(screen_to_grid(v, 0, 0, &tx, &ty));
-    assert_test(tx == 0 && ty == 0);
+    assert_test(tx == 0);
+    assert_test(ty == 0);
 
     assert_test(screen_to_grid(v, 319, 199, &tx, &ty));
-    assert_test(tx == 15 && ty == 9);
+    assert_test(tx == 15);
+    assert_test(ty == 9);
 
     assert_test(!screen_to_grid(v, 320, 0, &tx, &ty));
     assert_test(!screen_to_grid(v, 0, 240, &tx, &ty));

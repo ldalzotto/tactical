@@ -22,6 +22,11 @@ const IGNORED_REGIONS = new Set([
     // no passing test can cover it. This is the trap itself, not a defensive
     // branch that can be converted into an assert_debug invariant.
     'src/lib/assert.c:16:9',
+    // panic's "no expect_panic in effect" branch falls through to the trap
+    // above, so covering it would trap the wasm and fail the test run. The
+    // expect_panic side is covered by the negative-assertion tests; only the
+    // trapping side is unreachable from a passing suite.
+    'src/lib/assert.c:11:13',
 ]);
 
 function run(cmd, args) {
@@ -85,12 +90,16 @@ function printUncovered({ wasmPath, profDataPath, root }) {
                 const locLine = line ?? branch[0];
                 const locCol = col ?? branch[1];
                 if (branch[4] === 0) {
-                    push(rel, locLine, locCol, 'uncovered branch (condition is never true)');
                     missing++;
+                    if (!isIgnored(rel, locLine, locCol)) {
+                        push(rel, locLine, locCol, 'uncovered branch (condition is never true)');
+                    }
                 }
                 if (branch[5] === 0) {
-                    push(rel, locLine, locCol, 'uncovered branch (condition is never false)');
                     missing++;
+                    if (!isIgnored(rel, locLine, locCol)) {
+                        push(rel, locLine, locCol, 'uncovered branch (condition is never false)');
+                    }
                 }
             }
             return missing;
