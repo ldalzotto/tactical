@@ -11,6 +11,10 @@ static const rgba_t COLOR_TILE_OBSTACLE_INSET = { 30, 30, 30, 255 };
 static const rgba_t COLOR_REACHABLE_TINT = { 80, 140, 220, 255 };
 static const rgba_t COLOR_ATTACK_RANGE_TINT = { 230, 140, 60, 255 };
 static const rgba_t COLOR_WHITE = { 255, 255, 255, 255 };
+// Always-on "whose turn it is" marker (see ticket 002) -- deliberately not
+// COLOR_WHITE/an outline shape, so it never collides visually with the
+// mode-gated selection outline drawn on the same tile in the common case.
+static const rgba_t COLOR_TURN_INDICATOR = { 250, 210, 40, 255 };
 static const rgba_t COLOR_PLAYER = { 60, 120, 255, 255 };
 static const rgba_t COLOR_ENEMY = { 220, 60, 60, 255 };
 static const rgba_t COLOR_HP_BG = { 120, 20, 20, 255 };
@@ -27,6 +31,10 @@ static const rgba_t COLOR_WIN = { 0, 200, 0, 255 };
 static const rgba_t COLOR_LOSE = { 200, 0, 0, 255 };
 
 #define OUTLINE_THICKNESS 2
+// Small square, inset far enough from the tile edge to never touch the
+// OUTLINE_THICKNESS-px selection outline drawn on the same tile.
+#define TURN_INDICATOR_SIZE 6
+#define TURN_INDICATOR_INSET (OUTLINE_THICKNESS + 2)
 
 // Draws a 2px-thick white rectangular outline as 4 thin edge rects, since
 // graphics.h has no dedicated outline/stroke primitive.
@@ -122,6 +130,13 @@ PRIVATE void render_entities(slice_rgba_t fb, int fb_width, game_state_t game) {
 
         rgba_t color = entity->team == ENTITY_TEAM_PLAYER ? COLOR_PLAYER : COLOR_ENEMY;
         graphics_draw_rectangle(fb, fb_width, square_x, square_top, square_width, square_height, color);
+
+        if (entity == active) {
+            // Always visible, regardless of mode -- see ticket 002. Distinct
+            // from the outline below so the two never look identical when
+            // both apply (mode active + this entity selected).
+            graphics_draw_rectangle(fb, fb_width, px + TURN_INDICATOR_INSET, py + TURN_INDICATOR_INSET, TURN_INDICATOR_SIZE, TURN_INDICATOR_SIZE, COLOR_TURN_INDICATOR);
+        }
 
         if (game.mode != GAME_MODE_NONE && entity == active) {
             render_draw_outline(fb, fb_width, (rect_t){px, py, ts, ts}, COLOR_WHITE);

@@ -73,6 +73,7 @@ else()
             src/test_game_ai.c
             src/test_game_selection.c
             src/test_scenario.c
+            src/test_render.c
         )
     endif()
 endif()
