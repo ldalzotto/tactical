@@ -18,6 +18,10 @@ static const rgba_t TEST_COLOR_TURN_INDICATOR = { 250, 210, 40, 255 };
 // overwriting the other, not just that the new one appears in isolation.
 static const rgba_t TEST_COLOR_SELECTION_OUTLINE = { 255, 255, 255, 255 };
 
+static bool test_rgba_equals(rgba_t a, rgba_t b) {
+    return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
+}
+
 static bool test_tile_contains_color(slice_rgba_t fb, int fb_width, viewport_t viewport, position_t tile, rgba_t color) {
     int px, py;
     grid_to_screen(viewport, tile.x, tile.y, &px, &py);
@@ -26,12 +30,28 @@ static bool test_tile_contains_color(slice_rgba_t fb, int fb_width, viewport_t v
     for (int y = 0; y < ts; y++) {
         for (int x = 0; x < ts; x++) {
             rgba_t pixel = SLICE_AT(fb, (py + y) * fb_width + (px + x));
-            if (pixel.r == color.r && pixel.g == color.g && pixel.b == color.b && pixel.a == color.a) {
+            if (test_rgba_equals(pixel, color)) {
                 return true;
             }
         }
     }
     return false;
+}
+
+static bool test_tile_fully_color(slice_rgba_t fb, int fb_width, viewport_t viewport, position_t tile, rgba_t color) {
+    int px, py;
+    grid_to_screen(viewport, tile.x, tile.y, &px, &py);
+    int ts = viewport.tile_size;
+
+    for (int y = 0; y < ts; y++) {
+        for (int x = 0; x < ts; x++) {
+            rgba_t pixel = SLICE_AT(fb, (py + y) * fb_width + (px + x));
+            if (!test_rgba_equals(pixel, color)) {
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 // Framebuffer allocation, mirroring main.c's init(): push alignment padding,
@@ -116,9 +136,69 @@ PRIVATE void test_render_turn_indicator_follows_active_entity_across_turns(linea
     linear_allocator_pop(allocator, fb_align);
 }
 
+PRIVATE void test_render_dithered_rectangle_checkerboards_over_background(linear_allocator_t *allocator) {
+    const int w = 4, h = 4;
+    slice_t fb_align;
+    slice_rgba_t fb = test_render_alloc_framebuffer(allocator, w, h, &fb_align);
+
+    rgba_t background = { 10, 10, 10, 255 };
+    rgba_t fill = { 200, 50, 50, 255 };
+    graphics_draw_rectangle(fb, w, 0, 0, w, h, background);
+    graphics_draw_rectangle_dithered(fb, w, 0, 0, w, h, fill);
+
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            rgba_t pixel = SLICE_AT(fb, y * w + x);
+            rgba_t expected = ((x + y) % 2 == 0) ? fill : background;
+            assert_test(test_rgba_equals(pixel, expected));
+        }
+    }
+
+    LINEAR_ALLOCATOR_POP(allocator, fb);
+    linear_allocator_pop(allocator, fb_align);
+}
+
+PRIVATE void test_render_attack_range_tile_occupied_by_enemy_is_dithered_not_solid(linear_allocator_t *allocator) {
+    slice_t fb_align;
+    slice_rgba_t fb = test_render_alloc_framebuffer(allocator, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, &fb_align);
+
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 5, 1);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t *p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 1, 3, SKILL_RANGED);
+    entity_t *enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){2, 0}, 10, 1, 3, SKILL_MELEE);
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, enemy);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    render_frame(fb, GAME_TEST_FB_WIDTH, game);
+
+    // (1, 0): in range, unoccupied -- still a full solid tint fill, same as
+    // before ticket 004 (dithering only applies to occupied tiles).
+    assert_test(test_tile_fully_color(fb, GAME_TEST_FB_WIDTH, game.viewport, (position_t){1, 0}, (rgba_t){230, 140, 60, 255}));
+    // enemy's own tile: dithered, not fully solid tint -- the checkerboard
+    // gaps show tile/background color through, and the entity's own sprite
+    // (drawn afterward) covers the tile's center.
+    assert_test(!test_tile_fully_color(fb, GAME_TEST_FB_WIDTH, game.viewport, enemy->position, (rgba_t){230, 140, 60, 255}));
+    assert_test(test_tile_contains_color(fb, GAME_TEST_FB_WIDTH, game.viewport, enemy->position, (rgba_t){230, 140, 60, 255}));
+
+    game_deinit(allocator, game);
+    LINEAR_ALLOCATOR_POP(allocator, fb);
+    linear_allocator_pop(allocator, fb_align);
+}
+
 const test_case_t g_render_tests[] = {
     { TEST_NAME("render_turn_indicator_visible_before_and_after_selection"), test_render_turn_indicator_visible_before_and_after_selection },
     { TEST_NAME("render_turn_indicator_follows_active_entity_across_turns"), test_render_turn_indicator_follows_active_entity_across_turns },
+    { TEST_NAME("render_dithered_rectangle_checkerboards_over_background"), test_render_dithered_rectangle_checkerboards_over_background },
+    { TEST_NAME("render_attack_range_tile_occupied_by_enemy_is_dithered_not_solid"), test_render_attack_range_tile_occupied_by_enemy_is_dithered_not_solid },
 };
 
 const uint32_t g_render_tests_count = sizeof(g_render_tests) / sizeof(g_render_tests[0]);
