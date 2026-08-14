@@ -13,6 +13,10 @@
 // this literal in sync with render.c's COLOR_TURN_INDICATOR if that ever
 // changes.
 static const rgba_t TEST_COLOR_TURN_INDICATOR = { 250, 210, 40, 255 };
+// The pre-existing mode-gated selection outline's color (render.c's
+// COLOR_WHITE) -- used to confirm the two indicators coexist without one
+// overwriting the other, not just that the new one appears in isolation.
+static const rgba_t TEST_COLOR_SELECTION_OUTLINE = { 255, 255, 255, 255 };
 
 static bool test_tile_contains_color(slice_rgba_t fb, int fb_width, viewport_t viewport, position_t tile, rgba_t color) {
     int px, py;
@@ -67,10 +71,13 @@ PRIVATE void test_render_turn_indicator_visible_before_and_after_selection(linea
     assert_test(!test_tile_contains_color(fb, GAME_TEST_FB_WIDTH, game.viewport, enemy->position, TEST_COLOR_TURN_INDICATOR));
 
     // Selecting the active entity enters GAME_MODE_MOVEMENT -- indicator
-    // should still be present (it doesn't depend on mode).
+    // should still be present (it doesn't depend on mode), AND coexist with
+    // the pre-existing mode-gated selection outline (not overwritten by it,
+    // nor overwriting it) -- both colors must be found on the same tile.
     test_click_tile(&game, allocator, p->position);
     render_frame(fb, GAME_TEST_FB_WIDTH, game);
     assert_test(test_tile_contains_color(fb, GAME_TEST_FB_WIDTH, game.viewport, p->position, TEST_COLOR_TURN_INDICATOR));
+    assert_test(test_tile_contains_color(fb, GAME_TEST_FB_WIDTH, game.viewport, p->position, TEST_COLOR_SELECTION_OUTLINE));
 
     game_deinit(allocator, game);
     LINEAR_ALLOCATOR_POP(allocator, fb);
