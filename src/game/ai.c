@@ -127,14 +127,11 @@ PRIVATE int ai_preferred_skill_index(entity_t *enemy) {
 
 // Among the enemy's skills currently in range of `target`, the one with the
 // highest damage (ties: lower ap_cost, then list order), or -1 if none are
-// in range. Temporarily mutates enemy->selected_skill while probing each
-// skill via skill_target_in_range (which reads entity_active_skill) --
-// caller is responsible for setting the final selected_skill afterward.
+// in range.
 PRIVATE int ai_best_in_range_skill_index(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *enemy, entity_t *target) {
     int best = -1;
     for (int i = 0; i < enemy->skill_count; i++) {
-        enemy->selected_skill = i;
-        if (!skill_target_in_range(allocator, grid, entities, enemy, target)) {
+        if (!skill_target_in_range(allocator, grid, entities, enemy, enemy->skills[i], target)) {
             continue;
         }
         if (best < 0 || ai_skill_beats(enemy->skills[i], enemy->skills[best])) {
@@ -164,22 +161,17 @@ PUBLIC entity_t* ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, 
     }
 
     int preferred = ai_preferred_skill_index(enemy);
-    enemy->selected_skill = preferred;
 
-    while (enemy->mp > 0 && !skill_target_in_range(allocator, grid, entities, enemy, target)) {
+    while (enemy->mp > 0 && !skill_target_in_range(allocator, grid, entities, enemy, enemy->skills[preferred], target)) {
         if (!ai_step_toward(allocator, grid, entities, enemy, target)) {
             break;
         }
     }
 
     int attack_skill = ai_best_in_range_skill_index(allocator, grid, entities, enemy, target);
-    // ai_best_in_range_skill_index probes by mutating selected_skill; leave
-    // it on `preferred` (the enemy's real preference) rather than whatever
-    // skill the probe loop happened to land on last, on the no-attack path.
-    enemy->selected_skill = attack_skill >= 0 ? attack_skill : preferred;
     if (attack_skill < 0) {
         return 0;
     }
 
-    return action_try_attack(allocator, grid, entities, enemy, target) ? target : 0;
+    return action_try_attack(allocator, grid, entities, enemy, enemy->skills[attack_skill], target) ? target : 0;
 }

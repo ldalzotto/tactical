@@ -41,6 +41,7 @@ typedef struct {
     game_mode_t mode;
     position_t hover;
     bool hover_valid;
+    int selected_skill; // index into the active entity's skills, reset to 0 on turn advance
     game_over_t game_over;
     linear_allocator_t scratch;  // internal arena for game-owned working data; hosts
                                   // render.reachable_tiles/attack_range_tiles, and any future

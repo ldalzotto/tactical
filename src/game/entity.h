@@ -42,30 +42,17 @@ typedef struct {
     */
     skill_t skills[ENTITY_MAX_SKILLS];
     int skill_count;
-    /*
-        TODO: the selected_skill should not be at the entity_t level.
-        Inside /Users/loicdalzotto/perso/tactical/src/game/game.h state, you should have something like
-        a player state.
-        There is an opportunity to regroup some data of the game_state_t structure. Like     position_t hover;
-    bool hover_valid;
-        Which both seems to represent a player state.
-        This makes the entity_active_skill /Users/loicdalzotto/perso/tactical/src/game/entity.c line 48 obsolete
-        as it is only used in game.c when user act.
-    */
-    int selected_skill; // index into skills; which one entity_active_skill() returns
 } entity_t;
 
 SLICE_DEFINE(entity_t);
 
 PUBLIC slice_entity_t entity_list_init(linear_allocator_t *allocator);
 PUBLIC void entity_list_deinit(linear_allocator_t *allocator, slice_entity_t list);
-// Spawns with exactly one skill (skills[0], skill_count=1, selected_skill=0).
+// Spawns with exactly one skill (skills[0], skill_count=1).
 // Use entity_add_skill afterward to give the entity a second skill.
 PUBLIC entity_t* entity_spawn(linear_allocator_t *allocator, slice_entity_t* list, entity_team_t team, position_t position, int hp, int ap, int mp, skill_t skill);
 // Appends a skill; asserts skill_count < ENTITY_MAX_SKILLS.
 PUBLIC void entity_add_skill(entity_t *entity, skill_t skill);
-// The skill currently in effect for attacks/range -- skills[selected_skill].
-PUBLIC skill_t entity_active_skill(entity_t *entity);
 PUBLIC entity_t *entity_find_at(slice_entity_t list, position_t position);
 PUBLIC void entity_damage(entity_t* entity, int amount);
 PUBLIC bool entity_is_adjacent(entity_t a, entity_t b);

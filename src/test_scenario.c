@@ -12,7 +12,7 @@ PRIVATE void test_scenario_setup_default_populates_map_and_units(linear_allocato
     struct {
         int x, y;
         entity_team_t team;
-        skill_t default_skill; // entity_spawn's skill, i.e. skills[0]/selected_skill
+        skill_t default_skill; // entity_spawn's skill, i.e. skills[0]
         skill_t other_skill;   // added via entity_add_skill, i.e. skills[1]
     } expected[6] = {
         { 1, 2, ENTITY_TEAM_PLAYER, SKILL_RANGED, SKILL_MELEE },
@@ -34,12 +34,11 @@ PRIVATE void test_scenario_setup_default_populates_map_and_units(linear_allocato
         assert_test(entity->alive);
 
         // Every entity in the default scenario now has both skills, with
-        // entity_spawn's original single skill still the default selection.
+        // entity_spawn's original single skill still at skills[0].
         assert_test(entity->skill_count == 2);
-        assert_test(entity->selected_skill == 0);
-        assert_test(entity_active_skill(entity).range == expected[id].default_skill.range);
-        assert_test(entity_active_skill(entity).damage == expected[id].default_skill.damage);
-        assert_test(entity_active_skill(entity).ap_cost == expected[id].default_skill.ap_cost);
+        assert_test(entity->skills[0].range == expected[id].default_skill.range);
+        assert_test(entity->skills[0].damage == expected[id].default_skill.damage);
+        assert_test(entity->skills[0].ap_cost == expected[id].default_skill.ap_cost);
         assert_test(entity->skills[1].range == expected[id].other_skill.range);
         assert_test(entity->skills[1].damage == expected[id].other_skill.damage);
         assert_test(entity->skills[1].ap_cost == expected[id].other_skill.ap_cost);
