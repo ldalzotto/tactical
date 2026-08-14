@@ -6,6 +6,13 @@
 #include "pathing.h"
 #include "render_cache.h"
 
+// game.c is the one place that combines layout.h's screen geometry with
+// entity.h's game data, so it's the right place to enforce the coupling
+// layout.h/.c deliberately doesn't know about: viewport_t.skill_buttons and
+// entity_t.skills must stay the same length, or render_hud/game_on_input_event
+// (which index one array by the other's count) risk an out-of-bounds read.
+_Static_assert(VIEWPORT_MAX_SKILL_BUTTONS == ENTITY_MAX_SKILLS, "viewport_t.skill_buttons must have one slot per entity_t.skills slot");
+
 // Fixed size for game->scratch. Hosts reachable_tiles (move range) and
 // attack_range_tiles (skill range), mutually exclusive -- whichever is
 // off-mode stays nullified (see render_cache_reset), so scratch only ever
@@ -287,10 +294,17 @@ PUBLIC void game_on_input_event(game_state_t *game, linear_allocator_t *allocato
             return;
         }
 
-        for (int i = 0; i < VIEWPORT_MAX_SKILL_BUTTONS; i++) {
-            if (point_in_rect(game->viewport.skill_buttons[i], event.x, event.y)) {
-                game_on_skill_button_pressed(game, allocator, i);
-                return;
+        // Only hit-test skill buttons when render_hud would actually be
+        // drawing them (same gate as there): otherwise nothing occupies
+        // that screen region and a click there should fall through to the
+        // grid underneath it instead of being silently swallowed.
+        entity_t *active_for_skill_buttons = turn_active_entity(game->turn);
+        if (active_for_skill_buttons->team == ENTITY_TEAM_PLAYER && game->mode != GAME_MODE_NONE && active_for_skill_buttons->skill_count > 1) {
+            for (int i = 0; i < active_for_skill_buttons->skill_count; i++) {
+                if (point_in_rect(game->viewport.skill_buttons[i], event.x, event.y)) {
+                    game_on_skill_button_pressed(game, allocator, i);
+                    return;
+                }
             }
         }
 
