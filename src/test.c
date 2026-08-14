@@ -2,6 +2,7 @@
 #include "lib/assert.h"
 #include "lib/runtime.h"
 #include "test_runtime.h"
+#include "test_app.h"
 #include "test_memory.h"
 #include "test_layout.h"
 #include "test_game_movement.h"
@@ -18,6 +19,9 @@
 PRIVATE const test_case_t *test_lookup(uint32_t index) {
     if (index < g_runtime_tests_count) { return &g_runtime_tests[index]; }
     index -= g_runtime_tests_count;
+
+    if (index < g_app_tests_count) { return &g_app_tests[index]; }
+    index -= g_app_tests_count;
 
     if (index < g_memory_tests_count) { return &g_memory_tests[index]; }
     index -= g_memory_tests_count;
@@ -49,6 +53,7 @@ PRIVATE const test_case_t *test_lookup(uint32_t index) {
 __attribute__((export_name("test_discovery_count")))
 uint32_t test_discovery_count(void) {
     return g_runtime_tests_count
+        + g_app_tests_count
         + g_memory_tests_count
         + g_layout_tests_count
         + g_game_movement_tests_count
@@ -77,6 +82,7 @@ test_fn_t test_discovery_fn_at(uint32_t index) {
 __attribute__((export_name("test_run")))
 void test_run(test_fn_t fn, uint32_t memory_size) {
     expect_panic_end();
+    expect_trap_end();
 
     slice_t data = { heap_base(), byteoffset(heap_base(), (ptrdiff_t)memory_size) };
     linear_allocator_t allocator = linear_allocator_init(data);
@@ -84,4 +90,9 @@ void test_run(test_fn_t fn, uint32_t memory_size) {
     fn(&allocator);
 
     linear_allocator_deinit(&allocator);
+}
+
+__attribute__((export_name("test_expect_trap_end")))
+bool test_expect_trap_end(void) {
+    return expect_trap_end();
 }

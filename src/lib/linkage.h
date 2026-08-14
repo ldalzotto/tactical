@@ -24,7 +24,7 @@
 // static, in every build mode.
 //
 // Neither macro applies to the app's actual wasm boundary functions
-// (__attribute__((export_name("..."))) in src/main.c, src/test.c, etc.) --
+// (__attribute__((export_name("..."))) in src/app.c, src/test.c, etc.) --
 // those stay plain extern definitions, since the attribute is what keeps
 // them alive through --gc-sections regardless of linkage.
 #define PRIVATE static

@@ -13,9 +13,7 @@
 #define GAME_SCRATCH_CAPACITY 256
 
 PRIVATE void game_check_game_over(game_state_t *game) {
-    if (game->game_over != GAME_OVER_NONE) {
-        return;
-    }
+    assert_debug(game->game_over == GAME_OVER_NONE);
 
     if (entity_alive_count(game->entities, ENTITY_TEAM_ENEMY) == 0) {
         game->game_over = GAME_OVER_WIN;
@@ -84,11 +82,6 @@ PUBLIC void game_deinit(linear_allocator_t *allocator, game_state_t state) {
     linear_allocator_pop(allocator, state.grid_align);
 }
 
-PRIVATE bool game_tile_is_reachable(pathing_state_t pathing, grid_t grid, position_t position, int mp) {
-    int dist = pathing_distance_at(pathing, grid, position);
-    return dist > 0 && dist <= mp;
-}
-
 // Switches to `mode`. reachable_tiles and attack_range_tiles are mutually
 // exclusive, so each branch nullifies the one it isn't populating:
 // - NONE: nullifies both -- nothing selected, nothing to show.
@@ -121,7 +114,7 @@ PRIVATE void game_set_mode(game_state_t *game, linear_allocator_t *allocator, ga
         for (int ty = 0; ty < game->grid.height; ty++) {
             for (int tx = 0; tx < game->grid.width; tx++) {
                 position_t position = { tx, ty };
-                if (game_tile_is_reachable(pathing, game->grid, position, active->mp)) {
+                if (pathing_distance_at(pathing, game->grid, position) > 0) {
                     slice_position_t entry = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.reachable_tiles, 1);
                     SLICE_DEREF(entry) = position;
                     reachable_tiles.end = entry.end;
@@ -133,7 +126,11 @@ PRIVATE void game_set_mode(game_state_t *game, linear_allocator_t *allocator, ga
 
         pathing_deinit(allocator, pathing);
         return;
-    } else if (mode == GAME_MODE_ATTACK) {
+    } else {
+        // mode is an enum with only NONE/MOVEMENT/ATTACK; after the two
+        // returns above, ATTACK is the only remaining possibility.
+        assert_debug(mode == GAME_MODE_ATTACK);
+
         int skill_range = SLICE_AT(active->skills, game->selected_skill).range;
         pathing_state_t pathing = pathing_compute_range(allocator, game->grid, game->entities, active, active->position, skill_range);
 
@@ -142,7 +139,7 @@ PRIVATE void game_set_mode(game_state_t *game, linear_allocator_t *allocator, ga
         for (int ty = 0; ty < game->grid.height; ty++) {
             for (int tx = 0; tx < game->grid.width; tx++) {
                 position_t position = { tx, ty };
-                if (game_tile_is_reachable(pathing, game->grid, position, skill_range)) {
+                if (pathing_distance_at(pathing, game->grid, position) > 0) {
                     slice_position_t entry = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.attack_range_tiles, 1);
                     SLICE_DEREF(entry) = position;
                     attack_range_tiles.end = entry.end;
@@ -220,9 +217,11 @@ PRIVATE void game_on_tile_pressed(game_state_t *game, linear_allocator_t *alloca
         return;
     }
 
-    if (entity_find_at(game->entities, target) != 0) {
-        return;
-    }
+    // The caller (game_on_input_event) already routed occupied tiles to
+    // game_on_entity_pressed; reaching here with an entity on `target` would
+    // be a dispatch bug, so assert the invariant instead of silently
+    // no-oping on a tile the player can't actually select.
+    assert_debug(entity_find_at(game->entities, target) == 0);
 
     if (action_try_move(allocator, game->grid, game->entities, active, target)) {
         game_set_mode(game, allocator, GAME_MODE_MOVEMENT);
@@ -249,15 +248,14 @@ PRIVATE void game_on_attack_toggle_pressed(game_state_t *game, linear_allocator_
 PRIVATE void game_on_skill_button_pressed(game_state_t *game, linear_allocator_t *allocator, int index) {
     assert_debug(game->game_over == GAME_OVER_NONE);
     entity_t *active = turn_active_entity(game->turn);
-    if (active->team != ENTITY_TEAM_PLAYER) {
-        return;
-    }
-    if (game->mode == GAME_MODE_NONE) {
-        return;
-    }
-    if (index < 0 || index >= entity_skill_count(active)) {
-        return;
-    }
+    // game_on_input_event only calls this once the same conditions hold (see
+    // the hit-test gate there), so these are preconditions, not runtime
+    // no-ops: assert them to catch dispatch bugs without leaving dead
+    // coverage-only branches in the call path.
+    assert_debug(active->team == ENTITY_TEAM_PLAYER);
+    assert_debug(game->mode != GAME_MODE_NONE);
+    assert_debug(index >= 0);
+    assert_debug(index < entity_skill_count(active));
 
     game->selected_skill = index;
     game_set_mode(game, allocator, game->mode);
@@ -318,7 +316,11 @@ PUBLIC void game_on_input_event(game_state_t *game, linear_allocator_t *allocato
         } else {
             game_on_tile_pressed(game, allocator, target);
         }
-    } else if (event.type == INPUT_EVENT_MOUSE_MOVE) {
+    } else {
+        // input_event_type_t only has MOUSE_MOVE and MOUSE_CLICK, so after
+        // the click branch above this is always a mouse move.
+        assert_debug(event.type == INPUT_EVENT_MOUSE_MOVE);
+
         int tx, ty;
         bool valid = screen_to_grid(game->viewport, event.x, event.y, &tx, &ty);
         game->hover_valid = valid;

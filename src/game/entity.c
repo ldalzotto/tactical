@@ -82,16 +82,6 @@ PUBLIC void entity_damage(entity_t* entity, int amount) {
     }
 }
 
-PUBLIC bool entity_is_adjacent(entity_t a, entity_t b) {
-    for (SLICE_FOREACH(POSITION_DIRECTIONS, dir_s)) {
-        position_t dir = SLICE_DEREF(dir_s);
-        if (position_equals(a.position, position_add(b.position, dir))) {
-            return true;
-        }
-    }
-    return false;
-}
-
 PUBLIC int entity_alive_count(slice_entity_t list, entity_team_t team) {
     int count = 0;
     for ( SLICE_FOREACH(list, entity_s) ) {

@@ -34,29 +34,23 @@ PRIVATE void test_game_selecting_entity_computes_reachable_tiles_within_mp_and_m
     game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
 
     test_click_tile(&game, allocator, p->position);
-    assert_test(game.mode == GAME_MODE_MOVEMENT && turn_active_entity(game.turn) == p);
+    assert_test(game.mode == GAME_MODE_MOVEMENT);
+    assert_test(turn_active_entity(game.turn) == p);
 
     // mp is 2: (0,0) is dist 0 (excluded, it's where the mover stands),
     // (2,0) is dist 2 (in range), (3,0) is dist 3 and (3,3) is dist 6 (both
     // beyond mp) -- so the highlighted set doubles as a check that BFS
     // distance and the max-steps cap both land where expected.
-    bool own_tile_reachable = false, near_tile_reachable = false, far_tile_reachable = false, corner_tile_reachable = false;
-    for (int i = 0; i < (int)SLICE_TYPESIZE(game.render.reachable_tiles); i++) {
-        position_t tile = SLICE_AT(game.render.reachable_tiles, i);
-        if (tile.x == 0 && tile.y == 0) own_tile_reachable = true;
-        if (tile.x == 2 && tile.y == 0) near_tile_reachable = true;
-        if (tile.x == 3 && tile.y == 0) far_tile_reachable = true;
-        if (tile.x == 3 && tile.y == 3) corner_tile_reachable = true;
-    }
-    assert_test(!own_tile_reachable);
-    assert_test(near_tile_reachable);
-    assert_test(!far_tile_reachable);
-    assert_test(!corner_tile_reachable);
+    assert_test(!test_tile_list_contains(game.render.reachable_tiles, (position_t){0, 0}));
+    assert_test(test_tile_list_contains(game.render.reachable_tiles, (position_t){2, 0}));
+    assert_test(!test_tile_list_contains(game.render.reachable_tiles, (position_t){3, 0}));
+    assert_test(!test_tile_list_contains(game.render.reachable_tiles, (position_t){3, 3}));
 
     test_click_tile(&game, allocator, (position_t){2, 0});
 
     entity_t *entity = p;
-    assert_test(entity->position.x == 2 && entity->position.y == 0);
+    assert_test(entity->position.x == 2);
+    assert_test(entity->position.y == 0);
     assert_test(entity->mp == 0);
 
     game_deinit(allocator, game);
@@ -85,28 +79,21 @@ PRIVATE void test_game_obstacles_block_reachable_tiles_and_movement(linear_alloc
 
     test_click_tile(&game, allocator, p->position);
 
-    bool obstacle_a_reachable = false, obstacle_b_reachable = false, near_side_reachable = false, far_side_reachable = false;
-    for (int i = 0; i < (int)SLICE_TYPESIZE(game.render.reachable_tiles); i++) {
-        position_t tile = SLICE_AT(game.render.reachable_tiles, i);
-        if (tile.x == 2 && tile.y == 0) obstacle_a_reachable = true;
-        if (tile.x == 2 && tile.y == 1) obstacle_b_reachable = true;
-        if (tile.x == 1 && tile.y == 1) near_side_reachable = true;
-        // (4,1) sits right past the wall: with mp 4, it's only in range if
-        // the walk-around-the-wall path (6 tiles) is what BFS actually took
-        // -- the direct 4-tile path is blocked, so it must be absent.
-        if (tile.x == 4 && tile.y == 1) far_side_reachable = true;
-    }
-    assert_test(!obstacle_a_reachable);
-    assert_test(!obstacle_b_reachable);
-    assert_test(near_side_reachable);
-    assert_test(!far_side_reachable);
+    assert_test(!test_tile_list_contains(game.render.reachable_tiles, (position_t){2, 0}));
+    assert_test(!test_tile_list_contains(game.render.reachable_tiles, (position_t){2, 1}));
+    assert_test(test_tile_list_contains(game.render.reachable_tiles, (position_t){1, 1}));
+    // (4,1) sits right past the wall: with mp 4, it's only in range if
+    // the walk-around-the-wall path (6 tiles) is what BFS actually took
+    // -- the direct 4-tile path is blocked, so it must be absent.
+    assert_test(!test_tile_list_contains(game.render.reachable_tiles, (position_t){4, 1}));
 
     // Clicking straight onto the wall is a no-op: unwalkable tiles never
     // become a valid move target, wall or no wall around it.
     test_click_tile(&game, allocator, (position_t){2, 0});
 
     entity_t *entity = p;
-    assert_test(entity->position.x == 0 && entity->position.y == 1);
+    assert_test(entity->position.x == 0);
+    assert_test(entity->position.y == 1);
     assert_test(entity->mp == 4);
 
     game_deinit(allocator, game);
@@ -138,21 +125,13 @@ PRIVATE void test_game_occupied_tile_blocks_corridor_reachability(linear_allocat
 
     test_click_tile(&game, allocator, p->position);
 
-    bool before_blocker_reachable = false, blocker_tile_reachable = false, past_blocker_reachable = false, corridor_end_reachable = false;
-    for (int i = 0; i < (int)SLICE_TYPESIZE(game.render.reachable_tiles); i++) {
-        position_t tile = SLICE_AT(game.render.reachable_tiles, i);
-        if (tile.x == 1 && tile.y == 0) before_blocker_reachable = true;
-        if (tile.x == 2 && tile.y == 0) blocker_tile_reachable = true;
-        if (tile.x == 3 && tile.y == 0) past_blocker_reachable = true;
-        if (tile.x == 4 && tile.y == 0) corridor_end_reachable = true;
-    }
-    assert_test(before_blocker_reachable);
+    assert_test(test_tile_list_contains(game.render.reachable_tiles, (position_t){1, 0}));
     // The occupied tile itself, and everything past it in this single-file
     // corridor, are unreachable: the living blocker seals the corridor even
     // though the mover has plenty of mp to cross it.
-    assert_test(!blocker_tile_reachable);
-    assert_test(!past_blocker_reachable);
-    assert_test(!corridor_end_reachable);
+    assert_test(!test_tile_list_contains(game.render.reachable_tiles, (position_t){2, 0}));
+    assert_test(!test_tile_list_contains(game.render.reachable_tiles, (position_t){3, 0}));
+    assert_test(!test_tile_list_contains(game.render.reachable_tiles, (position_t){4, 0}));
 
     game_deinit(allocator, game);
 }
@@ -179,7 +158,8 @@ PRIVATE void test_game_tile_pressed_moves_within_reach_and_consumes_mp(linear_al
     test_click_tile(&game, allocator, (position_t){2, 0});
 
     entity_t *entity = p;
-    assert_test(entity->position.x == 2 && entity->position.y == 0);
+    assert_test(entity->position.x == 2);
+    assert_test(entity->position.y == 0);
     assert_test(entity->mp == 1);
 
     game_deinit(allocator, game);
@@ -207,7 +187,8 @@ PRIVATE void test_game_tile_pressed_noops_on_unreachable_tile(linear_allocator_t
     test_click_tile(&game, allocator, (position_t){5, 0});
 
     entity_t *entity = p;
-    assert_test(entity->position.x == 0 && entity->position.y == 0);
+    assert_test(entity->position.x == 0);
+    assert_test(entity->position.y == 0);
     assert_test(entity->mp == 1);
 
     game_deinit(allocator, game);
