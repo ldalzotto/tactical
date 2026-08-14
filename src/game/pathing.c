@@ -7,7 +7,7 @@ PUBLIC void pathing_deinit(linear_allocator_t *allocator, pathing_state_t state)
     linear_allocator_pop(allocator, state.align);
 }
 
-PUBLIC pathing_state_t  pathing_compute_distances(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* excluded, position_t from, int max_steps, entity_t* pass_through_opposing_team_of) {
+PUBLIC pathing_state_t  pathing_compute_distances(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* excluded, position_t from, int max_steps, bool mark_occupied_reachable) {
     assert_debug(grid_in_bounds(grid, from));
 
     size_t count = (size_t)(grid.width * grid.height);
@@ -62,9 +62,11 @@ PUBLIC pathing_state_t  pathing_compute_distances(linear_allocator_t *allocator,
             }
 
             entity_t* occupant = entity_find_at(entities, neighbor);
-            bool passable = occupant == 0 || occupant == excluded
-                || (pass_through_opposing_team_of != 0 && occupant->team != pass_through_opposing_team_of->team);
+            bool passable = occupant == 0 || occupant == excluded;
             if (!passable) {
+                if (mark_occupied_reachable) {
+                    SLICE_AT(dist, neighbor_index) = d + 1;
+                }
                 continue;
             }
 
