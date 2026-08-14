@@ -14,7 +14,7 @@
     "start:release": "node server/server.js --release",
     "start:unity": "node server/server.js --unity",
     "start:unity:release": "node server/server.js --unity --release",
-    "test": "npm run build:with-tests && node server/run-tests.js",
+    "test": "npm run coverage",
     "coverage": "node server/build.js --tests --coverage && node server/coverage.js"
   }
 }
