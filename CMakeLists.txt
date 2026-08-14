@@ -81,9 +81,6 @@ else()
     endif()
 endif()
 
-# Freestanding libc stubs (memcpy/memmove/memset) used by the app.
-list(APPEND APP_SOURCES src/lib/libc_stubs.c)
-
 add_executable(app ${APP_SOURCES})
 
 if(APP_COVERAGE)
@@ -99,6 +96,10 @@ if(APP_UNITY_BUILD)
 endif()
 
 target_compile_options(app PRIVATE -ffreestanding -fno-builtin)
+# Lower memcpy/memmove/memset to the wasm bulk-memory instructions
+# (memory.copy / memory.fill) instead of emitting libc calls, so the
+# freestanding build doesn't need a libc stub for them.
+target_compile_options(app PRIVATE -mbulk-memory)
 if(APP_COVERAGE)
     target_compile_options(app PRIVATE -fprofile-instr-generate -fcoverage-mapping)
 endif()
