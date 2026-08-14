@@ -10,6 +10,7 @@
 #include "grid.h"
 #include "layout.h"
 #include "position.h"
+#include "render_cache.h"
 #include "turn.h"
 
 typedef enum {
@@ -17,25 +18,6 @@ typedef enum {
     GAME_OVER_WIN = 1,
     GAME_OVER_LOSE = 2,
 } game_over_t;
-
-// Data derived purely for rendering, cached so render_frame never has to
-// recompute it per frame.
-// reachable_tiles and attack_range_tiles are mutually exclusive: exactly one
-// of the two is ever populated at a time (the other is kept nullified),
-// matching the move/attack toggle -- so scratch only ever holds one live
-// tile cache.
-typedef struct {
-    slice_t reachable_align;           // alignment padding pushed into scratch right before
-                                        // reachable_tiles, when it's non-empty; zero-length marker
-                                        // at the current scratch cursor when it's empty
-    slice_position_t reachable_tiles;  // tiles the selected entity can currently reach; length is
-                                        // resliced on each recompute to reflect the live count;
-                                        // nullified while attack_mode is on
-    slice_t attack_range_align;        // same alignment-marker pattern as reachable_align, but for
-                                        // attack_range_tiles; always the topmost region in scratch
-    slice_position_t attack_range_tiles; // tiles within the selected entity's skill range, populated
-                                          // only while attack_mode is on; nullified otherwise
-} game_render_cache_t;
 
 typedef struct {
     slice_t grid_align;
@@ -55,7 +37,7 @@ typedef struct {
     linear_allocator_t scratch;  // internal arena for game-owned working data; currently
                                   // just hosts render.reachable_tiles, but any future per-game
                                   // UI-state buffer can push into it too
-    game_render_cache_t render;
+    render_cache_t render;
 } game_state_t;
 
 // Assembles game state from an already-allocated grid, entity list and turn

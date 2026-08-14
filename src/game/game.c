@@ -4,10 +4,11 @@
 #include "action.h"
 #include "ai.h"
 #include "pathing.h"
+#include "render_cache.h"
 
 // Fixed size for game->scratch, currently hosting reachable_tiles (move
 // range) and attack_range_tiles (skill range) -- but never both at once:
-// whichever one is off-mode is kept nullified (see game_clear_range_caches),
+// whichever one is off-mode is kept nullified (see render_cache_reset),
 // so scratch only ever needs to fit a single populated tile cache.
 // In the future, grow/shrink this region on demand instead of a flat guess.
 #define GAME_SCRATCH_CAPACITY 256
@@ -84,66 +85,6 @@ PRIVATE bool game_tile_is_reachable(pathing_state_t pathing, grid_t grid, positi
     return dist > 0 && dist <= mp;
 }
 
-// reachable_tiles and attack_range_tiles are mutually exclusive, stacked
-// regions of the same scratch arena: attack_range_tiles must always sit
-// after reachable_tiles in memory. Every mutator below re-checks that
-// layout before returning, so a stray reorder trips an assert instead of
-// silently corrupting the other cache.
-PRIVATE void game_render_cache_assert_layout(game_render_cache_t render) {
-    assert_debug(render.attack_range_align.begin >= render.reachable_tiles.end);
-    assert_debug(render.attack_range_tiles.begin >= render.reachable_tiles.end);
-}
-
-// Pops both range caches down to nothing, then pushes fresh empty markers
-// for reachable_tiles and attack_range_tiles, collapsing scratch back to
-// the pre-selection watermark with both caches nullified.
-PRIVATE void game_render_cache_reset(linear_allocator_t *scratch, game_render_cache_t *render) {
-    LINEAR_ALLOCATOR_POP(scratch, render->attack_range_tiles);
-    linear_allocator_pop(scratch, render->attack_range_align);
-    LINEAR_ALLOCATOR_POP(scratch, render->reachable_tiles);
-    linear_allocator_pop(scratch, render->reachable_align);
-
-    render->reachable_align = linear_allocator_push(scratch, 0);
-    render->reachable_tiles = LINEAR_ALLOCATOR_PUSH(scratch, render->reachable_tiles, 0);
-    render->attack_range_align = linear_allocator_push(scratch, 0);
-    render->attack_range_tiles = LINEAR_ALLOCATOR_PUSH(scratch, render->attack_range_tiles, 0);
-
-    game_render_cache_assert_layout(*render);
-}
-
-// Replaces reachable_tiles with a fresh `count`-sized region and re-pushes
-// an empty attack_range_tiles on top of it, so attack_range_tiles stays the
-// topmost scratch region. Caller fills the `count` positions afterward via
-// SLICE_AT(render->reachable_tiles, i). Requires both caches to currently
-// be empty (call right after game_render_cache_reset).
-PRIVATE void game_render_cache_write_reachable(linear_allocator_t *scratch, game_render_cache_t *render, int count) {
-    LINEAR_ALLOCATOR_POP(scratch, render->attack_range_tiles);
-    linear_allocator_pop(scratch, render->attack_range_align);
-    LINEAR_ALLOCATOR_POP(scratch, render->reachable_tiles);
-    linear_allocator_pop(scratch, render->reachable_align);
-
-    render->reachable_align = linear_allocator_push_alignment(scratch, _Alignof(position_t));
-    render->reachable_tiles = LINEAR_ALLOCATOR_PUSH(scratch, render->reachable_tiles, count);
-    render->attack_range_align = linear_allocator_push(scratch, 0);
-    render->attack_range_tiles = LINEAR_ALLOCATOR_PUSH(scratch, render->attack_range_tiles, 0);
-
-    game_render_cache_assert_layout(*render);
-}
-
-// Replaces attack_range_tiles with a fresh `count`-sized region. Caller
-// fills the `count` positions afterward via
-// SLICE_AT(render->attack_range_tiles, i). Requires reachable_tiles to
-// already be empty (call right after game_render_cache_reset).
-PRIVATE void game_render_cache_write_attack_range(linear_allocator_t *scratch, game_render_cache_t *render, int count) {
-    LINEAR_ALLOCATOR_POP(scratch, render->attack_range_tiles);
-    linear_allocator_pop(scratch, render->attack_range_align);
-
-    render->attack_range_align = linear_allocator_push_alignment(scratch, _Alignof(position_t));
-    render->attack_range_tiles = LINEAR_ALLOCATOR_PUSH(scratch, render->attack_range_tiles, count);
-
-    game_render_cache_assert_layout(*render);
-}
-
 // Turns attack mode on/off, owning both reachable_tiles and
 // attack_range_tiles for whichever branch runs -- the two are mutually
 // exclusive, so each branch is responsible for nullifying the one it isn't
@@ -157,7 +98,7 @@ PRIVATE void game_render_cache_write_attack_range(linear_allocator_t *scratch, g
 // attack mode on with a live selection. Render just reads the cached lists,
 // no per-frame pathing.
 PRIVATE void game_set_attack_mode(game_state_t *game, linear_allocator_t *allocator, bool on) {
-    game_render_cache_reset(&game->scratch, &game->render);
+    render_cache_reset(&game->scratch, &game->render);
 
     if (!on) {
         game->attack_mode = false;
@@ -178,7 +119,7 @@ PRIVATE void game_set_attack_mode(game_state_t *game, linear_allocator_t *alloca
             }
         }
 
-        game_render_cache_write_reachable(&game->scratch, &game->render, count);
+        render_cache_write_reachable(&game->scratch, &game->render, count);
 
         int i = 0;
         for (int ty = 0; ty < game->grid.height; ty++) {
@@ -209,7 +150,7 @@ PRIVATE void game_set_attack_mode(game_state_t *game, linear_allocator_t *alloca
         }
     }
 
-    game_render_cache_write_attack_range(&game->scratch, &game->render, count);
+    render_cache_write_attack_range(&game->scratch, &game->render, count);
 
     int i = 0;
     for (int ty = 0; ty < game->grid.height; ty++) {
