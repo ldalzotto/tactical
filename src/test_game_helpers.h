@@ -35,7 +35,7 @@ static inline void test_click_attack_toggle(game_state_t *game, linear_allocator
 }
 
 static inline void test_click_skill_button(game_state_t *game, linear_allocator_t *allocator, int index) {
-    rect_t button = game->viewport.skill_buttons[index];
+    rect_t button = SLICE_AT(viewport_skill_buttons(&game->viewport), index);
     input_event_t click = { .type = INPUT_EVENT_MOUSE_CLICK, .x = button.x + 1, .y = button.y + 1 };
     game_on_input_event(game, allocator, click);
 }
