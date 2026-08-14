@@ -13,13 +13,14 @@ PRIVATE void test_scenario_setup_default_populates_map_and_units(linear_allocato
         int x, y;
         entity_team_t team;
         skill_t default_skill; // entity_spawn's skill, i.e. skills[0]/selected_skill
+        skill_t other_skill;   // added via entity_add_skill, i.e. skills[1]
     } expected[6] = {
-        { 1, 2, ENTITY_TEAM_PLAYER, SKILL_RANGED },
-        { 1, 5, ENTITY_TEAM_PLAYER, SKILL_MELEE },
-        { 1, 8, ENTITY_TEAM_PLAYER, SKILL_MELEE },
-        { 14, 2, ENTITY_TEAM_ENEMY, SKILL_RANGED },
-        { 14, 5, ENTITY_TEAM_ENEMY, SKILL_MELEE },
-        { 14, 8, ENTITY_TEAM_ENEMY, SKILL_MELEE },
+        { 1, 2, ENTITY_TEAM_PLAYER, SKILL_RANGED, SKILL_MELEE },
+        { 1, 5, ENTITY_TEAM_PLAYER, SKILL_MELEE, SKILL_RANGED },
+        { 1, 8, ENTITY_TEAM_PLAYER, SKILL_MELEE, SKILL_RANGED },
+        { 14, 2, ENTITY_TEAM_ENEMY, SKILL_RANGED, SKILL_MELEE },
+        { 14, 5, ENTITY_TEAM_ENEMY, SKILL_MELEE, SKILL_RANGED },
+        { 14, 8, ENTITY_TEAM_ENEMY, SKILL_MELEE, SKILL_RANGED },
     };
 
     for (int id = 0; id < 6; id++) {
@@ -32,20 +33,16 @@ PRIVATE void test_scenario_setup_default_populates_map_and_units(linear_allocato
         assert_test(entity->mp == 3 && entity->max_mp == 3);
         assert_test(entity->alive);
 
-        // Ticket 007: every entity in the default scenario has both skills
-        // now, with entity_spawn's original single skill still the default
-        // selection (selected_skill == 0 stays whatever entity_spawn set).
+        // Every entity in the default scenario now has both skills, with
+        // entity_spawn's original single skill still the default selection.
         assert_test(entity->skill_count == 2);
         assert_test(entity->selected_skill == 0);
         assert_test(entity_active_skill(entity).range == expected[id].default_skill.range);
         assert_test(entity_active_skill(entity).damage == expected[id].default_skill.damage);
         assert_test(entity_active_skill(entity).ap_cost == expected[id].default_skill.ap_cost);
-        // The other skill (SKILL_MELEE for a SKILL_RANGED default, and vice
-        // versa) is present at skills[1].
-        skill_t other_skill = (expected[id].default_skill.range == SKILL_RANGED.range) ? SKILL_MELEE : SKILL_RANGED;
-        assert_test(entity->skills[1].range == other_skill.range);
-        assert_test(entity->skills[1].damage == other_skill.damage);
-        assert_test(entity->skills[1].ap_cost == other_skill.ap_cost);
+        assert_test(entity->skills[1].range == expected[id].other_skill.range);
+        assert_test(entity->skills[1].damage == expected[id].other_skill.damage);
+        assert_test(entity->skills[1].ap_cost == expected[id].other_skill.ap_cost);
     }
 
     assert_test(!grid_is_walkable(game.grid, (position_t){7, 4}));
