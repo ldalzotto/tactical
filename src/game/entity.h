@@ -20,7 +20,7 @@ typedef struct {
 } skill_t;
 
 // Per-entity loadout cap for this feature (melee + ranged today), not a
-// structural constant -- see ticket 001.
+// structural constant.
 #define ENTITY_MAX_SKILLS 2
 
 typedef struct {
