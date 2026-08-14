@@ -33,7 +33,8 @@ PRIVATE void test_game_ai_adjacent_enemy_attacks_without_moving_on_end_turn(line
     test_click_end_turn(&game, allocator);
 
     assert_test(turn_active_entity(game.turn) == p);
-    assert_test(enemy->position.x == 1 && enemy->position.y == 0);
+    assert_test(enemy->position.x == 1);
+    assert_test(enemy->position.y == 0);
     assert_test(enemy->ap == 1);
     assert_test(p->hp == 5);
     assert_test(p->alive);
@@ -68,7 +69,8 @@ PRIVATE void test_game_ai_far_enemy_with_enough_mp_closes_and_attacks_on_end_tur
     test_click_end_turn(&game, allocator);
 
     assert_test(turn_active_entity(game.turn) == p);
-    assert_test(enemy->position.x == 1 && enemy->position.y == 0);
+    assert_test(enemy->position.x == 1);
+    assert_test(enemy->position.y == 0);
     assert_test(enemy->mp == 1);
     assert_test(enemy->ap == 1);
     assert_test(p->hp == 5);
@@ -104,7 +106,8 @@ PRIVATE void test_game_ai_insufficient_mp_moves_partial_no_attack_on_end_turn(li
     test_click_end_turn(&game, allocator);
 
     assert_test(turn_active_entity(game.turn) == p);
-    assert_test(enemy->position.x == 3 && enemy->position.y == 0);
+    assert_test(enemy->position.x == 3);
+    assert_test(enemy->position.y == 0);
     assert_test(enemy->mp == 0);
     assert_test(enemy->ap == 2);
     assert_test(!skill_target_in_range(allocator, grid, entities, enemy, SLICE_AT(enemy->skills, 0), p));
@@ -185,11 +188,13 @@ PRIVATE void test_game_ai_multiple_enemies_act_independently_on_end_turn(linear_
 
     assert_test(turn_active_entity(game.turn) == p);
 
-    assert_test(enemy_a->position.x == 1 && enemy_a->position.y == 0);
+    assert_test(enemy_a->position.x == 1);
+    assert_test(enemy_a->position.y == 0);
     assert_test(enemy_a->mp == 1);
     assert_test(enemy_a->ap == 1);
 
-    assert_test(enemy_b->position.x == 0 && enemy_b->position.y == 1);
+    assert_test(enemy_b->position.x == 0);
+    assert_test(enemy_b->position.y == 1);
     assert_test(enemy_b->mp == 1);
     assert_test(enemy_b->ap == 1);
 
@@ -226,7 +231,8 @@ PRIVATE void test_game_ai_zero_mp_not_adjacent_does_nothing_on_end_turn(linear_a
     test_click_end_turn(&game, allocator);
 
     assert_test(turn_active_entity(game.turn) == p);
-    assert_test(enemy->position.x == 3 && enemy->position.y == 3);
+    assert_test(enemy->position.x == 3);
+    assert_test(enemy->position.y == 3);
     assert_test(enemy->mp == 0);
     assert_test(enemy->ap == 2);
     assert_test(p->hp == 10);
@@ -262,7 +268,8 @@ PRIVATE void test_game_ai_ranged_enemy_attacks_from_range_without_closing_on_end
 
     assert_test(turn_active_entity(game.turn) == p);
     // Already within SKILL_RANGED.range (3): no need to move in.
-    assert_test(enemy->position.x == 3 && enemy->position.y == 0);
+    assert_test(enemy->position.x == 3);
+    assert_test(enemy->position.y == 0);
     assert_test(enemy->mp == 3);
     assert_test(enemy->ap == 1);
     assert_test(p->hp == 7);
@@ -311,7 +318,8 @@ PRIVATE void test_game_ai_multi_skill_enemy_closes_to_melee_range_when_reachable
     assert_test(turn_active_entity(game.turn) == p);
     // Closed all the way to adjacency (distance 1) instead of stopping at
     // distance 2 or 3 where ranged was already usable.
-    assert_test(enemy->position.x == 1 && enemy->position.y == 0);
+    assert_test(enemy->position.x == 1);
+    assert_test(enemy->position.y == 0);
     assert_test(enemy->mp == 1);
     assert_test(enemy->ap == 1);
     // SKILL_MELEE.damage (5), not SKILL_RANGED.damage (3): attacked with the
@@ -354,7 +362,8 @@ PRIVATE void test_game_ai_multi_skill_enemy_falls_back_to_ranged_when_melee_unre
     test_click_end_turn(&game, allocator);
 
     assert_test(turn_active_entity(game.turn) == p);
-    assert_test(enemy->position.x == 2 && enemy->position.y == 0);
+    assert_test(enemy->position.x == 2);
+    assert_test(enemy->position.y == 0);
     assert_test(enemy->mp == 0);
     assert_test(enemy->ap == 1);
     // SKILL_RANGED.damage (3): melee was never reachable this turn, so the
@@ -399,7 +408,8 @@ PRIVATE void test_game_ai_unreachable_player_noops_on_end_turn(linear_allocator_
     // No reachable player target: the AI turn is a no-op and control wraps
     // back to p.
     assert_test(turn_active_entity(game.turn) == p);
-    assert_test(enemy->position.x == 4 && enemy->position.y == 4);
+    assert_test(enemy->position.x == 4);
+    assert_test(enemy->position.y == 4);
     assert_test(enemy->ap == 2);
     assert_test(p->hp == 10);
 
@@ -444,10 +454,114 @@ PRIVATE void test_game_ai_chooses_nearest_player_on_end_turn(linear_allocator_t 
     // Enemy closed on the nearer player and attacked it, leaving the far one
     // untouched. The cursor then advanced to the near player.
     assert_test(turn_active_entity(game.turn) == p_near);
-    assert_test(enemy->position.x == 1 && enemy->position.y == 0);
+    assert_test(enemy->position.x == 1);
+    assert_test(enemy->position.y == 0);
     assert_test(enemy->ap == 1);
     assert_test(p_near->hp == 5);
     assert_test(p_far->hp == 10);
+
+    game_deinit(allocator, game);
+}
+
+// Exercises two AI candidate-selection branches that passing end-turn play
+// can reach but the simpler single-player tests don't:
+// - ai_find_nearest_player's !candidate->alive skip (a dead player stays in
+//   the entity list after turn_remove_dead_entities compacts only the turn
+//   order).
+// - ai_find_nearest_player's dist < best_dist comparison evaluated false
+//   (a nearer player is scanned before a farther one).
+PRIVATE void test_game_ai_skips_dead_player_and_keeps_nearest_on_end_turn(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 4, 4);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    // Spawn the doomed player first so entity iteration sees it before the
+    // surviving player -- once dead, it exercises the !alive skip on the
+    // next enemy turn.
+    entity_t* p_doomed = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 5, 2, 3);
+    entity_t* p_alive = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
+    // e_killer starts adjacent to p_doomed (distance 1) and two steps from
+    // p_alive, so it attacks p_doomed. That makes p_alive the "farther
+    // candidate" whose dist < best_dist is false in the same scan.
+    entity_t* e_killer = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){1, 1}, 10, 2, 3);
+    entity_t* e_other = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 3}, 10, 2, 0);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_doomed_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p_doomed->skills = (slice_skill_t){ .begin = p_doomed_skills_begin, .end = skills.end };
+    skill_t *p_alive_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p_alive->skills = (slice_skill_t){ .begin = p_alive_skills_begin, .end = skills.end };
+    skill_t *e_killer_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_killer->skills = (slice_skill_t){ .begin = e_killer_skills_begin, .end = skills.end };
+    skill_t *e_other_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_other->skills = (slice_skill_t){ .begin = e_other_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p_alive);
+    turn_order_add(allocator, &order, e_killer);
+    turn_order_add(allocator, &order, p_doomed);
+    turn_order_add(allocator, &order, e_other);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_end_turn(&game, allocator);
+
+    // e_killer killed p_doomed; e_other then skipped the dead player and
+    // had no target in range (mp=0), so control wrapped to p_alive unharmed.
+    assert_test(!p_doomed->alive);
+    assert_test(p_alive->alive);
+    assert_test(p_alive->hp == 10);
+    assert_test(turn_active_entity(game.turn) == p_alive);
+
+    game_deinit(allocator, game);
+}
+
+// A multi-skill enemy with both skills already in range must still evaluate
+// ai_best_in_range_skill's "does this later skill beat the current best?"
+// comparison as false when the earlier skill is stronger.
+PRIVATE void test_game_ai_best_in_range_skill_rejects_weaker_later_skill(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 2, 1);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
+    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){1, 0}, 10, 2, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    // Melee (damage 5) first, ranged (damage 3) second: both are in range
+    // at adjacency, and the later ranged skill must be rejected as weaker.
+    skill_t *enemy_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    skill_list_add(allocator, &skills, SKILL_RANGED);
+    enemy->skills = (slice_skill_t){ .begin = enemy_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, enemy);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_end_turn(&game, allocator);
+
+    // The stronger melee skill (damage 5) was used, not the weaker ranged
+    // fallback, and the enemy never needed to move.
+    assert_test(turn_active_entity(game.turn) == p);
+    assert_test(enemy->position.x == 1);
+    assert_test(enemy->position.y == 0);
+    assert_test(enemy->ap == 1);
+    assert_test(p->hp == 10 - SKILL_MELEE.damage);
+    assert_test(p->alive);
 
     game_deinit(allocator, game);
 }
@@ -485,7 +599,8 @@ PRIVATE void test_game_ai_equal_damage_skills_prefer_lower_ap_cost(linear_alloca
     // Equal damage, different ap_cost: the AI prefers the cheaper skill and
     // attacks with it once in range.
     assert_test(turn_active_entity(game.turn) == p);
-    assert_test(enemy->position.x == 1 && enemy->position.y == 0);
+    assert_test(enemy->position.x == 1);
+    assert_test(enemy->position.y == 0);
     assert_test(enemy->ap == 1);
     assert_test(p->hp == 5);
 
@@ -523,7 +638,8 @@ PRIVATE void test_game_ai_attack_noops_when_ap_insufficient_for_skill(linear_all
     // The only skill is in range but costs more AP than the enemy has, so
     // action_try_attack rejects it and the AI turn ends without damage.
     assert_test(turn_active_entity(game.turn) == p);
-    assert_test(enemy->position.x == 1 && enemy->position.y == 0);
+    assert_test(enemy->position.x == 1);
+    assert_test(enemy->position.y == 0);
     assert_test(enemy->ap == 1);
     assert_test(p->hp == 10);
 
@@ -542,6 +658,8 @@ const test_case_t g_game_ai_tests[] = {
     { TEST_NAME("game_ai_multi_skill_enemy_falls_back_to_ranged_when_melee_unreachable"), test_game_ai_multi_skill_enemy_falls_back_to_ranged_when_melee_unreachable },
     { TEST_NAME("game_ai_unreachable_player_noops_on_end_turn"), test_game_ai_unreachable_player_noops_on_end_turn },
     { TEST_NAME("game_ai_chooses_nearest_player_on_end_turn"), test_game_ai_chooses_nearest_player_on_end_turn },
+    { TEST_NAME("game_ai_skips_dead_player_and_keeps_nearest_on_end_turn"), test_game_ai_skips_dead_player_and_keeps_nearest_on_end_turn },
+    { TEST_NAME("game_ai_best_in_range_skill_rejects_weaker_later_skill"), test_game_ai_best_in_range_skill_rejects_weaker_later_skill },
     { TEST_NAME("game_ai_equal_damage_skills_prefer_lower_ap_cost"), test_game_ai_equal_damage_skills_prefer_lower_ap_cost },
     { TEST_NAME("game_ai_attack_noops_when_ap_insufficient_for_skill"), test_game_ai_attack_noops_when_ap_insufficient_for_skill },
 };

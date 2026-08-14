@@ -2,6 +2,8 @@
 
 #include "pathing.h"
 
+#include "../lib/assert.h"
+
 const skill_t SKILL_MELEE = { .range = 1, .damage = 5, .ap_cost = 1 };
 const skill_t SKILL_RANGED = { .range = 3, .damage = 3, .ap_cost = 1 };
 
@@ -12,5 +14,8 @@ PUBLIC bool skill_target_in_range(linear_allocator_t *allocator, grid_t grid, sl
 
     pathing_deinit(allocator, pathing);
 
-    return distance >= 0 && distance <= skill.range;
+    // pathing_compute_range caps the BFS at skill.range, so a reachable
+    // target can never be farther than the skill's range.
+    assert_debug(distance <= skill.range);
+    return distance >= 0;
 }

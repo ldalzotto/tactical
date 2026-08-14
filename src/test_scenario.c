@@ -28,9 +28,12 @@ PRIVATE void test_scenario_setup_default_populates_map_and_units(linear_allocato
         assert_test(entity->position.x == expected[id].x);
         assert_test(entity->position.y == expected[id].y);
         assert_test(entity->team == expected[id].team);
-        assert_test(entity->hp == 10 && entity->max_hp == 10);
-        assert_test(entity->ap == 1 && entity->max_ap == 1);
-        assert_test(entity->mp == 3 && entity->max_mp == 3);
+        assert_test(entity->hp == 10);
+        assert_test(entity->max_hp == 10);
+        assert_test(entity->ap == 1);
+        assert_test(entity->max_ap == 1);
+        assert_test(entity->mp == 3);
+        assert_test(entity->max_mp == 3);
         assert_test(entity->alive);
 
         // Every entity in the default scenario now has both skills.

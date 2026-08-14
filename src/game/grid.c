@@ -11,7 +11,8 @@ PUBLIC slice_t grid_align(linear_allocator_t *allocator) {
 }
 
 PUBLIC grid_t grid_init(linear_allocator_t *allocator, int width, int height) {
-    assert_debug(width > 0 && height > 0);
+    assert_debug(width > 0);
+    assert_debug(height > 0);
 
     slice_tile_t tiles;
     tiles = LINEAR_ALLOCATOR_PUSH(allocator, tiles, (size_t)(width * height));

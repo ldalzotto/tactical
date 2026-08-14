@@ -11,9 +11,12 @@ PUBLIC bool action_try_move(linear_allocator_t *allocator, grid_t grid, slice_en
 
     pathing_deinit(allocator, pathing);
 
-    if (distance < 0 || distance > entity->mp) {
+    if (distance < 0) {
         return false;
     }
+    // pathing_compute_distances caps the BFS at entity->mp, so a reachable
+    // tile can never have a distance greater than the mover's remaining mp.
+    assert_debug(distance <= entity->mp);
 
     entity->mp -= distance;
     entity->position = target;

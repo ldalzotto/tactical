@@ -33,12 +33,14 @@ PRIVATE void test_game_entity_pressed_selects_only_the_active_entity(linear_allo
     assert_test(turn_active_entity(game.turn) == p1);
 
     test_click_tile(&game, allocator, p1->position);
-    assert_test(game.mode == GAME_MODE_MOVEMENT && turn_active_entity(game.turn) == p1);
+    assert_test(game.mode == GAME_MODE_MOVEMENT);
+    assert_test(turn_active_entity(game.turn) == p1);
 
     // p2 isn't the active entity: pressing it is a no-op, including as an
     // attack target -- same-team damage never lands.
     test_click_tile(&game, allocator, p2->position);
-    assert_test(game.mode == GAME_MODE_MOVEMENT && turn_active_entity(game.turn) == p1);
+    assert_test(game.mode == GAME_MODE_MOVEMENT);
+    assert_test(turn_active_entity(game.turn) == p1);
     assert_test(p1->ap == 2);
     assert_test(p2->hp == 10);
 
@@ -97,7 +99,8 @@ PRIVATE void test_game_end_turn_advances_past_a_harmless_enemy_and_deselects(lin
     p->mp = 0;
 
     test_click_tile(&game, allocator, p->position);
-    assert_test(game.mode == GAME_MODE_MOVEMENT && turn_active_entity(game.turn) == p);
+    assert_test(game.mode == GAME_MODE_MOVEMENT);
+    assert_test(turn_active_entity(game.turn) == p);
 
     test_click_end_turn(&game, allocator);
 
@@ -147,7 +150,8 @@ PRIVATE void test_game_1v1_enemy_death_sets_win_and_freezes_input(linear_allocat
     // Further presses of any kind must now be frozen no-ops.
     test_click_tile(&game, allocator, (position_t){2, 0});
     entity_t *player = p;
-    assert_test(player->position.x == 0 && player->position.y == 0);
+    assert_test(player->position.x == 0);
+    assert_test(player->position.y == 0);
 
     entity_t *active_before = turn_active_entity(game.turn);
     test_click_end_turn(&game, allocator);
@@ -225,7 +229,8 @@ PRIVATE void test_game_on_input_event_click_in_end_turn_button_behaves_like_end_
     p->mp = 0;
 
     test_click_tile(&game, allocator, p->position);
-    assert_test(game.mode == GAME_MODE_MOVEMENT && turn_active_entity(game.turn) == p);
+    assert_test(game.mode == GAME_MODE_MOVEMENT);
+    assert_test(turn_active_entity(game.turn) == p);
 
     assert_test(point_in_rect(game.viewport.end_turn_button, 260, 215));
     input_event_t click = { .type = INPUT_EVENT_MOUSE_CLICK, .x = 260, .y = 215 };
@@ -270,7 +275,8 @@ PRIVATE void test_game_on_input_event_click_on_entity_tile_behaves_like_entity_p
     input_event_t click = { .type = INPUT_EVENT_MOUSE_CLICK, .x = px + 1, .y = py + 1 };
     game_on_input_event(&game, allocator, click);
 
-    assert_test(game.mode == GAME_MODE_MOVEMENT && turn_active_entity(game.turn) == p1);
+    assert_test(game.mode == GAME_MODE_MOVEMENT);
+    assert_test(turn_active_entity(game.turn) == p1);
 
     game_deinit(allocator, game);
 }
@@ -297,7 +303,8 @@ PRIVATE void test_game_tile_pressed_enemy_active_noops(linear_allocator_t *alloc
     // ignores it.
     test_click_tile(&game, allocator, (position_t){0, 0});
     assert_test(game.mode == GAME_MODE_NONE);
-    assert_test(e->position.x == 2 && e->position.y == 2);
+    assert_test(e->position.x == 2);
+    assert_test(e->position.y == 2);
     assert_test(e->mp == 3);
 
     game_deinit(allocator, game);
@@ -324,7 +331,8 @@ PRIVATE void test_game_tile_pressed_mode_none_noops(linear_allocator_t *allocato
     // No selection made yet: an empty-tile click is a no-op.
     test_click_tile(&game, allocator, (position_t){2, 0});
     assert_test(game.mode == GAME_MODE_NONE);
-    assert_test(p->position.x == 0 && p->position.y == 0);
+    assert_test(p->position.x == 0);
+    assert_test(p->position.y == 0);
     assert_test(p->mp == 3);
 
     game_deinit(allocator, game);
@@ -426,7 +434,8 @@ PRIVATE void test_game_mouse_move_updates_hover(linear_allocator_t *allocator) {
     input_event_t move = { .type = INPUT_EVENT_MOUSE_MOVE, .x = px + 1, .y = py + 1 };
     game_on_input_event(&game, allocator, move);
     assert_test(game.hover_valid);
-    assert_test(game.hover.x == 2 && game.hover.y == 2);
+    assert_test(game.hover.x == 2);
+    assert_test(game.hover.y == 2);
 
     input_event_t outside = { .type = INPUT_EVENT_MOUSE_MOVE, .x = 9999, .y = 9999 };
     game_on_input_event(&game, allocator, outside);
