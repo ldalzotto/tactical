@@ -98,6 +98,7 @@ endif()
 
 target_compile_options(app PRIVATE -ffreestanding -fno-builtin -mbulk-memory)
 if(APP_COVERAGE)
+    target_compile_definitions(app PRIVATE APP_COVERAGE)
     target_compile_options(app PRIVATE -fprofile-instr-generate -fcoverage-mapping)
 endif()
 target_compile_options(app PRIVATE $<$<CONFIG:Debug>:-g -O0>)
