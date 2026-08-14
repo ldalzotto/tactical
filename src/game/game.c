@@ -6,11 +6,10 @@
 #include "pathing.h"
 #include "render_cache.h"
 
-// Fixed size for game->scratch, currently hosting reachable_tiles (move
-// range) and attack_range_tiles (skill range) -- but never both at once:
-// whichever one is off-mode is kept nullified (see render_cache_reset),
-// so scratch only ever needs to fit a single populated tile cache.
-// In the future, grow/shrink this region on demand instead of a flat guess.
+// Fixed size for game->scratch. Hosts reachable_tiles (move range) and
+// attack_range_tiles (skill range), mutually exclusive -- whichever is
+// off-mode stays nullified (see render_cache_reset), so scratch only ever
+// needs room for one populated tile cache.
 #define GAME_SCRATCH_CAPACITY 256
 
 PRIVATE void game_check_game_over(game_state_t *game) {
@@ -85,18 +84,15 @@ PRIVATE bool game_tile_is_reachable(pathing_state_t pathing, grid_t grid, positi
     return dist > 0 && dist <= mp;
 }
 
-// Turns attack mode on/off, owning both reachable_tiles and
-// attack_range_tiles for whichever branch runs -- the two are mutually
-// exclusive, so each branch is responsible for nullifying the one it isn't
-// populating. Turning off recomputes reachable_tiles for the current
-// selection (or leaves it empty if there is none, or it has no mp left) and
-// nullifies attack_range_tiles; called eagerly whenever selection, position,
-// or mp of the selected entity changes, and whenever attack mode is turned
-// off. Turning on does the mirror image: nullifies reachable_tiles and
-// computes attack_range_tiles with the same BFS used for move-reachable
-// tiles, rooted with selected->skill.range instead of mp. Callers only turn
-// attack mode on with a live selection. Render just reads the cached lists,
-// no per-frame pathing.
+// Turns attack mode on/off. reachable_tiles and attack_range_tiles are
+// mutually exclusive, so each branch nullifies the one it isn't populating:
+// - off: recomputes reachable_tiles for the current selection (empty if none,
+//   or no mp left), nullifies attack_range_tiles. Called eagerly on any
+//   selection/position/mp change, and whenever attack mode turns off.
+// - on: mirror image -- nullifies reachable_tiles, computes attack_range_tiles
+//   via the same BFS rooted at selected->skill.range instead of mp. Callers
+//   only turn this on with a live selection.
+// Render just reads the cached lists, no per-frame pathing.
 PRIVATE void game_set_attack_mode(game_state_t *game, linear_allocator_t *allocator, bool on) {
     render_cache_reset(&game->scratch, &game->render);
 

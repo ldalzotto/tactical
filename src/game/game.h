@@ -29,14 +29,14 @@ typedef struct {
     viewport_t viewport;
     // TODO: This is a temporary state that has to be removed.
     entity_t* selected_entity; // 0 if none
-    bool attack_mode;          // when on, entity_pressed on an enemy attempts an attack instead
-                                // of being a no-op; renderer shows render.attack_range_tiles
+    bool attack_mode;          // on: entity_pressed on an enemy attempts an attack instead of a
+                                // no-op; renderer shows render.attack_range_tiles
     position_t hover;
     bool hover_valid;
     game_over_t game_over;
-    linear_allocator_t scratch;  // internal arena for game-owned working data; currently
-                                  // just hosts render.reachable_tiles, but any future per-game
-                                  // UI-state buffer can push into it too
+    linear_allocator_t scratch;  // internal arena for game-owned working data; hosts
+                                  // render.reachable_tiles/attack_range_tiles, and any future
+                                  // per-game UI-state buffer
     render_cache_t render;
 } game_state_t;
 

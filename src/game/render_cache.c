@@ -2,11 +2,9 @@
 
 #include "../lib/assert.h"
 
-// reachable_tiles and attack_range_tiles are mutually exclusive, stacked
-// regions of the same scratch arena: attack_range_tiles must always sit
-// after reachable_tiles in memory. Every mutator below re-checks that
-// layout before returning, so a stray reorder trips an assert instead of
-// silently corrupting the other cache.
+// attack_range_tiles must always sit after reachable_tiles in scratch.
+// Every mutator below re-checks this before returning, so a stray reorder
+// trips an assert instead of silently corrupting the other cache.
 PRIVATE void render_cache_assert_layout(render_cache_t cache) {
     assert_debug(cache.attack_range_align.begin >= cache.reachable_tiles.end);
     assert_debug(cache.attack_range_tiles.begin >= cache.reachable_tiles.end);

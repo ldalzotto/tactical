@@ -97,14 +97,14 @@ PRIVATE bool ai_step_toward(linear_allocator_t *allocator, grid_t grid, slice_en
     return action_try_move(allocator, grid, entities, enemy, best_position);
 }
 
-// Runs one enemy's turn: find nearest ALIVE player entity via BFS rooted at
-// the enemy's own tile (skip_entity=enemy). If already within the enemy's
-// skill range and ap>0, action_try_attack. Otherwise, while mp>0 and not yet
-// in range: BFS rooted at the TARGET's tile (skip_entity=ENTITY_ID_NONE) to
-// get a distance-to-target field, step to whichever orthogonal neighbor
-// (checked in order: up, right, down, left) of the enemy's current tile has
-// the smallest distance-to-target via action_try_move (one tile at a time),
-// then re-check range/attack. If no alive player entities remain, no-op.
+// Runs one enemy's turn:
+// - find nearest ALIVE player entity via BFS rooted at the enemy's tile (skip_entity=enemy)
+// - if already within skill range and ap>0, action_try_attack
+// - otherwise, while mp>0 and out of range: BFS rooted at the TARGET's tile
+//   (skip_entity=ENTITY_ID_NONE) for a distance-to-target field, step to the
+//   orthogonal neighbor (order: up, right, down, left) with smallest
+//   distance-to-target via action_try_move, one tile at a time, then recheck
+// - no-op if no alive player entities remain
 // Returns the attacked entity, or 0 if no attack landed.
 PUBLIC entity_t* ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *enemy) {
     entity_t* target = ai_find_nearest_player(allocator, grid, entities, enemy);
