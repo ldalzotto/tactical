@@ -4,6 +4,8 @@
 #include "pathing.h"
 #include "skill.h"
 
+#include "../lib/assert.h"
+
 /*
     Distance from the BFS root to a tile adjacent to `position`.
     (`position` itself is unreachable in the field — the candidate
@@ -59,7 +61,7 @@ PRIVATE entity_t* ai_find_nearest_player(linear_allocator_t *allocator, grid_t g
     return best_entity;
 }
 
-PRIVATE bool ai_step_toward(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* enemy, entity_t *target) {
+PRIVATE void ai_step_toward(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* enemy, entity_t *target) {
     int max_steps = grid.width * grid.height;
     // We compute the distance from the target.
     // The smallest distance of ennemy neighbor is the tile we are going to move towards.
@@ -90,11 +92,12 @@ PRIVATE bool ai_step_toward(linear_allocator_t *allocator, grid_t grid, slice_en
 
     pathing_deinit(allocator, pathing);
 
-    if (!found) {
-        return false;
-    }
-
-    return action_try_move(allocator, grid, entities, enemy, best_position);
+    // ai_run_ennemy_turn only calls us after ai_find_nearest_player found a
+    // reachable player, which implies at least one of the enemy's neighbors
+    // is reachable from that player (the BFS path is reversible), so `found`
+    // is always true here.
+    assert_debug(found);
+    action_try_move(allocator, grid, entities, enemy, best_position);
 }
 
 // True if a beats b as the "preferred" skill: higher damage, tie-broken by
@@ -150,9 +153,7 @@ PUBLIC entity_t* ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, 
     skill_t *preferred = ai_preferred_skill(enemy);
 
     while (enemy->mp > 0 && !skill_target_in_range(allocator, grid, entities, enemy, *preferred, target)) {
-        if (!ai_step_toward(allocator, grid, entities, enemy, target)) {
-            break;
-        }
+        ai_step_toward(allocator, grid, entities, enemy, target);
     }
 
     skill_t *attack_skill = ai_best_in_range_skill(allocator, grid, entities, enemy, target);

@@ -12,7 +12,6 @@ typedef struct {
 SLICE_DEFINE(position_t);
 
 PUBLIC position_t position_add(position_t a, position_t b);
-PUBLIC position_t position_sub(position_t a, position_t b);
 PUBLIC bool position_equals(position_t a, position_t b);
 
 // Orthogonal unit offsets: up, right, down, left.

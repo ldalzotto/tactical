@@ -43,7 +43,6 @@ PUBLIC void skill_list_deinit(linear_allocator_t *allocator, slice_skill_t list)
 PUBLIC skill_t* skill_list_add(linear_allocator_t *allocator, slice_skill_t *list, skill_t skill);
 PUBLIC entity_t *entity_find_at(slice_entity_t list, position_t position);
 PUBLIC void entity_damage(entity_t* entity, int amount);
-PUBLIC bool entity_is_adjacent(entity_t a, entity_t b);
 PUBLIC int entity_alive_count(slice_entity_t list, entity_team_t team);
 
 #ifdef APP_UNITY_BUILD
