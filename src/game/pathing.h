@@ -32,7 +32,10 @@ PUBLIC void pathing_deinit(linear_allocator_t *allocator, pathing_state_t state)
 // differs from THIS entity's team is ALSO treated as passable (not just
 // excluded) -- used for attack-range computation so targetable enemies
 // don't block the BFS (and tiles behind them stay reachable-for-targeting).
-// Allies (same team as pass_through_opposing_team_of) still block. This is
+// Allies (same team as pass_through_opposing_team_of) still block. Strictly
+// this is "any other team," not "the opposing team" -- equivalent today
+// since entity_team_t has exactly two values (PLAYER/ENEMY), but would need
+// revisiting if a third (e.g. neutral) team were ever added. This is
 // deliberately a separate parameter from `excluded`: excluded is whichever
 // single entity's own tile must get a distance (the mover, or -- in
 // skill_target_in_range -- the specific target being validated), which is
