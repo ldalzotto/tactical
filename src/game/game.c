@@ -82,14 +82,6 @@ PUBLIC void game_deinit(linear_allocator_t *allocator, game_state_t state) {
     linear_allocator_pop(allocator, state.grid_align);
 }
 
-PRIVATE bool game_tile_is_reachable(pathing_state_t pathing, grid_t grid, position_t position, int mp) {
-    int dist = pathing_distance_at(pathing, grid, position);
-    // The BFS is capped at mp, so a reached tile can never exceed mp; the
-    // upper bound is an invariant rather than a runtime filter.
-    assert_debug(dist <= mp);
-    return dist > 0;
-}
-
 // Switches to `mode`. reachable_tiles and attack_range_tiles are mutually
 // exclusive, so each branch nullifies the one it isn't populating:
 // - NONE: nullifies both -- nothing selected, nothing to show.
@@ -122,7 +114,7 @@ PRIVATE void game_set_mode(game_state_t *game, linear_allocator_t *allocator, ga
         for (int ty = 0; ty < game->grid.height; ty++) {
             for (int tx = 0; tx < game->grid.width; tx++) {
                 position_t position = { tx, ty };
-                if (game_tile_is_reachable(pathing, game->grid, position, active->mp)) {
+                if (pathing_distance_at(pathing, game->grid, position) > 0) {
                     slice_position_t entry = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.reachable_tiles, 1);
                     SLICE_DEREF(entry) = position;
                     reachable_tiles.end = entry.end;
@@ -147,7 +139,7 @@ PRIVATE void game_set_mode(game_state_t *game, linear_allocator_t *allocator, ga
         for (int ty = 0; ty < game->grid.height; ty++) {
             for (int tx = 0; tx < game->grid.width; tx++) {
                 position_t position = { tx, ty };
-                if (game_tile_is_reachable(pathing, game->grid, position, skill_range)) {
+                if (pathing_distance_at(pathing, game->grid, position) > 0) {
                     slice_position_t entry = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.attack_range_tiles, 1);
                     SLICE_DEREF(entry) = position;
                     attack_range_tiles.end = entry.end;
