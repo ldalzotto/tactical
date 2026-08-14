@@ -1,6 +1,7 @@
 #include "test_scenario.h"
 #include "lib/assert.h"
 #include "game/scenario.h"
+#include "game/skill.h"
 #include "test_game_helpers.h"
 
 PRIVATE void test_scenario_setup_default_populates_map_and_units(linear_allocator_t *allocator) {
@@ -11,13 +12,15 @@ PRIVATE void test_scenario_setup_default_populates_map_and_units(linear_allocato
     struct {
         int x, y;
         entity_team_t team;
+        skill_t default_skill; // skills[0]
+        skill_t other_skill;   // skills[1]
     } expected[6] = {
-        { 1, 2, ENTITY_TEAM_PLAYER },
-        { 1, 5, ENTITY_TEAM_PLAYER },
-        { 1, 8, ENTITY_TEAM_PLAYER },
-        { 14, 2, ENTITY_TEAM_ENEMY },
-        { 14, 5, ENTITY_TEAM_ENEMY },
-        { 14, 8, ENTITY_TEAM_ENEMY },
+        { 1, 2, ENTITY_TEAM_PLAYER, SKILL_RANGED, SKILL_MELEE },
+        { 1, 5, ENTITY_TEAM_PLAYER, SKILL_MELEE, SKILL_RANGED },
+        { 1, 8, ENTITY_TEAM_PLAYER, SKILL_MELEE, SKILL_RANGED },
+        { 14, 2, ENTITY_TEAM_ENEMY, SKILL_RANGED, SKILL_MELEE },
+        { 14, 5, ENTITY_TEAM_ENEMY, SKILL_MELEE, SKILL_RANGED },
+        { 14, 8, ENTITY_TEAM_ENEMY, SKILL_MELEE, SKILL_RANGED },
     };
 
     for (int id = 0; id < 6; id++) {
@@ -29,6 +32,15 @@ PRIVATE void test_scenario_setup_default_populates_map_and_units(linear_allocato
         assert_test(entity->ap == 1 && entity->max_ap == 1);
         assert_test(entity->mp == 3 && entity->max_mp == 3);
         assert_test(entity->alive);
+
+        // Every entity in the default scenario now has both skills.
+        assert_test(entity_skill_count(entity) == 2);
+        assert_test(SLICE_AT(entity->skills, 0).range == expected[id].default_skill.range);
+        assert_test(SLICE_AT(entity->skills, 0).damage == expected[id].default_skill.damage);
+        assert_test(SLICE_AT(entity->skills, 0).ap_cost == expected[id].default_skill.ap_cost);
+        assert_test(SLICE_AT(entity->skills, 1).range == expected[id].other_skill.range);
+        assert_test(SLICE_AT(entity->skills, 1).damage == expected[id].other_skill.damage);
+        assert_test(SLICE_AT(entity->skills, 1).ap_cost == expected[id].other_skill.ap_cost);
     }
 
     assert_test(!grid_is_walkable(game.grid, (position_t){7, 4}));

@@ -35,7 +35,8 @@ PUBLIC viewport_t layout_compute(int fb_width, int fb_height, int grid_width, in
     rect_t timeline_rect = {
         .x = hud_rect.x + hud_padding,
         .y = hud_rect.y + hud_padding / 10,
-        .width = hud_rect.width - end_turn_button.width - attack_button.width - 3 * hud_padding,
+        .width = hud_rect.width - end_turn_button.width - attack_button.width
+            - VIEWPORT_MAX_SKILL_BUTTONS * (button_width + hud_padding) - 3 * hud_padding,
         .height = hud_rect.height / 8,
     };
 
@@ -50,7 +51,25 @@ PUBLIC viewport_t layout_compute(int fb_width, int fb_height, int grid_width, in
         .attack_button = attack_button,
         .timeline_rect = timeline_rect,
     };
+
+    // Skill buttons: row of VIEWPORT_MAX_SKILL_BUTTONS, same size as
+    // attack_button, extending the button strip to its left.
+    int i = 0;
+    for (SLICE_FOREACH(viewport_skill_buttons(&viewport), sb)) {
+        SLICE_DEREF(sb) = (rect_t){
+            .x = attack_button.x - (i + 1) * (button_width + hud_padding),
+            .y = hud_rect.y + hud_padding,
+            .width = button_width,
+            .height = hud_rect.height - 2 * hud_padding,
+        };
+        i++;
+    }
+
     return viewport;
+}
+
+PUBLIC slice_rect_t viewport_skill_buttons(viewport_t *v) {
+    return (slice_rect_t){ .begin = v->skill_buttons, .end = v->skill_buttons + VIEWPORT_MAX_SKILL_BUTTONS };
 }
 
 PUBLIC bool screen_to_grid(viewport_t v, int screen_x, int screen_y, int *out_tx, int *out_ty) {

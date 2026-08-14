@@ -2,6 +2,7 @@
 
 #include "../lib/linkage.h"
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "../lib/memory.h"
@@ -26,7 +27,18 @@ PUBLIC void pathing_deinit(linear_allocator_t *allocator, pathing_state_t state)
 // Distances beyond max_steps are left -1. Standard array-queue BFS,
 // 4-directional neighbors, capacity width*height (can't overflow). Caller
 // must pathing_deinit the result when done with it.
+//
+// A tile occupied by a non-excluded entity gets no distance -- unreachable,
+// since a mover can't stand on or pass through it.
 PUBLIC pathing_state_t pathing_compute_distances(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* excluded, position_t from, int max_steps);
+
+// Same as pathing_compute_distances, but for skill range: an occupied tile
+// still gets a distance (reachable-for-targeting -- a target is an obstacle,
+// not a window) but isn't enqueued, so the BFS doesn't expand past it.
+//
+// Kept as a separate function rather than a flag: range is expected to grow
+// real line-of-sight occlusion later and diverge from navigation entirely.
+PUBLIC pathing_state_t pathing_compute_range(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* excluded, position_t from, int max_steps);
 
 PUBLIC int pathing_distance_at(pathing_state_t state, grid_t grid, position_t position); // -1 if unreached OR out of bounds -- this is a defensive query (arbitrary coords from clicks later), do NOT make it panic like grid_tile_at does
 

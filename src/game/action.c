@@ -19,7 +19,7 @@ PUBLIC bool action_try_move(linear_allocator_t *allocator, grid_t grid, slice_en
     return true;
 }
 
-PUBLIC bool action_try_attack(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* attacker, entity_t* defender) {
+PUBLIC bool action_try_attack(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* attacker, skill_t skill, entity_t* defender) {
 
     if (!attacker->alive || !defender->alive) {
         return false;
@@ -29,16 +29,16 @@ PUBLIC bool action_try_attack(linear_allocator_t *allocator, grid_t grid, slice_
         return false;
     }
 
-    if (attacker->ap < attacker->skill.ap_cost) {
+    if (attacker->ap < skill.ap_cost) {
         return false;
     }
 
-    if (!skill_target_in_range(allocator, grid, entities, attacker, defender)) {
+    if (!skill_target_in_range(allocator, grid, entities, attacker, skill, defender)) {
         return false;
     }
 
-    attacker->ap -= attacker->skill.ap_cost;
-    entity_damage(defender, attacker->skill.damage);
+    attacker->ap -= skill.ap_cost;
+    entity_damage(defender, skill.damage);
 
     return true;
 }

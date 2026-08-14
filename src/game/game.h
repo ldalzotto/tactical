@@ -35,12 +35,15 @@ typedef struct {
     grid_t grid;
     slice_t entity_list_align;
     slice_entity_t entities;
+    slice_t skill_list_align;
+    slice_skill_t skills;
     slice_t turn_order_align;
     turn_state_t turn;
     viewport_t viewport;
     game_mode_t mode;
     position_t hover;
     bool hover_valid;
+    int selected_skill; // index into the active entity's skills, reset to 0 on turn advance
     game_over_t game_over;
     linear_allocator_t scratch;  // internal arena for game-owned working data; hosts
                                   // render.reachable_tiles/attack_range_tiles, and any future
@@ -48,17 +51,16 @@ typedef struct {
     render_cache_t render;
 } game_state_t;
 
-// Assembles game state from an already-allocated grid, entity list and turn
-// order. The caller owns allocation: push grid_align() before grid_init, an
-// entity_t alignment before entity_list_init, and an entity_ptr_t alignment
-// before turn_order_init (populated with turn_order_add for every entity in
-// `entities`), and pass all three markers here so game_deinit can pop
-// everything in reverse order. `allocator` is also used to carve out the
-// game's internal scratch arena (a fixed byte region; position_t alignment
-// inside it is handled lazily, only once something is actually pushed).
-PUBLIC game_state_t game_init(linear_allocator_t *allocator, slice_t grid_align, grid_t grid, slice_t entity_list_align, slice_entity_t entities, slice_t turn_order_align, slice_entity_ptr_t turn_order, int fb_width, int fb_height, int hud_height);
+// Assembles game state from already-allocated grid, entity list, skill list
+// and turn order, in that memory order. Caller pushes the alignment marker
+// before each region's init (grid_align/entity_t/skill_t/entity_ptr_t) and
+// passes all four here so game_deinit can pop everything in reverse.
+// `entities`' skills must already be populated via skill_list_add and
+// assigned into each entity_t.skills. `allocator` also carves out the game's
+// internal scratch arena.
+PUBLIC game_state_t game_init(linear_allocator_t *allocator, slice_t grid_align, grid_t grid, slice_t entity_list_align, slice_entity_t entities, slice_t skill_list_align, slice_skill_t skills, slice_t turn_order_align, slice_entity_ptr_t turn_order, int fb_width, int fb_height, int hud_height);
 
-// Pops the scratch arena, then the grid+entities+turn-order region,
+// Pops the scratch arena, then the grid+entities+skills+turn-order region,
 // including the alignment padding pushed before each.
 PUBLIC void game_deinit(linear_allocator_t *allocator, game_state_t state);
 
