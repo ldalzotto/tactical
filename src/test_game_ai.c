@@ -80,7 +80,7 @@ PRIVATE void test_game_ai_insufficient_mp_moves_partial_no_attack_on_end_turn(li
     assert_test(enemy->position.x == 3 && enemy->position.y == 0);
     assert_test(enemy->mp == 0);
     assert_test(enemy->ap == 2);
-    assert_test(!skill_target_in_range(allocator, grid, entities, enemy, p));
+    assert_test(!skill_target_in_range(allocator, grid, entities, enemy, enemy->skills[0], p));
     assert_test(p->hp == 10);
 
     game_deinit(allocator, game);
@@ -107,7 +107,7 @@ PRIVATE void test_game_ai_obstacle_forces_detour_on_end_turn(linear_allocator_t 
     test_click_end_turn(&game, allocator);
 
     assert_test(turn_active_entity(game.turn) == p);
-    assert_test(skill_target_in_range(allocator, grid, entities, enemy, p));
+    assert_test(skill_target_in_range(allocator, grid, entities, enemy, enemy->skills[0], p));
     assert_test(p->hp == 5);
     assert_test(enemy->ap == 1);
 
@@ -210,9 +210,9 @@ PRIVATE void test_game_ai_ranged_enemy_attacks_from_range_without_closing_on_end
 // when it has enough mp to reach melee range this turn, rather than settling
 // for ranged just because it's already in range -- see PLAN.md Q9 for why
 // the earlier "stop at whichever skill is in range first" design was wrong.
-// Enemy is spawned with SKILL_RANGED as skills[0] (the entity_spawn default
-// selected_skill) and SKILL_MELEE added second, deliberately so the default
-// selection is the WEAKER skill -- this way the test only passes if
+// Enemy is spawned with SKILL_RANGED as skills[0] (entity_spawn's default
+// skill) and SKILL_MELEE added second, deliberately so skills[0] is the
+// WEAKER skill -- this way the test only passes if
 // ai_preferred_skill_index actually picks by damage, not by coincidentally
 // matching whatever skills[0]/entity_spawn's argument happened to be.
 PRIVATE void test_game_ai_multi_skill_enemy_closes_to_melee_range_when_reachable(linear_allocator_t *allocator) {

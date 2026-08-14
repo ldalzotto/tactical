@@ -413,14 +413,14 @@ PRIVATE void test_game_skill_button_switches_attack_range_to_selected_skill(line
 
     // skills[0] (SKILL_MELEE, range 1) is selected by default: only the
     // adjacent tile is in range, not the far one.
-    assert_test(p->selected_skill == 0);
+    assert_test(game.selected_skill == 0);
     assert_test(test_tile_list_contains(game.render.attack_range_tiles, (position_t){1, 0}));
     assert_test(!test_tile_list_contains(game.render.attack_range_tiles, (position_t){3, 0}));
 
     test_click_skill_button(&game, allocator, 1);
 
     // skills[1] (SKILL_RANGED, range 3) now selected: range extends.
-    assert_test(p->selected_skill == 1);
+    assert_test(game.selected_skill == 1);
     assert_test(test_tile_list_contains(game.render.attack_range_tiles, (position_t){1, 0}));
     assert_test(test_tile_list_contains(game.render.attack_range_tiles, (position_t){3, 0}));
 
@@ -462,7 +462,7 @@ PRIVATE void test_game_skill_button_pressed_noop_outside_valid_conditions(linear
     // click is a no-op regardless of e having multiple skills.
     assert_test(turn_active_entity(game.turn) == e);
     test_click_skill_button(&game, allocator, 1);
-    assert_test(e->selected_skill == 0);
+    assert_test(game.selected_skill == 0);
     assert_test(turn_active_entity(game.turn) == e);
 
     game_deinit(allocator, game);
@@ -488,7 +488,7 @@ PRIVATE void test_game_skill_button_pressed_noop_when_mode_none_or_index_out_of_
 
     // GAME_MODE_NONE: nothing selected yet, click is a no-op.
     test_click_skill_button(&game, allocator, 1);
-    assert_test(p->selected_skill == 0);
+    assert_test(game.selected_skill == 0);
 
     test_click_end_turn(&game, allocator); // p -> p2, no attack toggle pressed
     assert_test(turn_active_entity(game.turn) == p2);
@@ -496,7 +496,7 @@ PRIVATE void test_game_skill_button_pressed_noop_when_mode_none_or_index_out_of_
     assert_test(game.mode == GAME_MODE_MOVEMENT);
 
     test_click_skill_button(&game, allocator, 1); // p2->skill_count == 1: index 1 is out of range
-    assert_test(p2->selected_skill == 0);
+    assert_test(game.selected_skill == 0);
 
     game_deinit(allocator, game);
 }

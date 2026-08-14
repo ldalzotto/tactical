@@ -58,6 +58,7 @@ PUBLIC game_state_t game_init(linear_allocator_t *allocator, slice_t grid_align,
         .mode = GAME_MODE_NONE,
         .hover = { 0, 0 },
         .hover_valid = false,
+        .selected_skill = 0,
         .game_over = GAME_OVER_NONE,
         .scratch = scratch,
         .render = {
@@ -135,7 +136,7 @@ PRIVATE void game_set_mode(game_state_t *game, linear_allocator_t *allocator, ga
         pathing_deinit(allocator, pathing);
         return;
     } else if (mode == GAME_MODE_ATTACK) {
-        int skill_range = entity_active_skill(active).range;
+        int skill_range = active->skills[game->selected_skill].range;
         // pass_through_opposing_team_of=active: attack-range preview treats
         // other enemies as passable so tiles behind them stay reachable-for-
         // targeting -- see ticket 003 / PLAN.md Q1-Q2.
@@ -165,6 +166,7 @@ PRIVATE void game_set_mode(game_state_t *game, linear_allocator_t *allocator, ga
 // becomes active or the game ends.
 PRIVATE void game_advance_turn(game_state_t *game, linear_allocator_t *allocator) {
     game->turn = turn_advance(game->turn);
+    game->selected_skill = 0;
     game_set_mode(game, allocator, GAME_MODE_NONE);
 
     entity_t *active = turn_active_entity(game->turn);
@@ -203,7 +205,7 @@ PRIVATE void game_on_entity_pressed(game_state_t *game, linear_allocator_t *allo
         return;
     }
 
-    if (action_try_attack(allocator, game->grid, game->entities, active, entity)) {
+    if (action_try_attack(allocator, game->grid, game->entities, active, active->skills[game->selected_skill], entity)) {
         // If the entity just died, we remove dead entities
         if (!entity->alive) {
             game->turn = turn_remove_dead_entities(game->turn);
@@ -245,8 +247,8 @@ PRIVATE void game_on_attack_toggle_pressed(game_state_t *game, linear_allocator_
     game_set_mode(game, allocator, game->mode == GAME_MODE_ATTACK ? GAME_MODE_MOVEMENT : GAME_MODE_ATTACK);
 }
 
-// Selects entity_t.skills[index] as the active entity's active skill and
-// recomputes the range preview for it. No-op outside player control / no
+// Selects entity_t.skills[index] as the player's active skill (game->selected_skill)
+// and recomputes the range preview for it. No-op outside player control / no
 // active mode / an index the entity doesn't have that many skills for.
 // Safe to call repeatedly (including with the same mode already active) --
 // game_set_mode's render_cache_reset always pops back to the pre-selection
@@ -264,7 +266,7 @@ PRIVATE void game_on_skill_button_pressed(game_state_t *game, linear_allocator_t
         return;
     }
 
-    active->selected_skill = index;
+    game->selected_skill = index;
     game_set_mode(game, allocator, game->mode);
 }
 

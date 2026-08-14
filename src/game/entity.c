@@ -31,7 +31,6 @@ PUBLIC entity_t* entity_spawn(linear_allocator_t *allocator, slice_entity_t *ent
         .alive = true,
         .skills = { skill },
         .skill_count = 1,
-        .selected_skill = 0,
     };
 
     entities->end = entity_s.end;
@@ -43,11 +42,6 @@ PUBLIC void entity_add_skill(entity_t *entity, skill_t skill) {
     assert_debug(entity->skill_count < ENTITY_MAX_SKILLS);
     entity->skills[entity->skill_count] = skill;
     entity->skill_count++;
-}
-
-PUBLIC skill_t entity_active_skill(entity_t *entity) {
-    assert_debug(entity->selected_skill >= 0 && entity->selected_skill < entity->skill_count);
-    return entity->skills[entity->selected_skill];
 }
 
 PUBLIC entity_t *entity_find_at(slice_entity_t list, position_t position) {
