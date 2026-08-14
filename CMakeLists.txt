@@ -95,11 +95,7 @@ if(APP_UNITY_BUILD)
     target_compile_definitions(app PRIVATE APP_UNITY_BUILD)
 endif()
 
-target_compile_options(app PRIVATE -ffreestanding -fno-builtin)
-# Lower memcpy/memmove/memset to the wasm bulk-memory instructions
-# (memory.copy / memory.fill) instead of emitting libc calls, so the
-# freestanding build doesn't need a libc stub for them.
-target_compile_options(app PRIVATE -mbulk-memory)
+target_compile_options(app PRIVATE -ffreestanding -fno-builtin -mbulk-memory)
 if(APP_COVERAGE)
     target_compile_options(app PRIVATE -fprofile-instr-generate -fcoverage-mapping)
 endif()
