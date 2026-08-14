@@ -53,12 +53,19 @@ async function main() {
 
     run('llvm-profdata', ['merge', '-o', PROF_DATA, PROF_TEXT]);
 
+    // Keep the annotated HTML report scoped to the same game.h-reachable
+    // sources as printUncovered (see coverage-missing.js), so the browser
+    // view doesn't show 0% for the wasm entry point, the renderer, the input
+    // poller, the scenario builder, the frame clock, the runtime/graphics
+    // wrappers or the test harness itself.
     run('llvm-cov', [
         'show',
         WASM_PATH,
         `-instr-profile=${PROF_DATA}`,
         '-format=html',
         `-output-dir=${HTML_DIR}`,
+        '--ignore-filename-regex=(^|/)(main|render|input|scenario|clock|graphics|runtime|coverage_stub)\\.c$',
+        '--ignore-filename-regex=(^|/)test[^/]*\\.(c|h)$',
     ]);
     console.log(`\nAnnotated line coverage: build/coverage-html/index.html`);
 
