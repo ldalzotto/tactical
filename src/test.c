@@ -9,6 +9,7 @@
 #include "test_game_ai.h"
 #include "test_game_selection.h"
 #include "test_scenario.h"
+#include "test_render.h"
 
 // g_*_tests_count is an extern const, not a compile-time constant in C, so
 // it can't seed a static initializer -- these helpers do the same
@@ -37,6 +38,9 @@ PRIVATE const test_case_t *test_lookup(uint32_t index) {
     index -= g_game_selection_tests_count;
 
     if (index < g_scenario_tests_count) { return &g_scenario_tests[index]; }
+    index -= g_scenario_tests_count;
+
+    if (index < g_render_tests_count) { return &g_render_tests[index]; }
 
     assert_test(false);
     return 0;
@@ -51,7 +55,8 @@ uint32_t test_discovery_count(void) {
         + g_game_combat_tests_count
         + g_game_ai_tests_count
         + g_game_selection_tests_count
-        + g_scenario_tests_count;
+        + g_scenario_tests_count
+        + g_render_tests_count;
 }
 
 __attribute__((export_name("test_discovery_name_begin")))
