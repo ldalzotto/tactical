@@ -127,7 +127,7 @@ async function runWasmTests({ wasmBytes, resolveFrames, onResult, onComplete, cr
     }
 
     onComplete({ passed, failed, count });
-    return { passed, failed, count };
+    return { passed, failed, count, memory, instance };
 }
 
 async function runApp({ wasmBytes, now, createWindow, presentWindow, debugLog, reportPanic }) {
