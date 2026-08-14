@@ -17,11 +17,9 @@ PUBLIC game_state_t scenario_setup_default(linear_allocator_t* allocator, int gr
     entity_t *e3 = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){14, 8}, 10, 1, 3);
 
     // Every entity gets both skills, populated into the shared skill list
-    // after every entity exists (entity_spawn's own contiguity requirement
-    // forbids interleaving anything else in between spawns). Exercises AI
-    // skill choice and player skill selection on both teams by default, not
-    // just in unit tests. Scope call, not a gameplay requirement -- see
-    // FLAGGED_DECISIONS.md.
+    // after every entity exists (entity_spawn requires no interleaved
+    // spawns). Exercises AI skill choice and player skill selection on both
+    // teams by default, not just in unit tests.
     slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
     slice_skill_t skills = skill_list_init(allocator);
 

@@ -319,8 +319,7 @@ PRIVATE void test_game_ranged_attack_blocked_by_enemy_in_path(linear_allocator_t
 }
 
 // Allies still block occupancy in the attack-range BFS -- only the
-// attacker's opposing team is made passable (PLAN.md Q2: scoped to what the
-// feature actually asked for, not "ignore everyone").
+// attacker's opposing team is made passable.
 PRIVATE void test_game_ranged_attack_still_blocked_by_ally_in_path(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 1);

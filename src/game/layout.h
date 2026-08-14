@@ -6,11 +6,8 @@
 
 #include "ui.h"
 
-// Fixed button-array size for skill selection (ticket 006). An entity's
-// skill list (entity_t.skills) has no fixed cap, so this is purely a HUD
-// constraint: only the first VIEWPORT_MAX_SKILL_BUTTONS skills get a button
-// (see game.c/render.c's clamps around entity_skill_count()). layout.h/.c
-// stays pure screen geometry with no game-logic dependency.
+// Max skill buttons the HUD draws/hit-tests. entity_t.skills itself has no
+// cap; callers clamp to this via entity_skill_count().
 #define VIEWPORT_MAX_SKILL_BUTTONS 2
 
 typedef struct {
@@ -20,11 +17,8 @@ typedef struct {
     rect_t hud_rect;
     rect_t end_turn_button;
     rect_t attack_button;
-    // Backing storage only, sized for VIEWPORT_MAX_SKILL_BUTTONS. viewport_t
-    // is copied by value throughout the codebase, so a slice can't be
-    // stored here (its pointers would go stale on copy) -- read/write
-    // through viewport_skill_buttons() instead, which rebuilds the slice
-    // from whichever live instance you hand it.
+    // Backing storage; viewport_t is copied by value so a slice can't live
+    // here directly -- use viewport_skill_buttons() to get one.
     rect_t skill_buttons[VIEWPORT_MAX_SKILL_BUTTONS];
     rect_t timeline_rect;
 } viewport_t;

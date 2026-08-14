@@ -1,9 +1,8 @@
 #include "render.h"
 
-// Colors -- see the T12 ticket's drawing spec for the exact values below;
-// anything not explicitly pinned there (the "lighter" gridline fill, entity
-// square/HP-bar insets, HUD background, AP/MP indicator sizing) is a
-// reasonable implementation choice, not a spec value.
+// Colors. Some values (the "lighter" gridline fill, entity square/HP-bar
+// insets, HUD background, AP/MP indicator sizing) are implementation
+// choices rather than pinned spec values.
 static const rgba_t COLOR_TILE_WALKABLE = { 40, 40, 40, 255 };
 static const rgba_t COLOR_TILE_WALKABLE_INSET = { 60, 60, 60, 255 };
 static const rgba_t COLOR_TILE_OBSTACLE = { 10, 10, 10, 255 };
@@ -11,9 +10,8 @@ static const rgba_t COLOR_TILE_OBSTACLE_INSET = { 30, 30, 30, 255 };
 static const rgba_t COLOR_REACHABLE_TINT = { 80, 140, 220, 255 };
 static const rgba_t COLOR_ATTACK_RANGE_TINT = { 230, 140, 60, 255 };
 static const rgba_t COLOR_WHITE = { 255, 255, 255, 255 };
-// Always-on "whose turn it is" marker (see ticket 002) -- deliberately not
-// COLOR_WHITE/an outline shape, so it never collides visually with the
-// mode-gated selection outline drawn on the same tile in the common case.
+// Always-on "whose turn it is" marker; distinct from COLOR_WHITE so it
+// doesn't collide with the mode-gated selection outline.
 static const rgba_t COLOR_TURN_INDICATOR = { 250, 210, 40, 255 };
 static const rgba_t COLOR_PLAYER = { 60, 120, 255, 255 };
 static const rgba_t COLOR_ENEMY = { 220, 60, 60, 255 };
@@ -25,8 +23,8 @@ static const rgba_t COLOR_END_TURN_INACTIVE = { 80, 80, 80, 255 };
 static const rgba_t COLOR_ATTACK_BUTTON_ON = { 220, 60, 60, 255 };
 static const rgba_t COLOR_ATTACK_BUTTON_AVAILABLE = { 230, 140, 60, 255 };
 static const rgba_t COLOR_ATTACK_BUTTON_INACTIVE = { 80, 80, 80, 255 };
-// Same value as COLOR_ATTACK_BUTTON_AVAILABLE: deliberate visual echo (this
-// orange marks "the active choice" in both places), not a copy-paste slip.
+// Same value as COLOR_ATTACK_BUTTON_AVAILABLE: intentional echo, both mark
+// "the active choice".
 static const rgba_t COLOR_SKILL_BUTTON_SELECTED = { 230, 140, 60, 255 };
 static const rgba_t COLOR_SKILL_BUTTON_AVAILABLE = { 90, 90, 110, 255 };
 static const rgba_t COLOR_AP_PIP = { 60, 120, 255, 255 };
@@ -35,8 +33,7 @@ static const rgba_t COLOR_WIN = { 0, 200, 0, 255 };
 static const rgba_t COLOR_LOSE = { 200, 0, 0, 255 };
 
 #define OUTLINE_THICKNESS 2
-// Small square, inset far enough from the tile edge to never touch the
-// OUTLINE_THICKNESS-px selection outline drawn on the same tile.
+// Small square, inset past the OUTLINE_THICKNESS-px selection outline.
 #define TURN_INDICATOR_SIZE 6
 #define TURN_INDICATOR_INSET (OUTLINE_THICKNESS + 2)
 
@@ -80,14 +77,11 @@ PRIVATE void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
         grid_to_screen(game.viewport, tile.x, tile.y, &px, &py);
         int ts = game.viewport.tile_size;
 
-        // Tiles occupied by a targetable (opposing-team) entity draw
-        // dithered so the highlight stays visible under the entity's own
-        // opaque sprite (drawn afterward in render_entities) -- see ticket
-        // 004. Same-team (ally) occupants fall back to solid: allies still
-        // block the attack-range BFS entirely (see pathing_compute_distances'
-        // mark_occupied_reachable), so an ally tile never legitimately ends
-        // up in attack_range_tiles in the first place, but the check still
-        // degrades safely (solid) if that ever changes.
+        // Targetable (opposing-team) tiles draw dithered so the highlight
+        // stays visible under the entity's opaque sprite, drawn later in
+        // render_entities. Allies fall back to solid, though in practice
+        // they never reach attack_range_tiles since they block the BFS
+        // (pathing_compute_range's mark_occupied_reachable).
         entity_t *occupant = entity_find_at(game.entities, tile);
         bool targetable = occupant != 0 && occupant->team != attacker->team;
         if (targetable) {
@@ -152,9 +146,8 @@ PRIVATE void render_entities(slice_rgba_t fb, int fb_width, game_state_t game) {
         graphics_draw_rectangle(fb, fb_width, square_x, square_top, square_width, square_height, color);
 
         if (entity == active) {
-            // Always visible, regardless of mode -- see ticket 002. Distinct
-            // from the outline below so the two never look identical when
-            // both apply (mode active + this entity selected).
+            // Always visible, regardless of mode. Distinct from the outline
+            // below so the two never look identical when both apply.
             graphics_draw_rectangle(fb, fb_width, px + TURN_INDICATOR_INSET, py + TURN_INDICATOR_INSET, TURN_INDICATOR_SIZE, TURN_INDICATOR_SIZE, COLOR_TURN_INDICATOR);
         }
 

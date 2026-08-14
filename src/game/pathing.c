@@ -7,10 +7,8 @@ PUBLIC void pathing_deinit(linear_allocator_t *allocator, pathing_state_t state)
     linear_allocator_pop(allocator, state.align);
 }
 
-// Shared BFS core for pathing_compute_distances (navigation) and
-// pathing_compute_range (skill range) -- see pathing.h for what
-// mark_occupied_reachable means and why range gets its own public entry
-// point instead of exposing this flag directly.
+// Shared BFS core for pathing_compute_distances and pathing_compute_range;
+// see pathing.h for mark_occupied_reachable semantics.
 PRIVATE pathing_state_t pathing_bfs(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* excluded, position_t from, int max_steps, bool mark_occupied_reachable) {
     assert_debug(grid_in_bounds(grid, from));
 
