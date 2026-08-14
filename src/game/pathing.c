@@ -7,7 +7,11 @@ PUBLIC void pathing_deinit(linear_allocator_t *allocator, pathing_state_t state)
     linear_allocator_pop(allocator, state.align);
 }
 
-PUBLIC pathing_state_t  pathing_compute_distances(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* excluded, position_t from, int max_steps, bool mark_occupied_reachable) {
+// Shared BFS core for pathing_compute_distances (navigation) and
+// pathing_compute_range (skill range) -- see pathing.h for what
+// mark_occupied_reachable means and why range gets its own public entry
+// point instead of exposing this flag directly.
+PRIVATE pathing_state_t pathing_bfs(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* excluded, position_t from, int max_steps, bool mark_occupied_reachable) {
     assert_debug(grid_in_bounds(grid, from));
 
     size_t count = (size_t)(grid.width * grid.height);
@@ -82,6 +86,14 @@ PUBLIC pathing_state_t  pathing_compute_distances(linear_allocator_t *allocator,
         .align = align,
         .dist = dist,
     };
+}
+
+PUBLIC pathing_state_t pathing_compute_distances(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* excluded, position_t from, int max_steps) {
+    return pathing_bfs(allocator, grid, entities, excluded, from, max_steps, false);
+}
+
+PUBLIC pathing_state_t pathing_compute_range(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* excluded, position_t from, int max_steps) {
+    return pathing_bfs(allocator, grid, entities, excluded, from, max_steps, true);
 }
 
 PUBLIC int pathing_distance_at(pathing_state_t state, grid_t grid, position_t position) {
