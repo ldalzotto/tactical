@@ -90,8 +90,8 @@ PRIVATE bool game_tile_is_reachable(pathing_state_t pathing, grid_t grid, positi
 //   if it has no mp left), nullifies attack_range_tiles. Called eagerly on
 //   any selection/position/mp change, and whenever attack mode turns off.
 // - ATTACK: mirror image -- nullifies reachable_tiles, computes
-//   attack_range_tiles via the same BFS rooted at active->skill.range instead
-//   of mp.
+//   attack_range_tiles via the same BFS rooted at the active entity's
+//   currently-selected skill range instead of mp.
 // Render just reads the cached lists, no per-frame pathing.
 PRIVATE void game_set_mode(game_state_t *game, linear_allocator_t *allocator, game_mode_t mode) {
     render_cache_reset(&game->scratch, &game->render);
@@ -128,14 +128,15 @@ PRIVATE void game_set_mode(game_state_t *game, linear_allocator_t *allocator, ga
         pathing_deinit(allocator, pathing);
         return;
     } else if (mode == GAME_MODE_ATTACK) {
-        pathing_state_t pathing = pathing_compute_distances(allocator, game->grid, game->entities, active, active->position, active->skill.range);
+        int skill_range = entity_active_skill(active).range;
+        pathing_state_t pathing = pathing_compute_distances(allocator, game->grid, game->entities, active, active->position, skill_range);
 
         slice_t attack_range_align = linear_allocator_push_alignment(&game->scratch, _Alignof(position_t));
         slice_position_t attack_range_tiles = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.attack_range_tiles, 0);
         for (int ty = 0; ty < game->grid.height; ty++) {
             for (int tx = 0; tx < game->grid.width; tx++) {
                 position_t position = { tx, ty };
-                if (game_tile_is_reachable(pathing, game->grid, position, active->skill.range)) {
+                if (game_tile_is_reachable(pathing, game->grid, position, skill_range)) {
                     slice_position_t entry = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.attack_range_tiles, 1);
                     SLICE_DEREF(entry) = position;
                     attack_range_tiles.end = entry.end;

@@ -11,7 +11,7 @@
 extern const skill_t SKILL_MELEE;
 extern const skill_t SKILL_RANGED;
 
-// True if `target` is within attacker->skill.range steps of `attacker`:
+// True if `target` is within entity_active_skill(attacker).range steps of `attacker`:
 // - BFS over walkable tiles, blocked by any other alive entity in the way
 // - attacker's own tile is never occupancy-checked (it's the BFS root)
 // - target's own tile is excluded from the occupancy check so it's reachable
