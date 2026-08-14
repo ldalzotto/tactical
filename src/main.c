@@ -9,21 +9,13 @@
 #include "game/render.h"
 #include "game/scenario.h"
 
+#include "main.h"
+
 #define FB_WIDTH 320
 #define FB_HEIGHT 240
 #define GRID_WIDTH 16
 #define GRID_HEIGHT 10
 #define HUD_HEIGHT 40
-
-typedef struct {
-    linear_allocator_t allocator;
-    slice_t framebuffer_align;
-    slice_rgba_t framebuffer;
-    uint32_t now_ms;
-    uint32_t last_frame_ms;
-    window_handle_t window;
-    game_state_t game;
-} app_state_t;
 
 SLICE_DEFINE(app_state_t);
 
@@ -59,6 +51,12 @@ void deinit(app_state_t *state) {
     linear_allocator_pop(&state->allocator, (slice_t){state, typeoffset(state, 1)});
 }
 
+PUBLIC void app_dispatch_input_events(game_state_t *game, linear_allocator_t *allocator, slice_input_event_t events) {
+    for (input_event_t *event = events.begin; event != events.end; event++) {
+        game_on_input_event(game, allocator, *event);
+    }
+}
+
 __attribute__((export_name("onNextFrame")))
 uint32_t onNextFrame(app_state_t *state, uint32_t now_ms) {
     const uint32_t interval_ms = 16; // 60 FPS
@@ -70,9 +68,7 @@ uint32_t onNextFrame(app_state_t *state, uint32_t now_ms) {
     state->last_frame_ms = now_ms;
 
     slice_input_event_t events = input_poll(&state->allocator, state->window);
-    for (input_event_t *event = events.begin; event != events.end; event++) {
-        game_on_input_event(&state->game, &state->allocator, *event);
-    }
+    app_dispatch_input_events(&state->game, &state->allocator, events);
     linear_allocator_pop(&state->allocator, events.slice);
 
     render_frame(state->framebuffer, FB_WIDTH, state->game);

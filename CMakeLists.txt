@@ -68,6 +68,7 @@ else()
     if(APP_BUILD_TESTS)
         list(APPEND APP_SOURCES
             src/test.c
+            src/test_app.c
             src/test_runtime.c
             src/test_memory.c
             src/test_layout.c

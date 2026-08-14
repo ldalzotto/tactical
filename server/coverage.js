@@ -64,8 +64,6 @@ async function main() {
         `-instr-profile=${PROF_DATA}`,
         '-format=html',
         `-output-dir=${HTML_DIR}`,
-        '--ignore-filename-regex=(^|/)(main|render|input|scenario|clock|graphics|runtime|coverage_stub)\\.c$',
-        '--ignore-filename-regex=(^|/)test[^/]*\\.(c|h)$',
     ]);
     console.log(`\nAnnotated line coverage: build/coverage-html/index.html`);
 
