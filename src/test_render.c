@@ -57,7 +57,7 @@ static bool test_tile_fully_color(slice_rgba_t fb, int fb_width, viewport_t view
     return true;
 }
 
-// Framebuffer allocation, mirroring main.c's init(): push alignment padding,
+// Framebuffer allocation, mirroring app.c's app_init(): push alignment padding,
 // then the pixel buffer. *out_align must be popped (after popping the
 // returned slice) to fully unwind the allocator -- see callers.
 static slice_rgba_t test_render_alloc_framebuffer(linear_allocator_t *allocator, int fb_width, int fb_height, slice_t *out_align) {

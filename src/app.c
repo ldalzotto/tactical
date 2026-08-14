@@ -1,7 +1,6 @@
 #include <stdint.h>
 
 #include "lib/clock.h"
-#include "lib/graphics.h"
 #include "lib/memory.h"
 #include "lib/runtime.h"
 #include "game/game.h"
@@ -9,7 +8,7 @@
 #include "game/render.h"
 #include "game/scenario.h"
 
-#include "main.h"
+#include "app.h"
 
 #define FB_WIDTH 320
 #define FB_HEIGHT 240
@@ -20,7 +19,7 @@
 SLICE_DEFINE(app_state_t);
 
 __attribute__((export_name("init")))
-app_state_t *init(uint32_t memory_size, uint32_t now_ms) {
+app_state_t *app_init(uint32_t memory_size, uint32_t now_ms) {
     slice_t memory; memory.begin = heap_base();
     memory.end = byteoffset(memory.begin, memory_size);
     linear_allocator_t bootstrap = linear_allocator_init(memory);
@@ -44,7 +43,7 @@ app_state_t *init(uint32_t memory_size, uint32_t now_ms) {
 }
 
 __attribute__((export_name("deinit")))
-void deinit(app_state_t *state) {
+void app_deinit(app_state_t *state) {
     game_deinit(&state->allocator, state->game);
     LINEAR_ALLOCATOR_POP(&state->allocator, state->framebuffer);
     linear_allocator_pop(&state->allocator, state->framebuffer_align);
@@ -58,7 +57,7 @@ PUBLIC void app_dispatch_input_events(game_state_t *game, linear_allocator_t *al
 }
 
 __attribute__((export_name("onNextFrame")))
-uint32_t onNextFrame(app_state_t *state, uint32_t now_ms) {
+uint32_t app_on_next_frame(app_state_t *state, uint32_t now_ms) {
     const uint32_t interval_ms = 16; // 60 FPS
     uint32_t wait_ms = clock_time_to_wait(now_ms, state->last_frame_ms, interval_ms);
     if (wait_ms != 0) {
