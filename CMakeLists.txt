@@ -96,7 +96,7 @@ if(APP_UNITY_BUILD)
     target_compile_definitions(app PRIVATE APP_UNITY_BUILD)
 endif()
 
-target_compile_options(app PRIVATE -ffreestanding -fno-builtin -mbulk-memory)
+target_compile_options(app PRIVATE -ffreestanding -fno-builtin -mbulk-memory -Wall -Wextra -Werror)
 if(APP_COVERAGE)
     target_compile_definitions(app PRIVATE APP_COVERAGE)
     target_compile_options(app PRIVATE -fprofile-instr-generate -fcoverage-mapping)
