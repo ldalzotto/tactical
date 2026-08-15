@@ -507,6 +507,44 @@ PRIVATE void test_game_attack_toggle_after_move_selection_does_not_overflow_scra
     game_deinit(allocator, game);
 }
 
+// Regression test for the panic this scenario used to trigger: a skill
+// range far bigger than game->scratch's old fixed 256-byte capacity (32
+// position_t tiles) overflowed linear_allocator_push's bounds assert the
+// moment attack mode was toggled. game->scratch now grows on demand (see
+// game_scratch_grow_for in game.c), so this must produce a tile list well
+// past the old cap without panicking.
+PRIVATE void test_game_attack_toggle_with_large_range_skill_grows_scratch(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){8, 5}, 10, 2, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_list_add(allocator, &skills, (skill_t){ .range = 20, .ap_cost = 1, .damage = 2 });
+    p->skills = skills;
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+
+    test_click_tile(&game, allocator, p->position);
+
+    expect_panic_begin();
+    test_click_attack_toggle(&game, allocator);
+    assert_test(!expect_panic_end());
+
+    assert_test(game.mode == GAME_MODE_ATTACK);
+    // Old capacity was 256 bytes / sizeof(position_t) == 32 tiles; a
+    // range-20 diamond on a 16x10 grid comfortably exceeds that.
+    assert_test(SLICE_TYPESIZE(game.render.attack_range_tiles) > 32);
+
+    game_deinit(allocator, game);
+}
+
 PRIVATE void test_game_selecting_shows_reachable_tiles_and_toggle_shows_attack_range_tiles(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT);
@@ -778,6 +816,7 @@ const test_case_t g_game_combat_tests[] = {
     { TEST_NAME("game_attack_range_tiles_include_occupied_but_not_beyond"), test_game_attack_range_tiles_include_occupied_but_not_beyond },
     { TEST_NAME("game_ranged_attack_blocked_by_wall_on_diagonal_line"), test_game_ranged_attack_blocked_by_wall_on_diagonal_line },
     { TEST_NAME("game_attack_toggle_after_move_selection_does_not_overflow_scratch"), test_game_attack_toggle_after_move_selection_does_not_overflow_scratch },
+    { TEST_NAME("game_attack_toggle_with_large_range_skill_grows_scratch"), test_game_attack_toggle_with_large_range_skill_grows_scratch },
     { TEST_NAME("game_selecting_shows_reachable_tiles_and_toggle_shows_attack_range_tiles"), test_game_selecting_shows_reachable_tiles_and_toggle_shows_attack_range_tiles },
     { TEST_NAME("game_skill_button_switches_attack_range_to_selected_skill"), test_game_skill_button_switches_attack_range_to_selected_skill },
     { TEST_NAME("game_skill_button_pressed_noop_outside_valid_conditions"), test_game_skill_button_pressed_noop_outside_valid_conditions },

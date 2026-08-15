@@ -47,6 +47,25 @@ PUBLIC void linear_allocator_pop_move(linear_allocator_t *allocator, slice_t fro
     allocator->cursor = byteoffset(to.begin, size);
 }
 
+// Grows `allocator` by `size` bytes and opens a `size`-byte gap at
+// `position` by sliding everything between `position` and the old cursor up
+// to make room. Callers holding slices/pointers into that shifted region
+// must rebase them by `size` themselves -- this only moves the bytes.
+PUBLIC void linear_allocator_insert(linear_allocator_t *allocator, void *position, size_t size) {
+    assert_debug(position >= allocator->data.begin && position <= allocator->cursor);
+    void *old_cursor = allocator->cursor;
+    linear_allocator_push(allocator, size);
+    ptrdiff_t tail_size = bytesize(position, old_cursor);
+    // A position past old_cursor (assert_debug above already traps on it in
+    // non-test builds) would otherwise go negative here and wrap to a huge
+    // size_t below -- clamp instead of turning a caught precondition
+    // violation into a runaway memmove.
+    if (tail_size < 0) {
+        tail_size = 0;
+    }
+    __builtin_memmove(byteoffset(position, (ptrdiff_t)size), position, (size_t)tail_size);
+}
+
 PUBLIC void *slice_at(slice_t s, size_t index, size_t alignment) {
     assert_debug((alignment & (alignment - 1)) == 0);
     void *result = byteoffset(s.begin, (ptrdiff_t)index);
@@ -60,6 +79,13 @@ PUBLIC slice_t slice_advance(slice_t s, size_t by) {
     void *begin = byteoffset(s.begin, (ptrdiff_t)by);
     assert_debug(begin <= s.end);
     slice_t result = { begin, s.end };
+    return result;
+}
+
+// Rebases both ends of `s` by `by` bytes, for callers that hold a slice into
+// a region that just got relocated by linear_allocator_insert.
+PUBLIC slice_t slice_shift(slice_t s, ptrdiff_t by) {
+    slice_t result = { byteoffset(s.begin, by), byteoffset(s.end, by) };
     return result;
 }
 
