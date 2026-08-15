@@ -89,6 +89,27 @@ PUBLIC pathing_state_t pathing_compute_distances(linear_allocator_t *allocator, 
     return pathing_bfs(allocator, grid, entities, from, max_steps);
 }
 
+// True if the straight ray from `from` to `to` (`to` != `from`) is
+// unobstructed: every intermediate tile -- both endpoints excluded, so
+// neither `from`'s nor `to`'s own tile can block sight to itself -- is
+// walkable and unoccupied.
+PRIVATE bool pathing_line_of_sight_clear(grid_t grid, slice_entity_t entities, position_t from, position_t to) {
+    geometry_line_iter_t it = geometry_line_iter_start(from, to);
+
+    position_t tile;
+    while (geometry_line_iter_next(&it, to, &tile)) {
+        if (!grid_is_walkable(grid, tile)) {
+            return false;
+        }
+
+        if (entity_find_at(entities, tile) != 0) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 PUBLIC pathing_state_t pathing_compute_line_of_sight(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, position_t from, int max_range) {
     // Broad phase: an entity-free flood fill gives every walkable tile
     // within max_range Manhattan steps, clipped to the grid -- a diamond,
@@ -104,7 +125,7 @@ PUBLIC pathing_state_t pathing_compute_line_of_sight(linear_allocator_t *allocat
             }
 
             position_t tile = { tx, ty };
-            if (!geometry_line_of_sight_clear(grid, entities, from, tile)) {
+            if (!pathing_line_of_sight_clear(grid, entities, from, tile)) {
                 SLICE_AT(state.dist, index) = -1;
             }
         }
