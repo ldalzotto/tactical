@@ -50,10 +50,22 @@ void app_deinit(app_state_t *state) {
     linear_allocator_pop(&state->allocator, (slice_t){state, typeoffset(state, 1)});
 }
 
-PUBLIC void app_dispatch_input_events(game_state_t *game, linear_allocator_t *allocator, slice_input_event_t events) {
-    for (input_event_t *event = events.begin; event != events.end; event++) {
-        game_on_input_event(game, allocator, *event);
+// Handling an event can grow game->scratch, which relocates anything else
+// staged above it on `allocator` -- including this very `events` buffer, and
+// the loop's own read cursor into it. Rebase both by each call's returned
+// shift before continuing, and return the total so app_on_next_frame can
+// rebase its own copy of `events` before popping it.
+PUBLIC ptrdiff_t app_dispatch_input_events(game_state_t *game, linear_allocator_t *allocator, slice_input_event_t events) {
+    ptrdiff_t total_shift = 0;
+    input_event_t *event = events.begin;
+    while (event != events.end) {
+        ptrdiff_t shift = game_on_input_event(game, allocator, *event);
+        event = byteoffset(event, shift);
+        events.end = byteoffset(events.end, shift);
+        total_shift += shift;
+        event++;
     }
+    return total_shift;
 }
 
 __attribute__((export_name("onNextFrame")))
@@ -67,7 +79,9 @@ uint32_t app_on_next_frame(app_state_t *state, uint32_t now_ms) {
     state->last_frame_ms = now_ms;
 
     slice_input_event_t events = input_poll(&state->allocator, state->window);
-    app_dispatch_input_events(&state->game, &state->allocator, events);
+    ptrdiff_t shift = app_dispatch_input_events(&state->game, &state->allocator, events);
+    events.begin = byteoffset(events.begin, shift);
+    events.end = byteoffset(events.end, shift);
     linear_allocator_pop(&state->allocator, events.slice);
 
     render_frame(state->framebuffer, FB_WIDTH, state->game);
