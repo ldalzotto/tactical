@@ -22,6 +22,8 @@ PUBLIC void grid_deinit(linear_allocator_t *allocator, grid_t grid);
 PUBLIC bool grid_in_bounds(grid_t grid, position_t position);
 PUBLIC void grid_set_walkable(grid_t grid, position_t position, bool walkable);
 PUBLIC bool grid_is_walkable(grid_t grid, position_t position);
+PUBLIC void grid_set_blocks_sight(grid_t grid, position_t position, bool blocks_sight);
+PUBLIC bool grid_blocks_sight(grid_t grid, position_t position);
 
 #ifdef APP_UNITY_BUILD
 #include "grid.c"

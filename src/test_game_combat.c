@@ -413,6 +413,53 @@ PRIVATE void test_game_attack_range_tiles_include_occupied_but_not_beyond(linear
     game_deinit(allocator, game);
 }
 
+// A wall doesn't block walking here -- a same-length detour exists around
+// it -- but it must still block a ranged attack's line of sight: the
+// straight ray to the target crosses the wall tile even though a walking
+// path of equal length gets there by going around it.
+PRIVATE void test_game_ranged_attack_blocked_by_wall_on_diagonal_line(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 3, 3);
+    grid_set_walkable(grid, (position_t){1, 1}, false);
+    grid_set_blocks_sight(grid, (position_t){1, 1}, true);
+
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
+    entity_t* e = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){2, 2}, 10, 2, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    // range=4: e sits at Manhattan distance 4, and the (0,0)->(1,1)->(2,2)
+    // diagonal ray crosses the wall at (1,1); a walking detour around it
+    // (e.g. (0,0)->(1,0)->(2,0)->(2,1)->(2,2)) is also exactly 4 steps, so
+    // this only stays out of range if LOS -- not walking distance -- gates it.
+    skill_list_add(allocator, &skills, (skill_t){ .range = 4, .damage = 3, .ap_cost = 1 });
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *e_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e->skills = (slice_skill_t){ .begin = e_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, e);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+
+    assert_test(!test_tile_list_contains(game.render.attack_range_tiles, e->position));
+    test_click_tile(&game, allocator, e->position);
+
+    assert_test(e->hp == 10);
+    assert_test(p->ap == 2);
+
+    game_deinit(allocator, game);
+}
+
 PRIVATE void test_game_attack_toggle_after_move_selection_does_not_overflow_scratch(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT);
@@ -729,6 +776,7 @@ const test_case_t g_game_combat_tests[] = {
     { TEST_NAME("game_ranged_attack_blocked_by_enemy_in_path"), test_game_ranged_attack_blocked_by_enemy_in_path },
     { TEST_NAME("game_ranged_attack_still_blocked_by_ally_in_path"), test_game_ranged_attack_still_blocked_by_ally_in_path },
     { TEST_NAME("game_attack_range_tiles_include_occupied_but_not_beyond"), test_game_attack_range_tiles_include_occupied_but_not_beyond },
+    { TEST_NAME("game_ranged_attack_blocked_by_wall_on_diagonal_line"), test_game_ranged_attack_blocked_by_wall_on_diagonal_line },
     { TEST_NAME("game_attack_toggle_after_move_selection_does_not_overflow_scratch"), test_game_attack_toggle_after_move_selection_does_not_overflow_scratch },
     { TEST_NAME("game_selecting_shows_reachable_tiles_and_toggle_shows_attack_range_tiles"), test_game_selecting_shows_reachable_tiles_and_toggle_shows_attack_range_tiles },
     { TEST_NAME("game_skill_button_switches_attack_range_to_selected_skill"), test_game_skill_button_switches_attack_range_to_selected_skill },

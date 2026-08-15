@@ -4,6 +4,7 @@
 
 struct tile {
     bool walkable;
+    bool blocks_sight;
 };
 
 PUBLIC slice_t grid_align(linear_allocator_t *allocator) {
@@ -18,7 +19,7 @@ PUBLIC grid_t grid_init(linear_allocator_t *allocator, int width, int height) {
     tiles = LINEAR_ALLOCATOR_PUSH(allocator, tiles, (size_t)(width * height));
 
     for (SLICE_FOREACH(tiles, tile)) {
-        SLICE_DEREF(tile) = (tile_t){ .walkable = true };
+        SLICE_DEREF(tile) = (tile_t){ .walkable = true, .blocks_sight = false };
     }
 
     grid_t grid = { .width = width, .height = height, .tiles = tiles };
@@ -43,4 +44,12 @@ PUBLIC void grid_set_walkable(grid_t grid, position_t position, bool walkable) {
 
 PUBLIC bool grid_is_walkable(grid_t grid, position_t position) {
     return grid_tile_at(grid, position)->walkable;
+}
+
+PUBLIC void grid_set_blocks_sight(grid_t grid, position_t position, bool blocks_sight) {
+    grid_tile_at(grid, position)->blocks_sight = blocks_sight;
+}
+
+PUBLIC bool grid_blocks_sight(grid_t grid, position_t position) {
+    return grid_tile_at(grid, position)->blocks_sight;
 }
