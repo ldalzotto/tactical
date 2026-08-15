@@ -421,6 +421,7 @@ PRIVATE void test_game_ranged_attack_blocked_by_wall_on_diagonal_line(linear_all
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 3, 3);
     grid_set_walkable(grid, (position_t){1, 1}, false);
+    grid_set_blocks_sight(grid, (position_t){1, 1}, true);
 
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);

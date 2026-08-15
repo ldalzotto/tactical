@@ -91,14 +91,14 @@ PUBLIC pathing_state_t pathing_compute_distances(linear_allocator_t *allocator, 
 
 // True if the straight ray from `from` to `to` (`to` != `from`) is
 // unobstructed: every intermediate tile -- both endpoints excluded, so
-// neither `from`'s nor `to`'s own tile can block sight to itself -- is
-// walkable and unoccupied.
+// neither `from`'s nor `to`'s own tile can block sight to itself -- does
+// not block sight and is unoccupied.
 PRIVATE bool pathing_line_of_sight_clear(grid_t grid, slice_entity_t entities, position_t from, position_t to) {
     geometry_line_iter_t it = geometry_line_iter_start(from, to);
 
     position_t tile;
     while (geometry_line_iter_next(&it, to, &tile)) {
-        if (!grid_is_walkable(grid, tile)) {
+        if (grid_blocks_sight(grid, tile)) {
             return false;
         }
 
