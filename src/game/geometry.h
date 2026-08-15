@@ -4,16 +4,27 @@
 
 #include <stdbool.h>
 
-#include "entity.h"
-#include "grid.h"
 #include "position.h"
 
-// True if the straight ray from `from` to `to` (`to` != `from`) is
-// unobstructed: every intermediate tile -- both endpoints excluded, so
-// neither `from`'s nor `to`'s own tile can block sight to itself -- is
-// walkable and unoccupied. Standard Bresenham line, stepping one axis (or
-// both, on a diagonal tie) per iteration.
-PUBLIC bool geometry_line_of_sight_clear(grid_t grid, slice_entity_t entities, position_t from, position_t to);
+// Bresenham line-walking state, stepping one axis (or both, on a diagonal
+// tie) per iteration from `from` towards a `to` supplied at each `next`
+// call. Pure math: no grid, entity, or other game-state awareness.
+typedef struct {
+    int adx;
+    int sx;
+    int ady;
+    int sy;
+    int x;
+    int y;
+    int err;
+} geometry_line_iter_t;
+
+PUBLIC geometry_line_iter_t geometry_line_iter_start(position_t from, position_t to);
+
+// Advances the iterator to the next tile on the ray and writes it to
+// `out_tile`. Returns false once `to` is reached, without writing `to`
+// itself -- so both endpoints are excluded from the walked tiles.
+PUBLIC bool geometry_line_iter_next(geometry_line_iter_t *it, position_t to, position_t *out_tile);
 
 #ifdef APP_UNITY_BUILD
 #include "geometry.c"
