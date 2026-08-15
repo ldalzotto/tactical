@@ -9,6 +9,10 @@ static const rgba_t COLOR_TILE_WALKABLE = { 40, 40, 40, 255 };
 static const rgba_t COLOR_TILE_WALKABLE_INSET = { 60, 60, 60, 255 };
 static const rgba_t COLOR_TILE_OBSTACLE = { 10, 10, 10, 255 };
 static const rgba_t COLOR_TILE_OBSTACLE_INSET = { 30, 30, 30, 255 };
+// Walkable tiles that still block line of sight (e.g. tall grass): distinct
+// from both plain floor and a non-walkable wall.
+static const rgba_t COLOR_TILE_WALKABLE_BLOCKS_SIGHT = { 40, 60, 30, 255 };
+static const rgba_t COLOR_TILE_WALKABLE_BLOCKS_SIGHT_INSET = { 60, 90, 45, 255 };
 static const rgba_t COLOR_REACHABLE_TINT = { 80, 140, 220, 255 };
 static const rgba_t COLOR_ATTACK_RANGE_TINT = { 230, 140, 60, 255 };
 static const rgba_t COLOR_WHITE = { 255, 255, 255, 255 };
@@ -52,8 +56,19 @@ PRIVATE void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
     for (int ty = 0; ty < game.grid.height; ty++) {
         for (int tx = 0; tx < game.grid.width; tx++) {
             bool walkable = grid_is_walkable(game.grid, (position_t){tx, ty});
-            rgba_t outer = walkable ? COLOR_TILE_WALKABLE : COLOR_TILE_OBSTACLE;
-            rgba_t inset = walkable ? COLOR_TILE_WALKABLE_INSET : COLOR_TILE_OBSTACLE_INSET;
+            bool blocks_sight = grid_blocks_sight(game.grid, (position_t){tx, ty});
+
+            rgba_t outer, inset;
+            if (!walkable) {
+                outer = COLOR_TILE_OBSTACLE;
+                inset = COLOR_TILE_OBSTACLE_INSET;
+            } else if (blocks_sight) {
+                outer = COLOR_TILE_WALKABLE_BLOCKS_SIGHT;
+                inset = COLOR_TILE_WALKABLE_BLOCKS_SIGHT_INSET;
+            } else {
+                outer = COLOR_TILE_WALKABLE;
+                inset = COLOR_TILE_WALKABLE_INSET;
+            }
 
             int px, py;
             grid_to_screen(game.viewport, tx, ty, &px, &py);
@@ -81,9 +96,7 @@ PRIVATE void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
 
         // Targetable (opposing-team) tiles draw dithered so the highlight
         // stays visible under the entity's opaque sprite, drawn later in
-        // render_entities. Allies fall back to solid, though in practice
-        // they never reach attack_range_tiles since they block the BFS
-        // (pathing_compute_range's mark_occupied_reachable).
+        // render_entities. Allies fall back to solid.
         entity_t *occupant = entity_find_at(game.entities, tile);
         bool targetable = occupant != 0 && occupant->team != attacker->team;
         if (targetable) {

@@ -11,10 +11,10 @@
 extern const skill_t SKILL_MELEE;
 extern const skill_t SKILL_RANGED;
 
-// True if `target` is within `skill`.range steps of `attacker`:
-// - BFS over walkable tiles, blocked by any other alive entity in the way
-// - attacker's own tile is never occupancy-checked (it's the BFS root)
-// - target's own tile is excluded from the occupancy check so it's reachable
+// True if `target` is within `skill`.range Manhattan steps of `attacker`
+// AND there's a clear line of sight -- a straight ray from attacker to
+// target unobstructed by non-walkable terrain or any other entity standing
+// on an intermediate tile (see pathing_compute_line_of_sight).
 PUBLIC bool skill_target_in_range(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* attacker, skill_t skill, entity_t* target);
 
 #ifdef APP_UNITY_BUILD

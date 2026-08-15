@@ -50,6 +50,7 @@ else()
         src/game/ai.c
         src/game/entity.c
         src/game/game.c
+        src/game/geometry.c
         src/game/grid.c
         src/game/input.c
         src/game/layout.c
