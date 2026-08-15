@@ -21,24 +21,26 @@ PUBLIC void pathing_deinit(linear_allocator_t *allocator, pathing_state_t state)
 
 // Allocates a pathing_state_t from allocator (width*height dist + queue,
 // grid.width*grid.height derived from grid), then BFS from `from`
-// over walkable, unoccupied tiles (any OTHER alive entity blocks passage;
-// skip_entity is excluded from the occupancy check -- pass the mover's own
-// id, or ENTITY_ID_NONE when rooting at a bare target tile for AI).
+// over walkable, unoccupied tiles (any alive entity blocks passage --
+// the root tile itself is seeded before neighbors are explored, so the
+// mover standing there never blocks its own path).
 // Distances beyond max_steps are left -1. Standard array-queue BFS,
 // 4-directional neighbors, capacity width*height (can't overflow). Caller
 // must pathing_deinit the result when done with it.
-//
-// A tile occupied by a non-excluded entity gets no distance -- unreachable,
-// since a mover can't stand on or pass through it.
-PUBLIC pathing_state_t pathing_compute_distances(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* excluded, position_t from, int max_steps);
+PUBLIC pathing_state_t pathing_compute_distances(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, position_t from, int max_steps);
 
-// Same as pathing_compute_distances, but for skill range: an occupied tile
-// still gets a distance (reachable-for-targeting -- a target is an obstacle,
-// not a window) but isn't enqueued, so the BFS doesn't expand past it.
+// Range for a skill: tiles within Manhattan distance max_range of `from`
+// that also have a clear line of sight -- a straight ray from `from` to the
+// tile, unobstructed by non-walkable terrain or by any other entity standing
+// on an intermediate tile (the two endpoints are never checked, so neither
+// the mover's own tile nor the target's own tile can block its ray). Unlike
+// pathing_compute_distances, this never routes around obstacles: a target
+// hidden behind a wall or a standing unit is out of range even if a walkable
+// detour exists.
 //
-// Kept as a separate function rather than a flag: range is expected to grow
-// real line-of-sight occlusion later and diverge from navigation entirely.
-PUBLIC pathing_state_t pathing_compute_range(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* excluded, position_t from, int max_steps);
+// dist is Manhattan distance for tiles with clear LOS, -1 otherwise
+// (including tiles beyond max_range, which are never ray-traced).
+PUBLIC pathing_state_t pathing_compute_line_of_sight(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, position_t from, int max_range);
 
 PUBLIC int pathing_distance_at(pathing_state_t state, grid_t grid, position_t position); // -1 if unreached OR out of bounds -- this is a defensive query (arbitrary coords from clicks later), do NOT make it panic like grid_tile_at does
 

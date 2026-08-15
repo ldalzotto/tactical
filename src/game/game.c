@@ -89,7 +89,7 @@ PUBLIC void game_deinit(linear_allocator_t *allocator, game_state_t state) {
 //   if it has no mp left), nullifies attack_range_tiles. Called eagerly on
 //   any selection/position/mp change, and whenever attack mode turns off.
 // - ATTACK: mirror image -- nullifies reachable_tiles, computes
-//   attack_range_tiles via the same BFS rooted at the active entity's
+//   attack_range_tiles via line of sight rooted at the active entity's
 //   currently-selected skill range instead of mp.
 // Render just reads the cached lists, no per-frame pathing.
 PRIVATE void game_set_mode(game_state_t *game, linear_allocator_t *allocator, game_mode_t mode) {
@@ -107,7 +107,7 @@ PRIVATE void game_set_mode(game_state_t *game, linear_allocator_t *allocator, ga
             return;
         }
 
-        pathing_state_t pathing = pathing_compute_distances(allocator, game->grid, game->entities, active, active->position, active->mp);
+        pathing_state_t pathing = pathing_compute_distances(allocator, game->grid, game->entities, active->position, active->mp);
 
         slice_t reachable_align = linear_allocator_push_alignment(&game->scratch, _Alignof(position_t));
         slice_position_t reachable_tiles = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.reachable_tiles, 0);
@@ -132,7 +132,7 @@ PRIVATE void game_set_mode(game_state_t *game, linear_allocator_t *allocator, ga
         assert_debug(mode == GAME_MODE_ATTACK);
 
         int skill_range = SLICE_AT(active->skills, game->selected_skill).range;
-        pathing_state_t pathing = pathing_compute_range(allocator, game->grid, game->entities, active, active->position, skill_range);
+        pathing_state_t pathing = pathing_compute_line_of_sight(allocator, game->grid, game->entities, active->position, skill_range);
 
         slice_t attack_range_align = linear_allocator_push_alignment(&game->scratch, _Alignof(position_t));
         slice_position_t attack_range_tiles = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.attack_range_tiles, 0);
