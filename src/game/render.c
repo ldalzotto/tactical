@@ -81,9 +81,7 @@ PRIVATE void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
 
         // Targetable (opposing-team) tiles draw dithered so the highlight
         // stays visible under the entity's opaque sprite, drawn later in
-        // render_entities. Allies fall back to solid, though in practice
-        // they never reach attack_range_tiles since they block the BFS
-        // (pathing_compute_range's mark_occupied_reachable).
+        // render_entities. Allies fall back to solid.
         entity_t *occupant = entity_find_at(game.entities, tile);
         bool targetable = occupant != 0 && occupant->team != attacker->team;
         if (targetable) {
