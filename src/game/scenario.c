@@ -4,8 +4,13 @@
 PUBLIC game_state_t scenario_setup_default(linear_allocator_t* allocator, int grid_width, int grid_height, int fb_width, int fb_height, int hud_height) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, grid_width, grid_height);
+    // Walls: block both movement and line of sight.
     grid_set_walkable(grid, (position_t){7, 4}, false);
+    grid_set_blocks_sight(grid, (position_t){7, 4}, true);
     grid_set_walkable(grid, (position_t){7, 5}, false);
+    grid_set_blocks_sight(grid, (position_t){7, 5}, true);
+    // Tall grass: walkable, but still blocks line of sight through it.
+    grid_set_blocks_sight(grid, (position_t){7, 6}, true);
 
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);

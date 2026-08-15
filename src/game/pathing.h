@@ -31,12 +31,13 @@ PUBLIC pathing_state_t pathing_compute_distances(linear_allocator_t *allocator, 
 
 // Range for a skill: tiles within Manhattan distance max_range of `from`
 // that also have a clear line of sight -- a straight ray from `from` to the
-// tile, unobstructed by non-walkable terrain or by any other entity standing
-// on an intermediate tile (the two endpoints are never checked, so neither
-// the mover's own tile nor the target's own tile can block its ray). Unlike
+// tile, unobstructed by a sight-blocking tile (grid_set_blocks_sight,
+// independent of walkability) or by any other entity standing on an
+// intermediate tile (the two endpoints are never checked, so neither the
+// mover's own tile nor the target's own tile can block its ray). Unlike
 // pathing_compute_distances, this never routes around obstacles: a target
-// hidden behind a wall or a standing unit is out of range even if a walkable
-// detour exists.
+// hidden behind a sight-blocking tile or a standing unit is out of range
+// even if a walkable detour exists.
 //
 // dist is Manhattan distance for tiles with clear LOS, -1 otherwise
 // (including tiles beyond max_range, which are never ray-traced).
