@@ -8,15 +8,15 @@
 
 // Bresenham line-walking state, stepping one axis (or both, on a diagonal
 // tie) per iteration from `from` towards a `to` supplied at each `next`
-// call. Pure math: no grid, entity, or other game-state awareness.
+// call. Pure math.
 typedef struct {
-    int adx;
-    int sx;
-    int ady;
-    int sy;
+    int abs_dx;
+    int step_x;
+    int abs_dy;
+    int step_y;
     int x;
     int y;
-    int err;
+    int error;
 } geometry_line_iter_t;
 
 PUBLIC geometry_line_iter_t geometry_line_iter_start(position_t from, position_t to);
