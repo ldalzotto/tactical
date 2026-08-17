@@ -90,7 +90,10 @@ PUBLIC void game_deinit(linear_allocator_t *allocator, game_state_t state) {
 // applied, 0 if game->scratch already had enough room; callers further up
 // the call stack must apply the same shift to anything else they hold above
 // game->scratch (see game_on_input_event / app_dispatch_input_events).
-PRIVATE ptrdiff_t game_scratch_grow_for(linear_allocator_t *allocator, game_state_t *game, pathing_state_t *pathing, slice_t *temp_align, slice_position_t *temp_tiles, size_t needed) {
+// TODO: pass the scratch buffer instead of game structure
+PRIVATE ptrdiff_t game_scratch_grow_for(linear_allocator_t *allocator, game_state_t *game, 
+        pathing_state_t *pathing, 
+        slice_t *temp_align, slice_position_t *temp_tiles, size_t needed) {
     size_t worst_case_padding = _Alignof(position_t) - 1;
     size_t available = (size_t)bytesize(game->scratch.cursor, game->scratch.data.end);
     size_t required = needed + worst_case_padding;
@@ -160,9 +163,9 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
         }
 
         ptrdiff_t shift = game_scratch_grow_for(allocator, game, &pathing, &temp_align, &temp_tiles, (size_t)SLICE_BYTESIZE(temp_tiles));
-
         slice_t reachable_align = linear_allocator_push_alignment(&game->scratch, _Alignof(position_t));
         slice_position_t reachable_tiles = LINEAR_ALLOCATOR_PUSH(&game->scratch, game->render.reachable_tiles, SLICE_TYPESIZE(temp_tiles));
+        // TODO: Ideally, the memcpy should be done inside the memory insert call inside game_scratch_grow_for
         __builtin_memcpy(reachable_tiles.begin, temp_tiles.begin, (size_t)SLICE_BYTESIZE(temp_tiles));
 
         render_cache_write_reachable(&game->scratch, &game->render, reachable_align, reachable_tiles);
