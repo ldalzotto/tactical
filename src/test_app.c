@@ -1,7 +1,15 @@
 #include "test_app.h"
 #include "lib/assert.h"
 #include "lib/memory.h"
+#include "game/layout.h"
 #include "app.h"
+
+// Test-only host import (see web/wasm-shared.js): queues an input event onto
+// `window`'s pending queue so the next input_poll (inside app_on_next_frame)
+// returns it. The wasm test runner otherwise always polls zero events, which
+// would leave app_on_next_frame's shift!=0 rebase path uncovered.
+__attribute__((import_module("env"), import_name("test_push_input_event")))
+extern void test_push_input_event(window_handle_t window, int32_t type, int32_t x, int32_t y);
 
 PRIVATE void test_app_init_deinit_and_frames(linear_allocator_t *allocator) {
     // app.c's app_init() bootstraps its own allocator from heap_base(), so leave
@@ -15,20 +23,34 @@ PRIVATE void test_app_init_deinit_and_frames(linear_allocator_t *allocator) {
     // Drive the event-dispatch loop with a non-empty batch (the JS test
     // runner polls zero events, which would leave the loop body/increment
     // uncovered). (0,0) is an empty grid tile in the default scenario, so
-    // the click is a harmless no-op.
+    // the click is a harmless no-op -- game_on_input_event returns a zero
+    // shift, exercising the shift==0 side of app_dispatch_input_events'
+    // rebase guard.
     input_event_t click = { .type = INPUT_EVENT_MOUSE_CLICK, .x = 0, .y = 0 };
     slice_input_event_t events = { .begin = &click, .end = &click + 1 };
-    app_dispatch_input_events(&state->game, &state->allocator, events);
+    ptrdiff_t shift = app_dispatch_input_events(&state->game, &state->allocator, events);
+    assert_test(shift == 0);
 
     // 15ms elapsed since last_frame_ms (1000): below the 16ms interval, so
     // app_on_next_frame asks the host to wait instead of rendering.
     uint32_t wait_ms = app_on_next_frame(state, 1000 + 15);
     assert_test(wait_ms != 0);
 
-    // Exactly 16ms: a frame is due. This runs input_poll, the (empty) event
-    // loop, render_frame, and present_window.
+    // Queue a click on the active entity's own tile (p1 at (1,2) in the
+    // default scenario) before the next due frame. game_on_input_event
+    // enters movement mode for it, which grows game->scratch and returns a
+    // non-zero shift -- exercises the shift!=0 rebase path in both
+    // app_dispatch_input_events (via app_on_next_frame's internal dispatch
+    // call) and app_on_next_frame itself.
+    int px, py;
+    grid_to_screen(state->game.viewport, 1, 2, &px, &py);
+    test_push_input_event(state->window, INPUT_EVENT_MOUSE_CLICK, px + 1, py + 1);
+
+    // Exactly 16ms: a frame is due. This runs input_poll, the event loop
+    // (now with the queued click above), render_frame, and present_window.
     wait_ms = app_on_next_frame(state, 1000 + 16);
     assert_test(wait_ms == 0);
+    assert_test(state->game.mode == GAME_MODE_MOVEMENT);
 
     // 20ms after the last rendered frame: also above the interval.
     wait_ms = app_on_next_frame(state, 1000 + 16 + 20);

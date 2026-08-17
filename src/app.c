@@ -60,9 +60,11 @@ PUBLIC ptrdiff_t app_dispatch_input_events(game_state_t *game, linear_allocator_
     input_event_t *event = events.begin;
     while (event != events.end) {
         ptrdiff_t shift = game_on_input_event(game, allocator, *event);
-        event = byteoffset(event, shift);
-        events.end = byteoffset(events.end, shift);
-        total_shift += shift;
+        if (shift != 0) {
+            event = byteoffset(event, shift);
+            events.end = byteoffset(events.end, shift);
+            total_shift += shift;
+        }
         event++;
     }
     return total_shift;
@@ -80,8 +82,10 @@ uint32_t app_on_next_frame(app_state_t *state, uint32_t now_ms) {
 
     slice_input_event_t events = input_poll(&state->allocator, state->window);
     ptrdiff_t shift = app_dispatch_input_events(&state->game, &state->allocator, events);
-    events.begin = byteoffset(events.begin, shift);
-    events.end = byteoffset(events.end, shift);
+    if (shift != 0) {
+        events.begin = byteoffset(events.begin, shift);
+        events.end = byteoffset(events.end, shift);
+    }
     linear_allocator_pop(&state->allocator, events.slice);
 
     render_frame(state->framebuffer, FB_WIDTH, state->game);
