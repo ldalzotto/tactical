@@ -20,6 +20,7 @@ PUBLIC slice_t linear_allocator_push(linear_allocator_t *allocator, size_t size)
 PUBLIC slice_t linear_allocator_push_alignment(linear_allocator_t *allocator, size_t alignment);
 PUBLIC void linear_allocator_pop(linear_allocator_t *allocator, slice_t marker);
 PUBLIC void linear_allocator_pop_move(linear_allocator_t *allocator, slice_t from, slice_t to);
+// TODO: we should use slice_t
 PUBLIC void linear_allocator_insert(linear_allocator_t *allocator, void *position, size_t size);
 
 #define LINEAR_ALLOCATOR_PUSH(allocator, witness, count) \
