@@ -215,6 +215,112 @@ PRIVATE void test_linear_allocator_pop_move_panics_on_from_not_top_of_stack(line
     linear_allocator_pop(allocator, data);
 }
 
+PRIVATE void test_linear_allocator_insert(linear_allocator_t *allocator) {
+    slice_t data = linear_allocator_push(allocator, 64);
+    linear_allocator_t local = linear_allocator_init(data);
+
+    slice_uint8_t a = LINEAR_ALLOCATOR_PUSH(&local, a, 4);
+    SLICE_AT(a, 0) = 'A'; SLICE_AT(a, 1) = 'A';
+    SLICE_AT(a, 2) = 'A'; SLICE_AT(a, 3) = 'A';
+
+    slice_uint8_t b = LINEAR_ALLOCATOR_PUSH(&local, b, 4);
+    SLICE_AT(b, 0) = 'B'; SLICE_AT(b, 1) = 'B';
+    SLICE_AT(b, 2) = 'B'; SLICE_AT(b, 3) = 'B';
+
+    void *old_cursor = local.cursor;
+
+    linear_allocator_insert(&local, a.end, 4);
+
+    assert_test(local.cursor == byteoffset(old_cursor, 4));
+    assert_test(SLICE_AT(a, 0) == 'A');
+
+    uint8_t *shifted_b = byteoffset(a.end, 4);
+    assert_test(shifted_b[0] == 'B'); assert_test(shifted_b[1] == 'B');
+    assert_test(shifted_b[2] == 'B'); assert_test(shifted_b[3] == 'B');
+
+    linear_allocator_pop(&local, (slice_t){ a.end, local.cursor });
+    linear_allocator_pop(&local, a.slice);
+
+    linear_allocator_pop(allocator, data);
+}
+
+PRIVATE void test_linear_allocator_insert_panics_on_position_before_data_begin(linear_allocator_t *allocator) {
+    slice_t data = linear_allocator_push(allocator, 16);
+    linear_allocator_t local = linear_allocator_init(data);
+
+    void *before = byteoffset(data.begin, -1);
+
+    expect_panic_begin();
+    linear_allocator_insert(&local, before, 4);
+    assert_test(expect_panic_end());
+
+    linear_allocator_pop(allocator, data);
+}
+
+PRIVATE void test_linear_allocator_insert_panics_on_position_after_cursor(linear_allocator_t *allocator) {
+    slice_t data = linear_allocator_push(allocator, 16);
+    linear_allocator_t local = linear_allocator_init(data);
+
+    void *after = byteoffset(local.cursor, 1);
+
+    expect_panic_begin();
+    linear_allocator_insert(&local, after, 4);
+    assert_test(expect_panic_end());
+
+    linear_allocator_pop(allocator, data);
+}
+
+PRIVATE void test_linear_allocator_copy(linear_allocator_t *allocator) {
+    slice_t data = linear_allocator_push(allocator, 16);
+    linear_allocator_t local = linear_allocator_init(data);
+
+    slice_uint8_t from = LINEAR_ALLOCATOR_PUSH(&local, from, 4);
+    SLICE_AT(from, 0) = 'A'; SLICE_AT(from, 1) = 'B';
+    SLICE_AT(from, 2) = 'C'; SLICE_AT(from, 3) = 'D';
+
+    slice_uint8_t to = LINEAR_ALLOCATOR_PUSH(&local, to, 4);
+
+    linear_allocator_copy(&local, from.slice, to.slice);
+
+    assert_test(SLICE_AT(to, 0) == 'A'); assert_test(SLICE_AT(to, 1) == 'B');
+    assert_test(SLICE_AT(to, 2) == 'C'); assert_test(SLICE_AT(to, 3) == 'D');
+
+    LINEAR_ALLOCATOR_POP(&local, to);
+    LINEAR_ALLOCATOR_POP(&local, from);
+
+    linear_allocator_pop(allocator, data);
+}
+
+PRIVATE void test_linear_allocator_copy_panics_on_to_begin_before_data_begin(linear_allocator_t *allocator) {
+    slice_t data = linear_allocator_push(allocator, 16);
+    linear_allocator_t local = linear_allocator_init(data);
+
+    slice_uint8_t from = LINEAR_ALLOCATOR_PUSH(&local, from, 4);
+    slice_t to = { byteoffset(local.data.begin, -1), byteoffset(local.data.begin, 3) };
+
+    expect_panic_begin();
+    linear_allocator_copy(&local, from.slice, to);
+    assert_test(expect_panic_end());
+
+    LINEAR_ALLOCATOR_POP(&local, from);
+    linear_allocator_pop(allocator, data);
+}
+
+PRIVATE void test_linear_allocator_copy_panics_on_to_end_after_data_end(linear_allocator_t *allocator) {
+    slice_t data = linear_allocator_push(allocator, 16);
+    linear_allocator_t local = linear_allocator_init(data);
+
+    slice_uint8_t from = LINEAR_ALLOCATOR_PUSH(&local, from, 4);
+    slice_t to = { byteoffset(local.data.end, -3), byteoffset(local.data.end, 1) };
+
+    expect_panic_begin();
+    linear_allocator_copy(&local, from.slice, to);
+    assert_test(expect_panic_end());
+
+    LINEAR_ALLOCATOR_POP(&local, from);
+    linear_allocator_pop(allocator, data);
+}
+
 PRIVATE void test_slice_at(linear_allocator_t *allocator) {
     slice_uint8_t s = LINEAR_ALLOCATOR_PUSH(allocator, s, 4);
     SLICE_AT(s, 0) = 1; SLICE_AT(s, 1) = 2; SLICE_AT(s, 2) = 3; SLICE_AT(s, 3) = 4;
@@ -306,6 +412,12 @@ const test_case_t g_memory_tests[] = {
     { TEST_NAME("linear_allocator_pop_move"), test_linear_allocator_pop_move },
     { TEST_NAME("linear_allocator_pop_move_panics_on_move_forward"), test_linear_allocator_pop_move_panics_on_move_forward },
     { TEST_NAME("linear_allocator_pop_move_panics_on_from_not_top_of_stack"), test_linear_allocator_pop_move_panics_on_from_not_top_of_stack },
+    { TEST_NAME("linear_allocator_insert"), test_linear_allocator_insert },
+    { TEST_NAME("linear_allocator_insert_panics_on_position_before_data_begin"), test_linear_allocator_insert_panics_on_position_before_data_begin },
+    { TEST_NAME("linear_allocator_insert_panics_on_position_after_cursor"), test_linear_allocator_insert_panics_on_position_after_cursor },
+    { TEST_NAME("linear_allocator_copy"), test_linear_allocator_copy },
+    { TEST_NAME("linear_allocator_copy_panics_on_to_begin_before_data_begin"), test_linear_allocator_copy_panics_on_to_begin_before_data_begin },
+    { TEST_NAME("linear_allocator_copy_panics_on_to_end_after_data_end"), test_linear_allocator_copy_panics_on_to_end_after_data_end },
     { TEST_NAME("slice_at"), test_slice_at },
     { TEST_NAME("slice_at_panics_on_non_power_of_two_alignment"), test_slice_at_panics_on_non_power_of_two_alignment },
     { TEST_NAME("slice_at_panics_on_out_of_bounds"), test_slice_at_panics_on_out_of_bounds },

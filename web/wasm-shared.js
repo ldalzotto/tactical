@@ -77,6 +77,12 @@ function buildImportObject({ createWindow, presentWindow, debugLog, reportPanic 
                 }
                 throw new Error(`panic: ${file}:${line}: ${message}`);
             },
+            // Test-only hook: lets C tests queue an input event so
+            // app_on_next_frame's dispatch path gets a non-empty batch (the
+            // wasm test runner otherwise always polls zero events).
+            test_push_input_event(windowHandle, type, x, y) {
+                pushInputEvent(windowHandle, type, x, y);
+            },
             poll_input_events(windowHandle, beginPtr) {
                 const events = pendingInputEvents.get(windowHandle) ?? [];
                 const writeCount = events.length;
