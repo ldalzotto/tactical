@@ -47,6 +47,33 @@ PUBLIC void linear_allocator_pop_move(linear_allocator_t *allocator, slice_t fro
     allocator->cursor = byteoffset(to.begin, size);
 }
 
+// Grows `allocator` by `size` bytes, opening a gap at `at` by sliding
+// everything above it up. Callers holding slices/pointers into the shifted
+// region must rebase them themselves.
+PUBLIC void linear_allocator_insert(linear_allocator_t *allocator, void *at, size_t size) {
+    bool at_in_range = at >= allocator->data.begin && at <= allocator->cursor;
+    assert_debug(at_in_range);
+#ifdef APP_BUILD_TESTS
+    if (!at_in_range) {
+        return;
+    }
+#endif
+
+    void *old_cursor = allocator->cursor;
+    linear_allocator_push(allocator, size);
+    ptrdiff_t tail_size = bytesize(at, old_cursor);
+    assert_debug(tail_size >= 0);
+    __builtin_memmove(byteoffset(at, (ptrdiff_t)size), at, (size_t)tail_size);
+}
+
+// Copies `from` into `to`, where `to` must be a slice already owned by
+// `allocator` (e.g. a fresh push result) and the same size as `from`.
+PUBLIC void linear_allocator_copy(linear_allocator_t *allocator, slice_t from, slice_t to) {
+    assert_debug(to.begin >= allocator->data.begin && to.end <= allocator->data.end);
+    assert_debug(bytesize(from.begin, from.end) == bytesize(to.begin, to.end));
+    __builtin_memcpy(to.begin, from.begin, (size_t)bytesize(to.begin, to.end));
+}
+
 PUBLIC void *slice_at(slice_t s, size_t index, size_t alignment) {
     assert_debug((alignment & (alignment - 1)) == 0);
     void *result = byteoffset(s.begin, (ptrdiff_t)index);
@@ -60,6 +87,11 @@ PUBLIC slice_t slice_advance(slice_t s, size_t by) {
     void *begin = byteoffset(s.begin, (ptrdiff_t)by);
     assert_debug(begin <= s.end);
     slice_t result = { begin, s.end };
+    return result;
+}
+
+PUBLIC slice_t slice_shift(slice_t s, ptrdiff_t by) {
+    slice_t result = { byteoffset(s.begin, by), byteoffset(s.end, by) };
     return result;
 }
 

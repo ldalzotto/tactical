@@ -64,7 +64,9 @@ PUBLIC game_state_t game_init(linear_allocator_t *allocator, slice_t grid_align,
 // including the alignment padding pushed before each.
 PUBLIC void game_deinit(linear_allocator_t *allocator, game_state_t state);
 
-PUBLIC void game_on_input_event(game_state_t *game, linear_allocator_t *allocator, input_event_t event);
+// Returns the byte shift game->scratch's growth applied (0 if none), so
+// app.c can rebase anything it holds above it (see app_dispatch_input_events).
+PUBLIC ptrdiff_t game_on_input_event(game_state_t *game, linear_allocator_t *allocator, input_event_t event);
 
 #ifdef APP_UNITY_BUILD
 #include "game.c"
