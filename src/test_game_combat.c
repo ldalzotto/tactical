@@ -507,12 +507,9 @@ PRIVATE void test_game_attack_toggle_after_move_selection_does_not_overflow_scra
     game_deinit(allocator, game);
 }
 
-// Regression test for the panic this scenario used to trigger: a skill
-// range far bigger than game->scratch's old fixed 256-byte capacity (32
-// position_t tiles) overflowed linear_allocator_push's bounds assert the
-// moment attack mode was toggled. game->scratch now grows on demand (see
-// game_scratch_push in game.c), so this must produce a tile list well
-// past the old cap without panicking.
+// Regression test: a skill range this large used to overflow game->scratch's
+// old fixed 256-byte capacity (32 position_t tiles). It now grows on demand
+// (see game_scratch_push in game.c), so this must not panic.
 PRIVATE void test_game_attack_toggle_with_large_range_skill_grows_scratch(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT);

@@ -26,9 +26,8 @@ PUBLIC game_state_t game_init(linear_allocator_t *allocator, slice_t grid_align,
 
     viewport_t viewport = layout_compute(fb_width, fb_height, grid.width, grid.height, hud_height);
 
-    // Starts empty and grows on demand (see game_set_mode) -- there is no
-    // fixed capacity, since a skill's range can push reachable/attack-range
-    // tile counts arbitrarily high.
+    // Starts empty and grows on demand (see game_set_mode) since a skill's
+    // range can push tile counts arbitrarily high.
     slice_t scratch_region = linear_allocator_push(allocator, 0);
     linear_allocator_t scratch = linear_allocator_init(scratch_region);
     slice_t reachable_align = linear_allocator_push(&scratch, 0);
@@ -79,21 +78,13 @@ PUBLIC void game_deinit(linear_allocator_t *allocator, game_state_t state) {
     linear_allocator_pop(allocator, state.grid_align);
 }
 
-// Grows `scratch` in place, if needed, to fit `temp_tiles` at its
-// current cursor (plus worst-case alignment padding, so the caller doesn't
-// need to duplicate the alignment math to know it'll fit), copies
-// `temp_align`/`temp_tiles` into the (possibly grown) scratch, handing back
-// the copy via `out_align`/`out_tiles`, then pops `temp_align`/`temp_tiles`
-// off `allocator` -- the caller's staged copy is consumed by this call.
-// `pathing` and `temp` are staged on `allocator`, directly above
-// `scratch`'s data at this point (nothing else is), so growing means:
-// reserve `extra` more bytes on `allocator` right after `scratch`'s
-// current data, which slides `pathing` and `temp` up to make room -- rebase
-// both by the same amount so they keep pointing at their (moved) content.
-// Returns the byte shift applied, 0 if `scratch` already had enough
-// room; callers further up the call stack must apply the same shift to
-// anything else they hold above `scratch` (see game_on_input_event /
-// app_dispatch_input_events).
+// Grows `scratch` in place if needed to fit `temp_tiles`, copies
+// `temp_align`/`temp_tiles` into it as `out_align`/`out_tiles`, and pops the
+// caller's staged copy off `allocator`. Growing inserts bytes into
+// `allocator` right above `scratch`'s data, sliding up `pathing` and `temp`
+// (the only things staged there) -- rebases both. Returns the shift applied
+// (0 if it already fit); callers must propagate it to anything else they
+// hold above `scratch` (see game_on_input_event / app_dispatch_input_events).
 PRIVATE ptrdiff_t game_scratch_push(linear_allocator_t *allocator, linear_allocator_t *scratch,
         pathing_state_t *pathing,
         slice_t temp_align, slice_position_t temp_tiles,
@@ -139,13 +130,10 @@ PRIVATE ptrdiff_t game_scratch_push(linear_allocator_t *allocator, linear_alloca
 //   currently-selected skill range instead of mp.
 // Render just reads the cached lists, no per-frame pathing.
 //
-// game->scratch has no fixed capacity: both branches stage their tile list
-// on `allocator` first (unbounded there), so the final size falls out of the
-// scan instead of a separate dry-run pass, then grow game->scratch to fit
-// and copy the list into it (see game_scratch_push). Growing can
-// relocate memory above game->scratch (whatever the caller has staged there,
-// e.g. app.c's in-flight input-event buffer), so the byte shift applied (0
-// if none) is returned for callers to propagate and rebase against.
+// Both branches stage their tile list on `allocator` first (unbounded),
+// then grow game->scratch to fit and copy it in (see game_scratch_push).
+// Growing can relocate memory above game->scratch, so the byte shift applied
+// (0 if none) is returned for callers to propagate and rebase against.
 PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocator, game_mode_t mode) {
     render_cache_reset(&game->scratch, &game->render);
     game->mode = mode;
@@ -345,11 +333,9 @@ PRIVATE ptrdiff_t game_on_end_turn_pressed(game_state_t *game, linear_allocator_
     return game_advance_turn(game, allocator);
 }
 
-// Returns the byte shift game_set_mode applied while growing game->scratch
-// for this event (0 if none/no scratch-touching handler ran). Callers that
-// hold anything else above game->scratch in `allocator` (app.c's in-flight
-// input-event buffer) must rebase it by the same amount -- see
-// app_dispatch_input_events.
+// Returns the byte shift applied while growing game->scratch for this event
+// (0 if none). Callers holding anything else above game->scratch in
+// `allocator` must rebase it -- see app_dispatch_input_events.
 PUBLIC ptrdiff_t game_on_input_event(game_state_t *game, linear_allocator_t *allocator, input_event_t event) {
     if (game->game_over != GAME_OVER_NONE) {
         return 0;

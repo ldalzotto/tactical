@@ -47,10 +47,9 @@ PUBLIC void linear_allocator_pop_move(linear_allocator_t *allocator, slice_t fro
     allocator->cursor = byteoffset(to.begin, size);
 }
 
-// Grows `allocator` by `size` bytes and opens a `size`-byte gap at
-// `position` by sliding everything between `position` and the old cursor up
-// to make room. Callers holding slices/pointers into that shifted region
-// must rebase them by `size` themselves -- this only moves the bytes.
+// Grows `allocator` by `size` bytes, opening a gap at `at` by sliding
+// everything above it up. Callers holding slices/pointers into the shifted
+// region must rebase them themselves.
 PUBLIC void linear_allocator_insert(linear_allocator_t *allocator, void *at, size_t size) {
     assert_debug(at >= allocator->data.begin && at <= allocator->cursor);
     void *old_cursor = allocator->cursor;

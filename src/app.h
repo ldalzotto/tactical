@@ -24,7 +24,6 @@ uint32_t app_on_next_frame(app_state_t *state, uint32_t now_ms);
 // Dispatches a batch of already-polled input events through the game API.
 // Split out of app_on_next_frame so tests can exercise the event loop with a
 // non-empty slice (the wasm test runner otherwise always polls zero events).
-// Returns the total byte shift applied to `events` by scratch growth during
-// dispatch (0 if none) -- the caller must rebase its own copy of `events` by
-// this amount before using or popping it.
+// Returns the byte shift applied to `events` by scratch growth (0 if none);
+// caller must rebase its own copy before using/popping it.
 ptrdiff_t app_dispatch_input_events(game_state_t *game, linear_allocator_t *allocator, slice_input_event_t events);
