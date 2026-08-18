@@ -51,13 +51,13 @@ PUBLIC void linear_allocator_pop_move(linear_allocator_t *allocator, slice_t fro
 // `position` by sliding everything between `position` and the old cursor up
 // to make room. Callers holding slices/pointers into that shifted region
 // must rebase them by `size` themselves -- this only moves the bytes.
-PUBLIC void linear_allocator_insert(linear_allocator_t *allocator, void *position, size_t size) {
-    assert_debug(position >= allocator->data.begin && position <= allocator->cursor);
+PUBLIC void linear_allocator_insert(linear_allocator_t *allocator, void *at, size_t size) {
+    assert_debug(at >= allocator->data.begin && at <= allocator->cursor);
     void *old_cursor = allocator->cursor;
     linear_allocator_push(allocator, size);
-    ptrdiff_t tail_size = bytesize(position, old_cursor);
+    ptrdiff_t tail_size = bytesize(at, old_cursor);
     assert_debug(tail_size >= 0);
-    __builtin_memmove(byteoffset(position, (ptrdiff_t)size), position, (size_t)tail_size);
+    __builtin_memmove(byteoffset(at, (ptrdiff_t)size), at, (size_t)tail_size);
 }
 
 PUBLIC void *slice_at(slice_t s, size_t index, size_t alignment) {
