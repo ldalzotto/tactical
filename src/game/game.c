@@ -79,36 +79,35 @@ PUBLIC void game_deinit(linear_allocator_t *allocator, game_state_t state) {
     linear_allocator_pop(allocator, state.grid_align);
 }
 
-// Grows game->scratch in place, if needed, to fit `temp_tiles` at its
+// Grows `scratch` in place, if needed, to fit `temp_tiles` at its
 // current cursor (plus worst-case alignment padding, so the caller doesn't
 // need to duplicate the alignment math to know it'll fit), copies
 // `temp_align`/`temp_tiles` into the (possibly grown) scratch, handing back
 // the copy via `out_align`/`out_tiles`, then pops `temp_align`/`temp_tiles`
 // off `allocator` -- the caller's staged copy is consumed by this call.
 // `pathing` and `temp` are staged on `allocator`, directly above
-// game->scratch's data at this point (nothing else is), so growing means:
-// reserve `extra` more bytes on `allocator` right after game->scratch's
+// `scratch`'s data at this point (nothing else is), so growing means:
+// reserve `extra` more bytes on `allocator` right after `scratch`'s
 // current data, which slides `pathing` and `temp` up to make room -- rebase
 // both by the same amount so they keep pointing at their (moved) content.
-// Returns the byte shift applied, 0 if game->scratch already had enough
+// Returns the byte shift applied, 0 if `scratch` already had enough
 // room; callers further up the call stack must apply the same shift to
-// anything else they hold above game->scratch (see game_on_input_event /
+// anything else they hold above `scratch` (see game_on_input_event /
 // app_dispatch_input_events).
-// TODO: pass the scratch buffer instead of game structure
-PRIVATE ptrdiff_t game_scratch_push(linear_allocator_t *allocator, game_state_t *game,
+PRIVATE ptrdiff_t game_scratch_push(linear_allocator_t *allocator, linear_allocator_t *scratch,
         pathing_state_t *pathing,
         slice_t temp_align, slice_position_t temp_tiles,
         slice_t *out_align, slice_position_t *out_tiles) {
     size_t needed = (size_t)SLICE_BYTESIZE(temp_tiles);
     size_t worst_case_padding = _Alignof(position_t) - 1;
-    size_t available = (size_t)bytesize(game->scratch.cursor, game->scratch.data.end);
+    size_t available = (size_t)bytesize(scratch->cursor, scratch->data.end);
     size_t required = needed + worst_case_padding;
 
     ptrdiff_t shift = 0;
     if (required > available) {
         ptrdiff_t extra = (ptrdiff_t)(required - available);
-        linear_allocator_insert(allocator, game->scratch.data.end, (size_t)extra);
-        game->scratch.data.end = byteoffset(game->scratch.data.end, extra);
+        linear_allocator_insert(allocator, scratch->data.end, (size_t)extra);
+        scratch->data.end = byteoffset(scratch->data.end, extra);
 
         pathing->align = slice_shift(pathing->align, extra);
         pathing->dist.slice = slice_shift(pathing->dist.slice, extra);
@@ -118,8 +117,9 @@ PRIVATE ptrdiff_t game_scratch_push(linear_allocator_t *allocator, game_state_t 
         shift = extra;
     }
 
-    *out_align = linear_allocator_push_alignment(&game->scratch, _Alignof(position_t));
-    *out_tiles = LINEAR_ALLOCATOR_PUSH(&game->scratch, temp_tiles, SLICE_TYPESIZE(temp_tiles));
+    // Push data to the game scratch
+    *out_align = linear_allocator_push_alignment(scratch, _Alignof(position_t));
+    *out_tiles = LINEAR_ALLOCATOR_PUSH(scratch, temp_tiles, SLICE_TYPESIZE(temp_tiles));
     __builtin_memcpy(out_tiles->begin, temp_tiles.begin, needed);
 
     linear_allocator_pop(allocator, temp_tiles.slice);
@@ -179,7 +179,7 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
 
         slice_t reachable_align;
         slice_position_t reachable_tiles;
-        ptrdiff_t shift = game_scratch_push(allocator, game, &pathing, temp_align, temp_tiles, &reachable_align, &reachable_tiles);
+        ptrdiff_t shift = game_scratch_push(allocator, &game->scratch, &pathing, temp_align, temp_tiles, &reachable_align, &reachable_tiles);
         temp_align = (slice_t){0,0}; temp_tiles.slice = (slice_t){0,0};
 
         render_cache_write_reachable(&game->scratch, &game->render, reachable_align, reachable_tiles);
@@ -211,7 +211,7 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
 
         slice_t attack_range_align;
         slice_position_t attack_range_tiles;
-        ptrdiff_t shift = game_scratch_push(allocator, game, &pathing, temp_align, temp_tiles, &attack_range_align, &attack_range_tiles);
+        ptrdiff_t shift = game_scratch_push(allocator, &game->scratch, &pathing, temp_align, temp_tiles, &attack_range_align, &attack_range_tiles);
         temp_align = (slice_t){0,0}; temp_tiles.slice = (slice_t){0,0};
 
         render_cache_write_attack_range(&game->render, attack_range_align, attack_range_tiles);
