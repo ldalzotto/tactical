@@ -168,9 +168,10 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
         slice_t reachable_align;
         slice_position_t reachable_tiles;
         ptrdiff_t shift = game_scratch_push(allocator, &game->scratch, &pathing, temp_align, temp_tiles, &reachable_align, &reachable_tiles);
+        // Reset to zero for usage sanity
         temp_align = (slice_t){0,0}; temp_tiles.slice = (slice_t){0,0};
 
-        render_cache_write_reachable(&game->scratch, &game->render, reachable_align, reachable_tiles);
+        render_cache_set_reachable(&game->scratch, &game->render, reachable_align, reachable_tiles);
 
         pathing_deinit(allocator, pathing);
 
@@ -200,9 +201,10 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
         slice_t attack_range_align;
         slice_position_t attack_range_tiles;
         ptrdiff_t shift = game_scratch_push(allocator, &game->scratch, &pathing, temp_align, temp_tiles, &attack_range_align, &attack_range_tiles);
+        // Reset to zero for usage sanity
         temp_align = (slice_t){0,0}; temp_tiles.slice = (slice_t){0,0};
 
-        render_cache_write_attack_range(&game->render, attack_range_align, attack_range_tiles);
+        render_cache_set_attack_range(&game->render, attack_range_align, attack_range_tiles);
 
         pathing_deinit(allocator, pathing);
 

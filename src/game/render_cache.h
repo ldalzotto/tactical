@@ -33,13 +33,13 @@ PUBLIC void render_cache_reset(linear_allocator_t *scratch, render_cache_t *cach
 // linear_allocator_push per tile while iterating), then re-pushes an empty
 // attack_range_tiles on top so it stays the topmost scratch region.
 // Requires both caches empty (call right after render_cache_reset).
-PUBLIC void render_cache_write_reachable(linear_allocator_t *scratch, render_cache_t *cache, slice_t reachable_align, slice_position_t reachable_tiles);
+PUBLIC void render_cache_set_reachable(linear_allocator_t *scratch, render_cache_t *cache, slice_t reachable_align, slice_position_t reachable_tiles);
 
 // Adopts `attack_range_align`/`attack_range_tiles` (built the same way as
-// for render_cache_write_reachable) as the new attack_range_tiles region.
+// for render_cache_set_reachable) as the new attack_range_tiles region.
 // Already the topmost scratch region, so nothing is pushed after it.
 // Requires reachable_tiles already empty (call right after render_cache_reset).
-PUBLIC void render_cache_write_attack_range(render_cache_t *cache, slice_t attack_range_align, slice_position_t attack_range_tiles);
+PUBLIC void render_cache_set_attack_range(render_cache_t *cache, slice_t attack_range_align, slice_position_t attack_range_tiles);
 
 #ifdef APP_UNITY_BUILD
 #include "render_cache.c"
