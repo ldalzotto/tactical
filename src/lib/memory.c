@@ -60,6 +60,14 @@ PUBLIC void linear_allocator_insert(linear_allocator_t *allocator, void *at, siz
     __builtin_memmove(byteoffset(at, (ptrdiff_t)size), at, (size_t)tail_size);
 }
 
+// Copies `from` into `to`, where `to` must be a slice already owned by
+// `allocator` (e.g. a fresh push result) and the same size as `from`.
+PUBLIC void linear_allocator_copy(linear_allocator_t *allocator, slice_t from, slice_t to) {
+    assert_debug(to.begin >= allocator->data.begin && to.end <= allocator->data.end);
+    assert_debug(bytesize(from.begin, from.end) == bytesize(to.begin, to.end));
+    __builtin_memcpy(to.begin, from.begin, (size_t)bytesize(to.begin, to.end));
+}
+
 PUBLIC void *slice_at(slice_t s, size_t index, size_t alignment) {
     assert_debug((alignment & (alignment - 1)) == 0);
     void *result = byteoffset(s.begin, (ptrdiff_t)index);

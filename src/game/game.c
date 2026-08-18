@@ -120,7 +120,7 @@ PRIVATE ptrdiff_t game_scratch_push(linear_allocator_t *allocator, linear_alloca
     // Push data to the game scratch
     *out_align = linear_allocator_push_alignment(scratch, _Alignof(position_t));
     *out_tiles = LINEAR_ALLOCATOR_PUSH(scratch, temp_tiles, SLICE_TYPESIZE(temp_tiles));
-    __builtin_memcpy(out_tiles->begin, temp_tiles.begin, needed);
+    linear_allocator_copy(scratch, temp_tiles.slice, out_tiles->slice);
 
     linear_allocator_pop(allocator, temp_tiles.slice);
     linear_allocator_pop(allocator, temp_align);
