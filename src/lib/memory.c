@@ -51,7 +51,14 @@ PUBLIC void linear_allocator_pop_move(linear_allocator_t *allocator, slice_t fro
 // everything above it up. Callers holding slices/pointers into the shifted
 // region must rebase them themselves.
 PUBLIC void linear_allocator_insert(linear_allocator_t *allocator, void *at, size_t size) {
-    assert_debug(at >= allocator->data.begin && at <= allocator->cursor);
+    bool at_in_range = at >= allocator->data.begin && at <= allocator->cursor;
+    assert_debug(at_in_range);
+#ifndef NDEBUG
+    if (!at_in_range) {
+        return;
+    }
+#endif
+
     void *old_cursor = allocator->cursor;
     linear_allocator_push(allocator, size);
     ptrdiff_t tail_size = bytesize(at, old_cursor);
