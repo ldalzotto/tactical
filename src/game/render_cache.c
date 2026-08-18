@@ -24,7 +24,7 @@ PUBLIC void render_cache_reset(linear_allocator_t *scratch, render_cache_t *cach
     render_cache_assert_layout(*cache);
 }
 
-PUBLIC void render_cache_write_reachable(linear_allocator_t *scratch, render_cache_t *cache, slice_t reachable_align, slice_position_t reachable_tiles) {
+PUBLIC void render_cache_set_reachable(linear_allocator_t *scratch, render_cache_t *cache, slice_t reachable_align, slice_position_t reachable_tiles) {
     cache->reachable_align = reachable_align;
     cache->reachable_tiles = reachable_tiles;
     cache->attack_range_align = linear_allocator_push(scratch, 0);
@@ -33,7 +33,7 @@ PUBLIC void render_cache_write_reachable(linear_allocator_t *scratch, render_cac
     render_cache_assert_layout(*cache);
 }
 
-PUBLIC void render_cache_write_attack_range(render_cache_t *cache, slice_t attack_range_align, slice_position_t attack_range_tiles) {
+PUBLIC void render_cache_set_attack_range(render_cache_t *cache, slice_t attack_range_align, slice_position_t attack_range_tiles) {
     cache->attack_range_align = attack_range_align;
     cache->attack_range_tiles = attack_range_tiles;
 
