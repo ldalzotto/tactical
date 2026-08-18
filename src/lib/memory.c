@@ -53,7 +53,7 @@ PUBLIC void linear_allocator_pop_move(linear_allocator_t *allocator, slice_t fro
 PUBLIC void linear_allocator_insert(linear_allocator_t *allocator, void *at, size_t size) {
     bool at_in_range = at >= allocator->data.begin && at <= allocator->cursor;
     assert_debug(at_in_range);
-#ifndef NDEBUG
+#ifdef APP_BUILD_TESTS
     if (!at_in_range) {
         return;
     }
