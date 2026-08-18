@@ -21,6 +21,7 @@ PUBLIC slice_t linear_allocator_push_alignment(linear_allocator_t *allocator, si
 PUBLIC void linear_allocator_pop(linear_allocator_t *allocator, slice_t marker);
 PUBLIC void linear_allocator_pop_move(linear_allocator_t *allocator, slice_t from, slice_t to);
 PUBLIC void linear_allocator_insert(linear_allocator_t *allocator, void *at, size_t size);
+PUBLIC void linear_allocator_copy(linear_allocator_t *allocator, slice_t from, slice_t to);
 
 #define LINEAR_ALLOCATOR_PUSH(allocator, witness, count) \
     ((typeof(witness)){ .slice = linear_allocator_push((allocator), (size_t)(count) * sizeof(*(witness).begin)) })
