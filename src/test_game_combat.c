@@ -511,7 +511,7 @@ PRIVATE void test_game_attack_toggle_after_move_selection_does_not_overflow_scra
 // range far bigger than game->scratch's old fixed 256-byte capacity (32
 // position_t tiles) overflowed linear_allocator_push's bounds assert the
 // moment attack mode was toggled. game->scratch now grows on demand (see
-// game_scratch_grow_for in game.c), so this must produce a tile list well
+// game_scratch_push in game.c), so this must produce a tile list well
 // past the old cap without panicking.
 PRIVATE void test_game_attack_toggle_with_large_range_skill_grows_scratch(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
