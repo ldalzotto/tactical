@@ -354,6 +354,16 @@ PRIVATE void test_slice_at_panics_on_out_of_bounds(linear_allocator_t *allocator
     linear_allocator_pop(allocator, s);
 }
 
+PRIVATE void slice_at_panics_on_index_equal_to_count(linear_allocator_t* allocator) {
+    slice_t s = linear_allocator_push(allocator, 4);
+
+    expect_panic_begin();
+    slice_at(s, 4, 1);
+    assert_test(expect_panic_end());
+
+    linear_allocator_pop(allocator, s);
+}
+
 PRIVATE void test_slice_at_panics_on_misalignment(linear_allocator_t *allocator) {
     slice_t outer_align = linear_allocator_push_alignment(allocator, 4);
     slice_t s = linear_allocator_push(allocator, 8);
@@ -421,6 +431,7 @@ const test_case_t g_memory_tests[] = {
     { TEST_NAME("slice_at"), test_slice_at },
     { TEST_NAME("slice_at_panics_on_non_power_of_two_alignment"), test_slice_at_panics_on_non_power_of_two_alignment },
     { TEST_NAME("slice_at_panics_on_out_of_bounds"), test_slice_at_panics_on_out_of_bounds },
+    { TEST_NAME("slice_at_panics_on_index_equal_to_count"), slice_at_panics_on_index_equal_to_count },
     { TEST_NAME("slice_at_panics_on_misalignment"), test_slice_at_panics_on_misalignment },
     { TEST_NAME("slice_advance"), test_slice_advance },
     { TEST_NAME("slice_advance_panics_on_out_of_bounds"), test_slice_advance_panics_on_out_of_bounds },
