@@ -15,6 +15,7 @@
     "start:unity": "node server/server.js --unity",
     "start:unity:release": "node server/server.js --unity --release",
     "test": "node server/build.js --tests --coverage && node server/coverage.js",
-    "test:release": "node server/build.js --release --debug-symbols --tests --assertions --coverage && node server/coverage.js"
+    "test:release": "node server/build.js --release --debug-symbols --tests --assertions --coverage && node server/coverage.js",
+    "test:release:no-assertions": "node server/build.js --release --debug-symbols --tests && node server/run-tests.js"
   }
 }
