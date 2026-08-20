@@ -22,10 +22,13 @@ PUBLIC void expect_trap_begin(void);
 PUBLIC bool expect_trap_end(void);
 #endif
 
-#ifndef NDEBUG
+#ifdef APP_ASSERTIONS
 #define assert_debug panic
 #else
-#define assert_debug(...) ((void)0)
+// Not evaluated (sizeof's operand never runs), but still references the
+// condition so disabling assertions can't turn its operands into unused
+// parameters/variables and trip -Wunused-*.
+#define assert_debug(condition) ((void)sizeof(condition))
 #endif
 
 static inline void assert_test(bool condition) {

@@ -27,6 +27,12 @@ message(STATUS "APP_BUILD_TESTS: ${APP_BUILD_TESTS}")
 option(APP_COVERAGE "Instrument the app with clang source-based code coverage" OFF)
 message(STATUS "APP_COVERAGE: ${APP_COVERAGE}")
 
+option(APP_ASSERTIONS "Compile assert_debug checks in (always on for Debug)" OFF)
+message(STATUS "APP_ASSERTIONS: ${APP_ASSERTIONS}")
+
+option(APP_DEBUG_SYMBOLS "Emit DWARF debug info for symbolication (always on for Debug)" OFF)
+message(STATUS "APP_DEBUG_SYMBOLS: ${APP_DEBUG_SYMBOLS}")
+
 # In unity mode, every lib/*.h and game/*.h (and test*.h, when
 # APP_BUILD_TESTS is on) includes only app.c and, conditionally, test.h -- ends up dragging the
 # whole app (and test suite) into one translation unit. That, plus
@@ -102,9 +108,10 @@ if(APP_COVERAGE)
     target_compile_definitions(app PRIVATE APP_COVERAGE)
     target_compile_options(app PRIVATE -fprofile-instr-generate -fcoverage-mapping)
 endif()
-target_compile_options(app PRIVATE $<$<CONFIG:Debug>:-g -O0>)
+target_compile_options(app PRIVATE $<$<CONFIG:Debug>:-O0>)
 target_compile_options(app PRIVATE $<$<CONFIG:Release>:-O3>)
-target_compile_definitions(app PRIVATE $<$<CONFIG:Release>:NDEBUG>)
+target_compile_options(app PRIVATE $<$<OR:$<CONFIG:Debug>,$<BOOL:${APP_DEBUG_SYMBOLS}>>:-g>)
+target_compile_definitions(app PRIVATE $<$<OR:$<CONFIG:Debug>,$<BOOL:${APP_ASSERTIONS}>>:APP_ASSERTIONS>)
 
 # Resolve wasm-ld through clang so we always use the linker that matches the
 # chosen compiler (find_program would pick up a toolchain proxy shim, e.g.
