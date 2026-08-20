@@ -286,10 +286,7 @@ PRIVATE void test_render_hover_draws_outline(linear_allocator_t *allocator) {
 
     game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
-    int px, py;
-    grid_to_screen(game.viewport, 2, 2, &px, &py);
-    input_event_t move = { .type = INPUT_EVENT_MOUSE_MOVE, .x = px + 1, .y = py + 1 };
-    game_on_input_event(&game, allocator, move);
+    test_move_tile(&game, allocator, (position_t){2, 2});
 
     render_frame(fb, GAME_TEST_FB_WIDTH, game);
 
