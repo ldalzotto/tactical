@@ -275,7 +275,7 @@ PRIVATE ptrdiff_t game_on_tile_pressed(game_state_t *game, linear_allocator_t *a
     if (active->team != ENTITY_TEAM_PLAYER) {
         return 0;
     }
-    if (game->mode == GAME_MODE_NONE) {
+    if (game->mode != GAME_MODE_MOVEMENT) {
         return 0;
     }
 

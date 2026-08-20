@@ -801,6 +801,88 @@ PRIVATE void test_game_attack_toggle_then_ally_click_is_noop(linear_allocator_t 
     game_deinit(allocator, game);
 }
 
+// D1 regression: clicking an empty tile while in GAME_MODE_ATTACK must never
+// fall through to action_try_move, whether the tile sits inside the attack
+// overlay or only inside the (now-hidden) movement range.
+PRIVATE void test_game_attack_mode_tile_click_does_not_move(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 6, 1);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p->skills = skills;
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    assert_test(game.mode == GAME_MODE_ATTACK);
+
+    // (2, 0): within mp (3) move range, but outside SKILL_MELEE's range-1
+    // attack overlay -- exactly the tile that used to silently move the
+    // entity and drop it out of attack mode.
+    assert_test(!test_tile_list_contains(game.render.attack_range_tiles, (position_t){2, 0}));
+    test_click_tile(&game, allocator, (position_t){2, 0});
+    assert_test(p->position.x == 0);
+    assert_test(p->position.y == 0);
+    assert_test(p->mp == 3);
+    assert_test(game.mode == GAME_MODE_ATTACK);
+
+    // (1, 0): inside the attack overlay itself, and empty (no entity there).
+    // Still not a valid attack target, so it must no-op the same way.
+    assert_test(test_tile_list_contains(game.render.attack_range_tiles, (position_t){1, 0}));
+    test_click_tile(&game, allocator, (position_t){1, 0});
+    assert_test(p->position.x == 0);
+    assert_test(p->position.y == 0);
+    assert_test(p->mp == 3);
+    assert_test(game.mode == GAME_MODE_ATTACK);
+
+    game_deinit(allocator, game);
+}
+
+// Regression guard for the D1 fix: toggling into attack mode and back out
+// must not disturb the legitimate movement-mode tile click path.
+PRIVATE void test_game_tile_click_moves_after_toggling_attack_mode_off(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 6, 1);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p->skills = skills;
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    assert_test(game.mode == GAME_MODE_ATTACK);
+    test_click_attack_toggle(&game, allocator);
+    assert_test(game.mode == GAME_MODE_MOVEMENT);
+
+    test_click_tile(&game, allocator, (position_t){2, 0});
+    assert_test(p->position.x == 2);
+    assert_test(p->position.y == 0);
+    assert_test(p->mp == 1);
+    assert_test(game.mode == GAME_MODE_MOVEMENT);
+
+    game_deinit(allocator, game);
+}
+
 const test_case_t g_game_combat_tests[] = {
     { TEST_NAME("game_attack_kills_defender_clamps_hp_and_frees_tile_for_movement"), test_game_attack_kills_defender_clamps_hp_and_frees_tile_for_movement },
     { TEST_NAME("game_entity_pressed_diagonal_and_far_enemy_attack_noop"), test_game_entity_pressed_diagonal_and_far_enemy_attack_noop },
@@ -820,6 +902,8 @@ const test_case_t g_game_combat_tests[] = {
     { TEST_NAME("game_skill_button_pressed_noop_when_mode_none_or_index_out_of_range"), test_game_skill_button_pressed_noop_when_mode_none_or_index_out_of_range },
     { TEST_NAME("game_attack_after_skill_switch_uses_new_skill_damage_and_ap_cost"), test_game_attack_after_skill_switch_uses_new_skill_damage_and_ap_cost },
     { TEST_NAME("game_attack_toggle_then_ally_click_is_noop"), test_game_attack_toggle_then_ally_click_is_noop },
+    { TEST_NAME("game_attack_mode_tile_click_does_not_move"), test_game_attack_mode_tile_click_does_not_move },
+    { TEST_NAME("game_tile_click_moves_after_toggling_attack_mode_off"), test_game_tile_click_moves_after_toggling_attack_mode_off },
 };
 
 const uint32_t g_game_combat_tests_count = sizeof(g_game_combat_tests) / sizeof(g_game_combat_tests[0]);
