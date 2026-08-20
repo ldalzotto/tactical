@@ -79,6 +79,7 @@ else()
             src/test_runtime.c
             src/test_memory.c
             src/test_layout.c
+            src/test_invariants.c
             src/test_game_movement.c
             src/test_game_combat.c
             src/test_game_ai.c
