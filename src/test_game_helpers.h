@@ -22,6 +22,13 @@ static inline void test_click_tile(game_state_t *game, linear_allocator_t *alloc
     game_on_input_event(game, allocator, click);
 }
 
+static inline void test_move_tile(game_state_t *game, linear_allocator_t *allocator, position_t target) {
+    int px, py;
+    grid_to_screen(game->viewport, target.x, target.y, &px, &py);
+    input_event_t move = { .type = INPUT_EVENT_MOUSE_MOVE, .x = px + 1, .y = py + 1 };
+    game_on_input_event(game, allocator, move);
+}
+
 static inline void test_click_end_turn(game_state_t *game, linear_allocator_t *allocator) {
     rect_t button = game->viewport.end_turn_button;
     input_event_t click = { .type = INPUT_EVENT_MOUSE_CLICK, .x = button.x + 1, .y = button.y + 1 };
