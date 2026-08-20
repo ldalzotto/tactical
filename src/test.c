@@ -47,7 +47,13 @@ PRIVATE const test_case_t *test_lookup(uint32_t index) {
     if (index < g_render_tests_count) { return &g_render_tests[index]; }
 
     assert_test(false);
-    return 0;
+    // Reached only when assert_test's panic is swallowed by expect_panic
+    // (see test_discovery_out_of_range_panics). Callers dereference the
+    // returned pointer's fields unconditionally, so this must be a real
+    // object rather than NULL -- a NULL return, dereferenced right back at
+    // the call site, is UB that -O3 is free to turn into a trap.
+    static const test_case_t out_of_range = { { 0, 0 }, 0 };
+    return &out_of_range;
 }
 
 __attribute__((export_name("test_discovery_count")))
