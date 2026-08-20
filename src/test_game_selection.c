@@ -429,8 +429,7 @@ PRIVATE void test_game_mouse_move_updates_hover(linear_allocator_t *allocator) {
     assert_test(game.hover.x == 2);
     assert_test(game.hover.y == 2);
 
-    input_event_t outside = { .type = INPUT_EVENT_MOUSE_MOVE, .x = 9999, .y = 9999 };
-    game_on_input_event(&game, allocator, outside);
+    test_move_raw(&game, allocator, 9999, 9999);
     assert_test(!game.hover_valid);
 
     game_deinit(allocator, game);
