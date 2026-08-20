@@ -54,26 +54,14 @@ PUBLIC turn_state_t turn_remove_dead_entity(turn_state_t state, entity_t *dead) 
     // same-team targets and is the only caller of entity_damage, so nothing
     // can damage whoever is currently acting. This is unreachable -- and
     // untestable through the game API -- until something (e.g. AoE damage)
-    // changes that. When it does, delete this assert and uncomment the
-    // survivors_before_active/passed_active bookkeeping and the cursor-park
-    // block below, both marked with the same TODO.
+    // changes that.
     entity_t *active = turn_active_entity(state);
     assert_debug(dead != active);
 
     slice_entity_ptr_t write = state.order;
     int new_cursor = state.cursor;
-    // TODO(active-entity-death): re-enable together with the block below.
-    // int survivors_before_active = 0;
-    // bool passed_active = false;
     for ( SLICE_FOREACH(state.order, read) ) {
         entity_t *entity = SLICE_DEREF(read);
-
-        // TODO(active-entity-death): re-enable together with the block below.
-        // if (entity == active) {
-        //     passed_active = true;
-        // } else if (!passed_active) {
-        //     survivors_before_active++;
-        // }
 
         if (entity != dead) {
             if (entity == active) {
@@ -90,18 +78,6 @@ PUBLIC turn_state_t turn_remove_dead_entity(turn_state_t state, entity_t *dead) 
     for ( SLICE_FOREACH(state.order, remaining) ) {
         assert_debug(SLICE_DEREF(remaining)->alive);
     }
-
-    // TODO(active-entity-death): active entity died -- park the cursor one
-    // slot before the survivor that followed it in the original order, so
-    // the next turn_advance (which resets ap/mp) lands on that survivor
-    // instead of the head. Re-enable together with the bookkeeping above
-    // once dead can legitimately equal the active entity.
-    // if (dead == active) {
-    //     int survivor_count = (int)typesize(state.order.begin, write.begin);
-    //     new_cursor = (survivor_count > 0)
-    //         ? (survivors_before_active - 1 + survivor_count) % survivor_count
-    //         : 0;
-    // }
 
     state.cursor = new_cursor;
 
