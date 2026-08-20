@@ -233,8 +233,7 @@ PRIVATE void test_game_on_input_event_click_in_end_turn_button_behaves_like_end_
     assert_test(turn_active_entity(game.turn) == p);
 
     assert_test(point_in_rect(game.viewport.end_turn_button, 260, 215));
-    input_event_t click = { .type = INPUT_EVENT_MOUSE_CLICK, .x = 260, .y = 215 };
-    game_on_input_event(&game, allocator, click);
+    test_click_end_turn(&game, allocator);
 
     assert_test(turn_active_entity(game.turn) == p);
     assert_test(game.mode == GAME_MODE_NONE);
@@ -269,11 +268,7 @@ PRIVATE void test_game_on_input_event_click_on_entity_tile_behaves_like_entity_p
 
     game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
-    int px, py;
-    grid_to_screen(game.viewport, 0, 0, &px, &py);
-
-    input_event_t click = { .type = INPUT_EVENT_MOUSE_CLICK, .x = px + 1, .y = py + 1 };
-    game_on_input_event(&game, allocator, click);
+    test_click_tile(&game, allocator, p1->position);
 
     assert_test(game.mode == GAME_MODE_MOVEMENT);
     assert_test(turn_active_entity(game.turn) == p1);
