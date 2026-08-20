@@ -226,7 +226,7 @@ PRIVATE ptrdiff_t game_advance_turn(game_state_t *game, linear_allocator_t *allo
         if (attacked != 0) {
             // If the entity just died, we remove dead entities
             if (!attacked->alive) {
-                game->turn = turn_remove_dead_entities(game->turn);
+                game->turn = turn_remove_dead_entity(game->turn, attacked);
             }
             game_check_game_over(game);
         }
@@ -260,7 +260,7 @@ PRIVATE ptrdiff_t game_on_entity_pressed(game_state_t *game, linear_allocator_t 
     if (action_try_attack(allocator, game->grid, game->entities, active, SLICE_AT(active->skills, game->selected_skill), entity)) {
         // If the entity just died, we remove dead entities
         if (!entity->alive) {
-            game->turn = turn_remove_dead_entities(game->turn);
+            game->turn = turn_remove_dead_entity(game->turn, entity);
         }
         game_check_game_over(game);
         return game_set_mode(game, allocator, GAME_MODE_MOVEMENT);
