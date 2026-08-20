@@ -120,6 +120,7 @@ PRIVATE skill_t* ai_preferred_skill(entity_t *enemy) {
             best = skill;
         }
     }
+    assert_debug(best != 0);
     return best;
 }
 
