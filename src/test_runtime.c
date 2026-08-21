@@ -34,9 +34,10 @@ PRIVATE void test_test_discovery_out_of_range_panics(linear_allocator_t *allocat
 PRIVATE void test_panic_without_expect_panic_traps(linear_allocator_t *allocator) {
     (void)allocator;
 
-    // panic's non-expect_panic path falls through to __builtin_trap. The
-    // JS runner treats this test's wasm trap as the expected outcome and
-    // confirms it via test_expect_trap_end.
+    // panic's non-expect_panic path falls through to report_panic, which
+    // throws on the JS side and unwinds the wasm instance. The JS runner
+    // treats this test's unwind as the expected outcome and confirms it
+    // via test_expect_trap_end.
     expect_trap_begin();
     panic(false);
 }

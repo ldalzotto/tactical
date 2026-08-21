@@ -16,7 +16,7 @@ const { spawnSync } = require('node:child_process');
 // have executed — this is exactly the "missing branch" the HTML report flags.
 
 function run(cmd, args) {
-    const result = spawnSync(cmd, args, { encoding: 'utf8' });
+    const result = spawnSync(cmd, args, { encoding: 'utf8', maxBuffer: Infinity });
     if (result.status !== 0) {
         process.stdout.write(result.stdout);
         process.stderr.write(result.stderr);
