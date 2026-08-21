@@ -56,6 +56,18 @@ PUBLIC bool pathing_line_of_sight_clear(grid_t grid, slice_entity_t entities, po
 
 PUBLIC int pathing_distance_at(pathing_state_t state, grid_t grid, position_t position); // -1 if unreached OR out of bounds -- this is a defensive query (arbitrary coords from clicks later), do NOT make it panic like grid_tile_at does
 
+// The cover-aware blast footprint of an AoE impact: every tile within
+// Manhattan `radius` of `center` that also has a clear line of sight from
+// `center` (or is `center` itself) -- pathing_line_of_sight_clear's
+// wall/sight-blocking-terrain/occupied-tile semantics, so cover casts a
+// "shadow" that removes tiles behind it even when they're within radius.
+// No per-tile distance/falloff data -- a plain tile list, staged on
+// `allocator` the same way game.c's mode-switch tile scans are (grow a
+// slice_position_t while scanning the whole grid). Caller owns the result
+// and pops it from `allocator` when done (linear_allocator_pop(allocator,
+// result.slice) -- no _deinit needed, unlike pathing_state_t).
+PUBLIC slice_position_t pathing_compute_blast_tiles(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, position_t center, int radius);
+
 #ifdef APP_UNITY_BUILD
 #include "pathing.c"
 #endif
