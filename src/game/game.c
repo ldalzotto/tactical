@@ -34,6 +34,8 @@ PUBLIC game_state_t game_init(linear_allocator_t *allocator, slice_t grid_align,
     slice_position_t reachable_tiles = LINEAR_ALLOCATOR_PUSH(&scratch, reachable_tiles, 0);
     slice_t attack_range_align = linear_allocator_push(&scratch, 0);
     slice_position_t attack_range_tiles = LINEAR_ALLOCATOR_PUSH(&scratch, attack_range_tiles, 0);
+    slice_t blast_preview_align = linear_allocator_push(&scratch, 0);
+    slice_position_t blast_preview_tiles = LINEAR_ALLOCATOR_PUSH(&scratch, blast_preview_tiles, 0);
 
     game_state_t game = {
         .grid_align = grid_align,
@@ -56,12 +58,16 @@ PUBLIC game_state_t game_init(linear_allocator_t *allocator, slice_t grid_align,
             .reachable_tiles = reachable_tiles,
             .attack_range_align = attack_range_align,
             .attack_range_tiles = attack_range_tiles,
+            .blast_preview_align = blast_preview_align,
+            .blast_preview_tiles = blast_preview_tiles,
         },
     };
     return game;
 }
 
 PUBLIC void game_deinit(linear_allocator_t *allocator, game_state_t state) {
+    LINEAR_ALLOCATOR_POP(&state.scratch, state.render.blast_preview_tiles);
+    linear_allocator_pop(&state.scratch, state.render.blast_preview_align);
     LINEAR_ALLOCATOR_POP(&state.scratch, state.render.attack_range_tiles);
     linear_allocator_pop(&state.scratch, state.render.attack_range_align);
     LINEAR_ALLOCATOR_POP(&state.scratch, state.render.reachable_tiles);
@@ -213,7 +219,7 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
         // Reset to zero for usage sanity
         temp_align = (slice_t){0,0}; temp_tiles.slice = (slice_t){0,0};
 
-        render_cache_set_attack_range(&game->render, attack_range_align, attack_range_tiles);
+        render_cache_set_attack_range(&game->scratch, &game->render, attack_range_align, attack_range_tiles);
 
         return shift;
     }
