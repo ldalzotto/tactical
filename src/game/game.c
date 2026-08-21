@@ -359,19 +359,13 @@ PUBLIC ptrdiff_t game_on_input_event(game_state_t *game, linear_allocator_t *all
             return game_on_attack_toggle_pressed(game, allocator);
         }
 
-        // Hit-test skill buttons only when render_hud would draw them (same
-        // gate as there), so a click elsewhere falls through to the grid.
+        // layout_visible_skill_button_count keeps this in sync with render_hud.
         entity_t *active_for_skill_buttons = turn_active_entity(game->turn);
-        if (active_for_skill_buttons->team == ENTITY_TEAM_PLAYER && game->mode != GAME_MODE_NONE && entity_skill_count(active_for_skill_buttons) > 1) {
-            // Clamped to VIEWPORT_MAX_SKILL_BUTTONS, same as render_hud.
-            int button_count = entity_skill_count(active_for_skill_buttons);
-            if (button_count > VIEWPORT_MAX_SKILL_BUTTONS) {
-                button_count = VIEWPORT_MAX_SKILL_BUTTONS;
-            }
-            for (int i = 0; i < button_count; i++) {
-                if (point_in_rect(SLICE_AT(viewport_skill_buttons(&game->viewport), i), event.x, event.y)) {
-                    return game_on_skill_button_pressed(game, allocator, i);
-                }
+        int button_count = layout_visible_skill_button_count(
+            active_for_skill_buttons->team == ENTITY_TEAM_PLAYER, game->mode != GAME_MODE_NONE, entity_skill_count(active_for_skill_buttons));
+        for (int i = 0; i < button_count; i++) {
+            if (point_in_rect(SLICE_AT(viewport_skill_buttons(&game->viewport), i), event.x, event.y)) {
+                return game_on_skill_button_pressed(game, allocator, i);
             }
         }
 

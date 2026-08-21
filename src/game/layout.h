@@ -27,6 +27,8 @@ PUBLIC viewport_t layout_compute(int fb_width, int fb_height, int grid_width, in
 PUBLIC bool screen_to_grid(viewport_t v, int screen_x, int screen_y, int *out_tx, int *out_ty);
 PUBLIC void grid_to_screen(viewport_t v, int tx, int ty, int *out_px, int *out_py);
 PUBLIC slice_rect_t viewport_skill_buttons(viewport_t *v);
+// Skill button count shared by render_hud (draw) and game_on_input_event (hit-test).
+PUBLIC int layout_visible_skill_button_count(bool player_active, bool mode_active, int skill_count);
 
 #ifdef APP_UNITY_BUILD
 #include "layout.c"

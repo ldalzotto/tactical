@@ -89,3 +89,10 @@ PUBLIC void grid_to_screen(viewport_t v, int tx, int ty, int *out_px, int *out_p
     *out_px = v.origin_x + tx * v.tile_size;
     *out_py = v.origin_y + ty * v.tile_size;
 }
+
+PUBLIC int layout_visible_skill_button_count(bool player_active, bool mode_active, int skill_count) {
+    if (!player_active || !mode_active || skill_count <= 1) {
+        return 0;
+    }
+    return skill_count > VIEWPORT_MAX_SKILL_BUTTONS ? VIEWPORT_MAX_SKILL_BUTTONS : skill_count;
+}
