@@ -46,12 +46,19 @@ PRIVATE void test_scenario_setup_default_populates_map_and_units(linear_allocato
         assert_test(SLICE_AT(entity->skills, 1).ap_cost == expected[id].other_skill.ap_cost);
     }
 
-    assert_test(!grid_is_walkable(game.grid, (position_t){7, 4}));
-    assert_test(!grid_is_walkable(game.grid, (position_t){7, 5}));
+    assert_test(grid_tile_kind(game.grid, (position_t){7, 4}) == TILE_WALL);
+    assert_test(grid_tile_kind(game.grid, (position_t){7, 5}) == TILE_WALL);
+    assert_test(grid_tile_kind(game.grid, (position_t){7, 6}) == TILE_GRASS);
+    assert_test(grid_tile_kind(game.grid, (position_t){7, 1}) == TILE_CHASM);
+    assert_test(grid_tile_kind(game.grid, (position_t){7, 2}) == TILE_CHASM);
+    assert_test(!grid_blocks_sight(game.grid, (position_t){7, 1}));
+    assert_test(!grid_blocks_sight(game.grid, (position_t){7, 2}));
 
     for (int y = 0; y < game.grid.height; y++) {
         for (int x = 0; x < game.grid.width; x++) {
-            if ((x == 7 && y == 4) || (x == 7 && y == 5)) {
+            bool is_wall = (x == 7 && (y == 4 || y == 5));
+            bool is_chasm = (x == 7 && (y == 1 || y == 2));
+            if (is_wall || is_chasm) {
                 continue;
             }
             assert_test(grid_is_walkable(game.grid, (position_t){x, y}));
@@ -72,8 +79,39 @@ PRIVATE void test_scenario_setup_default_populates_map_and_units(linear_allocato
     game_deinit(allocator, game);
 }
 
+// grid_set_tile/grid_tile_kind round-trip for all four archetypes.
+PRIVATE void test_grid_set_tile_round_trips_all_archetypes(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 4, 1);
+
+    grid_set_tile(grid, (position_t){0, 0}, TILE_FLOOR);
+    grid_set_tile(grid, (position_t){1, 0}, TILE_WALL);
+    grid_set_tile(grid, (position_t){2, 0}, TILE_GRASS);
+    grid_set_tile(grid, (position_t){3, 0}, TILE_CHASM);
+
+    assert_test(grid_tile_kind(grid, (position_t){0, 0}) == TILE_FLOOR);
+    assert_test(grid_is_walkable(grid, (position_t){0, 0}));
+    assert_test(!grid_blocks_sight(grid, (position_t){0, 0}));
+
+    assert_test(grid_tile_kind(grid, (position_t){1, 0}) == TILE_WALL);
+    assert_test(!grid_is_walkable(grid, (position_t){1, 0}));
+    assert_test(grid_blocks_sight(grid, (position_t){1, 0}));
+
+    assert_test(grid_tile_kind(grid, (position_t){2, 0}) == TILE_GRASS);
+    assert_test(grid_is_walkable(grid, (position_t){2, 0}));
+    assert_test(grid_blocks_sight(grid, (position_t){2, 0}));
+
+    assert_test(grid_tile_kind(grid, (position_t){3, 0}) == TILE_CHASM);
+    assert_test(!grid_is_walkable(grid, (position_t){3, 0}));
+    assert_test(!grid_blocks_sight(grid, (position_t){3, 0}));
+
+    grid_deinit(allocator, grid);
+    linear_allocator_pop(allocator, grid_padding);
+}
+
 const test_case_t g_scenario_tests[] = {
     { TEST_NAME("scenario_setup_default_populates_map_and_units"), test_scenario_setup_default_populates_map_and_units },
+    { TEST_NAME("grid_set_tile_round_trips_all_archetypes"), test_grid_set_tile_round_trips_all_archetypes },
 };
 
 const uint32_t g_scenario_tests_count = sizeof(g_scenario_tests) / sizeof(g_scenario_tests[0]);

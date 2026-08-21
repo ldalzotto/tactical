@@ -236,7 +236,7 @@ PRIVATE void test_render_obstacle_tile_uses_obstacle_colors(linear_allocator_t *
 
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 4);
-    grid_set_walkable(grid, (position_t){1, 1}, false);
+    grid_set_tile(grid, (position_t){1, 1}, TILE_WALL);
 
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
@@ -257,6 +257,40 @@ PRIVATE void test_render_obstacle_tile_uses_obstacle_colors(linear_allocator_t *
 
     rgba_t obstacle_outer = { 10, 10, 10, 255 };
     assert_test(test_tile_contains_color(fb, GAME_TEST_FB_WIDTH, game.viewport, (position_t){1, 1}, obstacle_outer));
+
+    game_deinit(allocator, game);
+    LINEAR_ALLOCATOR_POP(allocator, fb);
+    linear_allocator_pop(allocator, fb_align);
+}
+
+PRIVATE void test_render_chasm_tile_uses_chasm_colors(linear_allocator_t *allocator) {
+    slice_t fb_align = linear_allocator_push_alignment(allocator, _Alignof(rgba_t));
+    slice_rgba_t fb;
+    fb = LINEAR_ALLOCATOR_PUSH(allocator, fb, (size_t)(GAME_TEST_FB_WIDTH * GAME_TEST_FB_HEIGHT));
+
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 4, 4);
+    grid_set_tile(grid, (position_t){1, 1}, TILE_CHASM);
+
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t *p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p->skills = skills;
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+
+    render_frame(fb, GAME_TEST_FB_WIDTH, game);
+
+    rgba_t chasm_outer = { 20, 30, 55, 255 };
+    assert_test(test_tile_contains_color(fb, GAME_TEST_FB_WIDTH, game.viewport, (position_t){1, 1}, chasm_outer));
 
     game_deinit(allocator, game);
     LINEAR_ALLOCATOR_POP(allocator, fb);
@@ -654,6 +688,7 @@ const test_case_t g_render_tests[] = {
     { TEST_NAME("render_attack_range_tile_occupied_by_enemy_is_dithered_not_solid"), test_render_attack_range_tile_occupied_by_enemy_is_dithered_not_solid },
     { TEST_NAME("render_attack_range_tile_occupied_by_ally_is_solid_not_dithered"), test_render_attack_range_tile_occupied_by_ally_is_solid_not_dithered },
     { TEST_NAME("render_obstacle_tile_uses_obstacle_colors"), test_render_obstacle_tile_uses_obstacle_colors },
+    { TEST_NAME("render_chasm_tile_uses_chasm_colors"), test_render_chasm_tile_uses_chasm_colors },
     { TEST_NAME("render_hover_draws_outline"), test_render_hover_draws_outline },
     { TEST_NAME("render_small_tile_clamps_hp_bar_and_entity_metrics"), test_render_small_tile_clamps_hp_bar_and_entity_metrics },
     { TEST_NAME("render_hp_bar_zero_max_hp_uses_zero_foreground"), test_render_hp_bar_zero_max_hp_uses_zero_foreground },

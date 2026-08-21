@@ -13,6 +13,9 @@ static const rgba_t COLOR_TILE_OBSTACLE_INSET = { 30, 30, 30, 255 };
 // from both plain floor and a non-walkable wall.
 static const rgba_t COLOR_TILE_WALKABLE_BLOCKS_SIGHT = { 40, 60, 30, 255 };
 static const rgba_t COLOR_TILE_WALKABLE_BLOCKS_SIGHT_INSET = { 60, 90, 45, 255 };
+// Chasms: not walkable but sight-clear.
+static const rgba_t COLOR_TILE_CHASM = { 20, 30, 55, 255 };
+static const rgba_t COLOR_TILE_CHASM_INSET = { 30, 45, 80, 255 };
 static const rgba_t COLOR_REACHABLE_TINT = { 80, 140, 220, 255 };
 static const rgba_t COLOR_ATTACK_RANGE_TINT = { 230, 140, 60, 255 };
 static const rgba_t COLOR_WHITE = { 255, 255, 255, 255 };
@@ -55,16 +58,17 @@ PRIVATE void render_draw_outline(slice_rgba_t fb, int fb_width, rect_t r, rgba_t
 PRIVATE void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
     for (int ty = 0; ty < game.grid.height; ty++) {
         for (int tx = 0; tx < game.grid.width; tx++) {
-            bool walkable = grid_is_walkable(game.grid, (position_t){tx, ty});
-            bool blocks_sight = grid_blocks_sight(game.grid, (position_t){tx, ty});
-
+            tile_kind_t kind = grid_tile_kind(game.grid, (position_t){tx, ty});
             rgba_t outer, inset;
-            if (!walkable) {
+            if (kind == TILE_WALL) {
                 outer = COLOR_TILE_OBSTACLE;
                 inset = COLOR_TILE_OBSTACLE_INSET;
-            } else if (blocks_sight) {
+            } else if (kind == TILE_GRASS) {
                 outer = COLOR_TILE_WALKABLE_BLOCKS_SIGHT;
                 inset = COLOR_TILE_WALKABLE_BLOCKS_SIGHT_INSET;
+            } else if (kind == TILE_CHASM) {
+                outer = COLOR_TILE_CHASM;
+                inset = COLOR_TILE_CHASM_INSET;
             } else {
                 outer = COLOR_TILE_WALKABLE;
                 inset = COLOR_TILE_WALKABLE_INSET;

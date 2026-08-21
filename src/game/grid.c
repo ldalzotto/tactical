@@ -53,3 +53,20 @@ PUBLIC void grid_set_blocks_sight(grid_t grid, position_t position, bool blocks_
 PUBLIC bool grid_blocks_sight(grid_t grid, position_t position) {
     return grid_tile_at(grid, position)->blocks_sight;
 }
+
+PUBLIC void grid_set_tile(grid_t grid, position_t position, tile_kind_t kind) {
+    bool blocks_sight = (kind == TILE_WALL || kind == TILE_GRASS);
+    bool walkable = (kind == TILE_GRASS || kind == TILE_FLOOR);
+    grid_set_walkable(grid, position, walkable);
+    grid_set_blocks_sight(grid, position, blocks_sight);
+}
+
+PUBLIC tile_kind_t grid_tile_kind(grid_t grid, position_t position) {
+    bool walkable = grid_is_walkable(grid, position);
+    bool blocks_sight = grid_blocks_sight(grid, position);
+
+    if (blocks_sight) {
+        return walkable ? TILE_GRASS : TILE_WALL;
+    }
+    return walkable ? TILE_FLOOR : TILE_CHASM;
+}
