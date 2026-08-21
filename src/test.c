@@ -1,6 +1,7 @@
 #include "test.h"
 #include "lib/assert.h"
 #include "lib/runtime.h"
+#ifdef APP_BUILD_TEST_SUITES
 #include "test_runtime.h"
 #include "test_app.h"
 #include "test_memory.h"
@@ -11,13 +12,17 @@
 #include "test_game_selection.h"
 #include "test_scenario.h"
 #include "test_render.h"
+#endif
+#ifdef APP_BUILD_FUZZ_TESTS
 #include "test_game_fuzz.h"
+#endif
 
 // g_*_tests_count is an extern const, not a compile-time constant in C, so
 // it can't seed a static initializer -- these helpers do the same
 // suite-by-suite dispatch at runtime instead of building a lookup table.
 
 PRIVATE const test_case_t *test_lookup(uint32_t index) {
+#ifdef APP_BUILD_TEST_SUITES
     if (index < g_runtime_tests_count) { return &g_runtime_tests[index]; }
     index -= g_runtime_tests_count;
 
@@ -47,8 +52,16 @@ PRIVATE const test_case_t *test_lookup(uint32_t index) {
 
     if (index < g_render_tests_count) { return &g_render_tests[index]; }
     index -= g_render_tests_count;
+#endif
 
+    // Guarded even though test_game_fuzz.c always defines
+    // g_game_fuzz_tests_count (0 when fuzzing is off): an unguarded runtime
+    // check here would compile into a branch that's structurally
+    // unreachable whenever fuzzing is off, and coverage would flag it as a
+    // gap for every non-fuzz (e.g. coverage) build.
+#ifdef APP_BUILD_FUZZ_TESTS
     if (index < g_game_fuzz_tests_count) { return &g_game_fuzz_tests[index]; }
+#endif
 
     assert_test(false);
     // Reached only when assert_test's panic is swallowed by expect_panic
@@ -62,7 +75,9 @@ PRIVATE const test_case_t *test_lookup(uint32_t index) {
 
 __attribute__((export_name("test_discovery_count")))
 uint32_t test_discovery_count(void) {
-    return g_runtime_tests_count
+    uint32_t count = 0;
+#ifdef APP_BUILD_TEST_SUITES
+    count += g_runtime_tests_count
         + g_app_tests_count
         + g_memory_tests_count
         + g_layout_tests_count
@@ -71,8 +86,12 @@ uint32_t test_discovery_count(void) {
         + g_game_ai_tests_count
         + g_game_selection_tests_count
         + g_scenario_tests_count
-        + g_render_tests_count
-        + g_game_fuzz_tests_count;
+        + g_render_tests_count;
+#endif
+#ifdef APP_BUILD_FUZZ_TESTS
+    count += g_game_fuzz_tests_count;
+#endif
+    return count;
 }
 
 __attribute__((export_name("test_discovery_name_begin")))
