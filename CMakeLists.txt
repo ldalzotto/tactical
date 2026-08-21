@@ -94,6 +94,7 @@ else()
             src/test_layout.c
             src/test_game_movement.c
             src/test_game_combat.c
+            src/test_game_aoe.c
             src/test_game_ai.c
             src/test_game_selection.c
             src/test_scenario.c

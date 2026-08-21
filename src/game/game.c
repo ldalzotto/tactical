@@ -304,8 +304,14 @@ PRIVATE ptrdiff_t game_advance_turn(game_state_t *game, linear_allocator_t *allo
 // reconciled here. Only called once the AoE precondition (player-controlled
 // active entity, GAME_MODE_ATTACK, skill.aoe_radius > 0) already holds.
 PRIVATE ptrdiff_t game_cast_attack_area(game_state_t *game, linear_allocator_t *allocator, entity_t *active, skill_t skill, position_t impact) {
+    // action_try_attack_area requires allocator's cursor pre-aligned to
+    // _Alignof(entity_ptr_t) (it does not self-align -- see its doc
+    // comment); paired with the pop below so this fully unwinds either way.
+    slice_t hit_align = linear_allocator_push_alignment(allocator, _Alignof(entity_ptr_t));
+
     slice_entity_ptr_t out_hit;
     if (!action_try_attack_area(allocator, game->grid, game->entities, active, skill, impact, &out_hit)) {
+        linear_allocator_pop(allocator, hit_align);
         return 0;
     }
 
@@ -318,6 +324,7 @@ PRIVATE ptrdiff_t game_cast_attack_area(game_state_t *game, linear_allocator_t *
     game_check_game_over(game);
 
     linear_allocator_pop(allocator, out_hit.slice);
+    linear_allocator_pop(allocator, hit_align);
 
     return game_set_mode(game, allocator, GAME_MODE_MOVEMENT);
 }

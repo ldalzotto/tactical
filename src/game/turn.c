@@ -50,11 +50,11 @@ PUBLIC turn_state_t turn_advance(turn_state_t state) {
 PUBLIC turn_state_t turn_remove_dead_entity(turn_state_t state, entity_t *dead) {
     assert_debug(SLICE_TYPESIZE(state.order) > 0);
     assert_debug(!dead->alive);
-    // The active entity can't die today: action_try_attack rejects
-    // same-team targets and is the only caller of entity_damage, so nothing
-    // can damage whoever is currently acting. This is unreachable -- and
-    // untestable through the game API -- until something (e.g. AoE damage)
-    // changes that.
+    // The active entity can never die: action_try_attack and
+    // action_try_attack_area both reject same-team damage, and the
+    // currently-active entity is always on the attacker's own team (it's
+    // the one doing the attacking), so it can never appear as `dead` here --
+    // including from its own AoE blast.
     entity_t *active = turn_active_entity(state);
     assert_debug(dead != active);
 
@@ -73,11 +73,14 @@ PUBLIC turn_state_t turn_remove_dead_entity(turn_state_t state, entity_t *dead) 
     }
     state.order.end = write.begin;
 
-    // Every entity left in the order must still be alive: callers are
-    // expected to reconcile one death at a time.
-    for ( SLICE_FOREACH(state.order, remaining) ) {
-        assert_debug(SLICE_DEREF(remaining)->alive);
-    }
+    // Unlike a single-target kill, an AoE blast can down several entities
+    // at once (see action_try_attack_area): the caller reconciles them by
+    // calling this function once per casualty in the same batch, so a
+    // casualty not yet processed may transiently still sit in `order`,
+    // already dead, between one call and the next -- no per-call "everyone
+    // remaining is alive" invariant holds here anymore. The full order is
+    // still checked to be entirely alive once the batch finishes (see
+    // assert_game_invariants, run after every input event).
 
     state.cursor = new_cursor;
 

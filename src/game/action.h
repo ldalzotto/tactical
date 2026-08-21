@@ -33,6 +33,13 @@ PUBLIC bool action_try_attack(grid_t grid, slice_entity_t entities, entity_t* at
 // skill.range/LOS from attacker (via pathing_in_range). Only valid for AoE
 // skills (skill.aoe_radius > 0, debug-asserted) -- single-target skills
 // keep using action_try_attack.
+//
+// Caller must have `allocator`'s cursor aligned to _Alignof(entity_ptr_t)
+// before calling -- this function does not self-align, matching this
+// codebase's push-align-then-push convention (see entity_list_align et
+// al.). *out_hit is staged starting at that aligned cursor, so a single
+// `linear_allocator_pop(allocator, out_hit->slice)` followed by popping the
+// caller's own alignment marker fully unwinds everything this call staged.
 PUBLIC bool action_try_attack_area(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *attacker, skill_t skill, position_t impact, slice_entity_ptr_t *out_hit);
 
 #ifdef APP_UNITY_BUILD
