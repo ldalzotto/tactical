@@ -17,9 +17,9 @@ typedef struct app_state_t {
     game_state_t game;
 } app_state_t;
 
-PUBLIC app_state_t *app_init(uint32_t memory_size, uint32_t now_ms);
-PUBLIC void app_deinit(app_state_t *state);
-PUBLIC uint32_t app_on_next_frame(app_state_t *state, uint32_t now_ms);
+app_state_t *app_init(uint32_t memory_size, uint32_t now_ms);
+void app_deinit(app_state_t *state);
+uint32_t app_on_next_frame(app_state_t *state, uint32_t now_ms);
 
 // Dispatches a batch of already-polled input events through the game API.
 // Split out of app_on_next_frame so tests can exercise the event loop with a
