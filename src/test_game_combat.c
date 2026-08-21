@@ -460,6 +460,102 @@ PRIVATE void test_game_ranged_attack_blocked_by_wall_on_diagonal_line(linear_all
     game_deinit(allocator, game);
 }
 
+// A non-walkable tile that doesn't block sight (a chasm, a low wall) must
+// not shrink attack range: range is Manhattan distance + line of sight, not
+// walking distance, so a target in plain sight across an impassable tile is
+// still a legal target.
+PRIVATE void test_game_ranged_attack_not_blocked_by_non_walkable_sight_clear_tile(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 5, 3);
+    grid_set_walkable(grid, (position_t){1, 1}, false);
+
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 3, 2);
+    entity_t* e = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){2, 1}, 10, 2, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_RANGED);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *e_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e->skills = (slice_skill_t){ .begin = e_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, e);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+
+    // e is at Manhattan distance 2 (within SKILL_RANGED.range=3), and the
+    // straight ray crosses only (1,1), which is non-walkable but not
+    // sight-blocking -- e stays a legal target.
+    assert_test(test_tile_list_contains(game.render.attack_range_tiles, e->position));
+    test_click_tile(&game, allocator, e->position);
+
+    assert_test(e->hp == 10 - SKILL_RANGED.damage);
+    assert_test(p->ap == 3 - SKILL_RANGED.ap_cost);
+
+    game_deinit(allocator, game);
+}
+
+// Range is a Manhattan-distance boundary: exactly max_range is in, one step
+// further is out, on open ground with no occlusion on either ray.
+PRIVATE void test_game_attack_range_manhattan_boundary(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 5, 4);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 3, 1);
+    // South, at exactly SKILL_RANGED.range (3).
+    entity_t* in_range = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){0, 3}, 10, 1, 3);
+    // East, at SKILL_RANGED.range + 1 (4) -- a different axis from in_range
+    // so neither ray crosses the other's tile.
+    entity_t* out_of_range = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){4, 0}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_RANGED);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *in_range_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    in_range->skills = (slice_skill_t){ .begin = in_range_skills_begin, .end = skills.end };
+    skill_t *out_of_range_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    out_of_range->skills = (slice_skill_t){ .begin = out_of_range_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, in_range);
+    turn_order_add(allocator, &order, out_of_range);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+
+    assert_test(test_tile_list_contains(game.render.attack_range_tiles, in_range->position));
+    assert_test(!test_tile_list_contains(game.render.attack_range_tiles, out_of_range->position));
+
+    test_click_tile(&game, allocator, out_of_range->position);
+    assert_test(out_of_range->hp == 10);
+    assert_test(p->ap == 3);
+
+    test_click_tile(&game, allocator, in_range->position);
+    assert_test(in_range->hp == 10 - SKILL_RANGED.damage);
+    assert_test(p->ap == 3 - SKILL_RANGED.ap_cost);
+
+    game_deinit(allocator, game);
+}
+
 PRIVATE void test_game_attack_toggle_after_move_selection_does_not_overflow_scratch(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT);
@@ -894,6 +990,8 @@ const test_case_t g_game_combat_tests[] = {
     { TEST_NAME("game_ranged_attack_still_blocked_by_ally_in_path"), test_game_ranged_attack_still_blocked_by_ally_in_path },
     { TEST_NAME("game_attack_range_tiles_include_occupied_but_not_beyond"), test_game_attack_range_tiles_include_occupied_but_not_beyond },
     { TEST_NAME("game_ranged_attack_blocked_by_wall_on_diagonal_line"), test_game_ranged_attack_blocked_by_wall_on_diagonal_line },
+    { TEST_NAME("game_ranged_attack_not_blocked_by_non_walkable_sight_clear_tile"), test_game_ranged_attack_not_blocked_by_non_walkable_sight_clear_tile },
+    { TEST_NAME("game_attack_range_manhattan_boundary"), test_game_attack_range_manhattan_boundary },
     { TEST_NAME("game_attack_toggle_after_move_selection_does_not_overflow_scratch"), test_game_attack_toggle_after_move_selection_does_not_overflow_scratch },
     { TEST_NAME("game_attack_toggle_with_large_range_skill_grows_scratch"), test_game_attack_toggle_with_large_range_skill_grows_scratch },
     { TEST_NAME("game_selecting_shows_reachable_tiles_and_toggle_shows_attack_range_tiles"), test_game_selecting_shows_reachable_tiles_and_toggle_shows_attack_range_tiles },

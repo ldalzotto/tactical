@@ -81,10 +81,12 @@ PUBLIC void game_deinit(linear_allocator_t *allocator, game_state_t state) {
 // Grows `scratch` in place if needed to fit `temp_tiles`, copies
 // `temp_align`/`temp_tiles` into it as `out_align`/`out_tiles`, and pops the
 // caller's staged copy off `allocator`. Growing inserts bytes into
-// `allocator` right above `scratch`'s data, sliding up `pathing` and `temp`
-// (the only things staged there) -- rebases both. Returns the shift applied
-// (0 if it already fit); callers must propagate it to anything else they
-// hold above `scratch` (see game_on_input_event / app_dispatch_input_events).
+// `allocator` right above `scratch`'s data, sliding up `pathing` (if any)
+// and `temp` (the only things staged there) -- rebases both. `pathing` may
+// be NULL when the caller has nothing else staged above scratch on
+// `allocator`. Returns the shift applied (0 if it already fit); callers
+// must propagate it to anything else they hold above `scratch` (see
+// game_on_input_event / app_dispatch_input_events).
 PRIVATE ptrdiff_t game_scratch_push(linear_allocator_t *allocator, linear_allocator_t *scratch,
         pathing_state_t *pathing,
         slice_t temp_align, slice_position_t temp_tiles,
@@ -100,8 +102,10 @@ PRIVATE ptrdiff_t game_scratch_push(linear_allocator_t *allocator, linear_alloca
         linear_allocator_insert(allocator, scratch->data.end, (size_t)extra);
         scratch->data.end = byteoffset(scratch->data.end, extra);
 
-        pathing->align = slice_shift(pathing->align, extra);
-        pathing->dist.slice = slice_shift(pathing->dist.slice, extra);
+        if (pathing != 0) {
+            pathing->align = slice_shift(pathing->align, extra);
+            pathing->dist.slice = slice_shift(pathing->dist.slice, extra);
+        }
         temp_align = slice_shift(temp_align, extra);
         temp_tiles.slice = slice_shift(temp_tiles.slice, extra);
 
@@ -149,7 +153,7 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
             return 0;
         }
 
-        pathing_state_t pathing = pathing_compute_distances(allocator, game->grid, game->entities, active->position, active->mp);
+        pathing_state_t pathing = pathing_compute_walking_distances(allocator, game->grid, game->entities, active->position, active->mp);
 
         slice_t temp_align = linear_allocator_push_alignment(allocator, _Alignof(position_t));
         slice_position_t temp_tiles;
@@ -182,7 +186,6 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
         assert_debug(mode == GAME_MODE_ATTACK);
 
         int skill_range = SLICE_AT(active->skills, game->selected_skill).range;
-        pathing_state_t pathing = pathing_compute_line_of_sight(allocator, game->grid, game->entities, active->position, skill_range);
 
         slice_t temp_align = linear_allocator_push_alignment(allocator, _Alignof(position_t));
         slice_position_t temp_tiles;
@@ -190,7 +193,13 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
         for (int ty = 0; ty < game->grid.height; ty++) {
             for (int tx = 0; tx < game->grid.width; tx++) {
                 position_t position = { tx, ty };
-                if (pathing_distance_at(pathing, game->grid, position) > 0) {
+                // Exclude the mover's own tile -- pathing_in_range treats
+                // from == to as trivially in range, but it's never a valid
+                // attack target tile.
+                if (position_equals(position, active->position)) {
+                    continue;
+                }
+                if (pathing_in_range(game->grid, game->entities, active->position, position, skill_range)) {
                     slice_position_t entry = LINEAR_ALLOCATOR_PUSH(allocator, temp_tiles, 1);
                     SLICE_DEREF(entry) = position;
                     temp_tiles.end = entry.end;
@@ -200,13 +209,11 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
 
         slice_t attack_range_align;
         slice_position_t attack_range_tiles;
-        ptrdiff_t shift = game_scratch_push(allocator, &game->scratch, &pathing, temp_align, temp_tiles, &attack_range_align, &attack_range_tiles);
+        ptrdiff_t shift = game_scratch_push(allocator, &game->scratch, 0, temp_align, temp_tiles, &attack_range_align, &attack_range_tiles);
         // Reset to zero for usage sanity
         temp_align = (slice_t){0,0}; temp_tiles.slice = (slice_t){0,0};
 
         render_cache_set_attack_range(&game->render, attack_range_align, attack_range_tiles);
-
-        pathing_deinit(allocator, pathing);
 
         return shift;
     }
@@ -257,7 +264,7 @@ PRIVATE ptrdiff_t game_on_entity_pressed(game_state_t *game, linear_allocator_t 
         return 0;
     }
 
-    if (action_try_attack(allocator, game->grid, game->entities, active, SLICE_AT(active->skills, game->selected_skill), entity)) {
+    if (action_try_attack(game->grid, game->entities, active, SLICE_AT(active->skills, game->selected_skill), entity)) {
         // If the entity just died, we remove dead entities
         if (!entity->alive) {
             game->turn = turn_remove_dead_entity(game->turn, entity);
