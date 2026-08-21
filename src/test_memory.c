@@ -2,9 +2,6 @@
 #include "lib/assert.h"
 #include "lib/runtime.h"
 
-SLICE_DEFINE(uint8_t);
-SLICE_DEFINE(uint32_t);
-
 PRIVATE void test_byteoffset(linear_allocator_t *allocator) {
     slice_uint32_t values = LINEAR_ALLOCATOR_PUSH(allocator, values, 4);
     SLICE_AT(values, 0) = 10; SLICE_AT(values, 1) = 20;

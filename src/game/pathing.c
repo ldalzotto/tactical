@@ -22,8 +22,23 @@ PRIVATE pathing_state_t pathing_bfs(linear_allocator_t *allocator, grid_t grid, 
     slice_int32_t frontier;
     frontier = LINEAR_ALLOCATOR_PUSH(allocator, frontier, count);
 
+    // Occupancy bitmap: O(N) to build once, turns each neighbor's
+    // occupancy test into an O(1) read instead of an O(N) entity_find_at scan.
+    slice_uint8_t occupied;
+    occupied = LINEAR_ALLOCATOR_PUSH(allocator, occupied, count);
+
     for (size_t i = 0; i < count; i++) {
         SLICE_AT(dist, i) = -1;
+        SLICE_AT(occupied, i) = 0;
+    }
+
+    for (SLICE_FOREACH(entities, entity_s)) {
+        entity_t *entity = &SLICE_DEREF(entity_s);
+        if (!entity->alive) {
+            continue;
+        }
+        int index = entity->position.y * grid.width + entity->position.x;
+        SLICE_AT(occupied, index) = 1;
     }
 
     int head = 0;
@@ -63,7 +78,7 @@ PRIVATE pathing_state_t pathing_bfs(linear_allocator_t *allocator, grid_t grid, 
                 continue;
             }
 
-            if (entity_find_at(entities, neighbor) != 0) {
+            if (SLICE_AT(occupied, neighbor_index) != 0) {
                 continue;
             }
 
@@ -73,6 +88,7 @@ PRIVATE pathing_state_t pathing_bfs(linear_allocator_t *allocator, grid_t grid, 
         }
     }
 
+    linear_allocator_pop(allocator, occupied.slice);
     linear_allocator_pop(allocator, frontier.slice);
 
     return (pathing_state_t) {

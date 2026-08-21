@@ -3,6 +3,7 @@
 #include "linkage.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
 typedef struct {
     void *begin;
@@ -46,6 +47,9 @@ PUBLIC ptrdiff_t bytesize(void *begin, void *end);
 
 #define SLICE_DEFINE(type) \
     typedef union { slice_t slice; struct { type *begin; type *end; }; } slice_##type
+
+SLICE_DEFINE(uint8_t);
+SLICE_DEFINE(uint32_t);
 
 #define SLICE_AT(s, index) \
     (*(typeof((s).begin))slice_at((s).slice, (size_t)(index) * sizeof(*(s).begin), _Alignof(typeof(*(s).begin))))
