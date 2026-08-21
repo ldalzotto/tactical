@@ -140,3 +140,28 @@ PUBLIC int pathing_distance_at(pathing_state_t state, grid_t grid, position_t po
     assert_debug(grid_in_bounds(grid, position));
     return SLICE_AT(state.dist, position.y * grid.width + position.x);
 }
+
+PUBLIC slice_position_t pathing_compute_blast_tiles(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, position_t center, int radius) {
+    slice_position_t tiles;
+    tiles = LINEAR_ALLOCATOR_PUSH(allocator, tiles, 0);
+
+    for (int ty = 0; ty < grid.height; ty++) {
+        for (int tx = 0; tx < grid.width; tx++) {
+            position_t position = { tx, ty };
+
+            if (pathing_manhattan_distance(center, position) > radius) {
+                continue;
+            }
+
+            if (!position_equals(position, center) && !pathing_line_of_sight_clear(grid, entities, center, position)) {
+                continue;
+            }
+
+            slice_position_t entry = LINEAR_ALLOCATOR_PUSH(allocator, tiles, 1);
+            SLICE_DEREF(entry) = position;
+            tiles.end = entry.end;
+        }
+    }
+
+    return tiles;
+}
