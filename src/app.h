@@ -17,13 +17,13 @@ typedef struct app_state_t {
     game_state_t game;
 } app_state_t;
 
-app_state_t *app_init(uint32_t memory_size, uint32_t now_ms);
-void app_deinit(app_state_t *state);
-uint32_t app_on_next_frame(app_state_t *state, uint32_t now_ms);
+PUBLIC app_state_t *app_init(uint32_t memory_size, uint32_t now_ms);
+PUBLIC void app_deinit(app_state_t *state);
+PUBLIC uint32_t app_on_next_frame(app_state_t *state, uint32_t now_ms);
 
 // Dispatches a batch of already-polled input events through the game API.
 // Split out of app_on_next_frame so tests can exercise the event loop with a
 // non-empty slice (the wasm test runner otherwise always polls zero events).
 // Returns the byte shift applied to `events` by scratch growth (0 if none);
 // caller must rebase its own copy before using/popping it.
-ptrdiff_t app_dispatch_input_events(game_state_t *game, linear_allocator_t *allocator, slice_input_event_t events);
+PUBLIC ptrdiff_t app_dispatch_input_events(game_state_t *game, linear_allocator_t *allocator, slice_input_event_t events);
