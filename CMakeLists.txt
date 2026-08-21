@@ -21,8 +21,11 @@ endif()
 
 message(STATUS "CONFIG: ${CMAKE_BUILD_TYPE}")
 
-option(APP_BUILD_TESTS "Build src/test.c's test-discovery/test-runner exports into app.wasm" ON)
+option(APP_BUILD_TESTS "Build the non-fuzz test suites into app.wasm" ON)
 message(STATUS "APP_BUILD_TESTS: ${APP_BUILD_TESTS}")
+
+option(APP_BUILD_FUZZ_TESTS "Build src/test_game_fuzz.c's seeded fuzz suite into app.wasm" ON)
+message(STATUS "APP_BUILD_FUZZ_TESTS: ${APP_BUILD_FUZZ_TESTS}")
 
 option(APP_COVERAGE "Instrument the app with clang source-based code coverage" OFF)
 message(STATUS "APP_COVERAGE: ${APP_COVERAGE}")
@@ -72,22 +75,34 @@ else()
         src/app.c
     )
 
-    if(APP_BUILD_TESTS)
+    # test.c (the shared discovery/run infra) and test_invariants.c (the
+    # assert helpers test_game_helpers.h's click/move wrappers use) are
+    # needed by either suite, fuzz or non-fuzz, so they're gated on either
+    # flag rather than duplicated per suite.
+    if(APP_BUILD_TESTS OR APP_BUILD_FUZZ_TESTS)
         list(APPEND APP_SOURCES
             src/test.c
+            src/test_invariants.c
+        )
+    endif()
+
+    if(APP_BUILD_TESTS)
+        list(APPEND APP_SOURCES
             src/test_app.c
             src/test_runtime.c
             src/test_memory.c
             src/test_layout.c
-            src/test_invariants.c
             src/test_game_movement.c
             src/test_game_combat.c
             src/test_game_ai.c
             src/test_game_selection.c
             src/test_scenario.c
             src/test_render.c
-            src/test_game_fuzz.c
         )
+    endif()
+
+    if(APP_BUILD_FUZZ_TESTS)
+        list(APPEND APP_SOURCES src/test_game_fuzz.c)
     endif()
 endif()
 
@@ -97,8 +112,23 @@ if(APP_COVERAGE)
     target_sources(app PRIVATE src/coverage_stub.c)
 endif()
 
-if(APP_BUILD_TESTS)
+# Test infra (lib/assert.c's expect_panic/expect_trap, lib/memory.c's
+# defensive checks, test.c itself) is needed whenever either suite is
+# built, so APP_BUILD_TESTS isn't exclusive with APP_BUILD_FUZZ_TESTS: it
+# stays defined for a fuzz-only build too. APP_BUILD_TEST_SUITES is the
+# narrower signal -- only true when the 8 non-fuzz suite .c files below are
+# actually in APP_SOURCES -- for the one place (test.c's suite dispatch)
+# that cares about that distinction.
+if(APP_BUILD_TESTS OR APP_BUILD_FUZZ_TESTS)
     target_compile_definitions(app PRIVATE APP_BUILD_TESTS)
+endif()
+
+if(APP_BUILD_TESTS)
+    target_compile_definitions(app PRIVATE APP_BUILD_TEST_SUITES)
+endif()
+
+if(APP_BUILD_FUZZ_TESTS)
+    target_compile_definitions(app PRIVATE APP_BUILD_FUZZ_TESTS)
 endif()
 
 if(APP_UNITY_BUILD)
