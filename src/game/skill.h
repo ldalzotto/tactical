@@ -10,6 +10,7 @@
 
 extern const skill_t SKILL_MELEE;
 extern const skill_t SKILL_RANGED;
+extern const skill_t SKILL_FIREBALL;
 
 // True if `target` is within `skill`.range Manhattan steps of `attacker`
 // AND there's a clear line of sight -- a straight ray from attacker to

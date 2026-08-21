@@ -15,7 +15,10 @@ PRIVATE void test_scenario_setup_default_populates_map_and_units(linear_allocato
         skill_t default_skill; // skills[0]
         skill_t other_skill;   // skills[1]
     } expected[6] = {
-        { 1, 2, ENTITY_TEAM_PLAYER, SKILL_RANGED, SKILL_MELEE },
+        // p1 carries SKILL_FIREBALL instead of SKILL_MELEE (see
+        // scenario_setup_default) so the AoE feature is reachable
+        // end-to-end, within VIEWPORT_MAX_SKILL_BUTTONS's 2-button cap.
+        { 1, 2, ENTITY_TEAM_PLAYER, SKILL_RANGED, SKILL_FIREBALL },
         { 1, 5, ENTITY_TEAM_PLAYER, SKILL_MELEE, SKILL_RANGED },
         { 1, 8, ENTITY_TEAM_PLAYER, SKILL_MELEE, SKILL_RANGED },
         { 14, 2, ENTITY_TEAM_ENEMY, SKILL_RANGED, SKILL_MELEE },
@@ -44,6 +47,7 @@ PRIVATE void test_scenario_setup_default_populates_map_and_units(linear_allocato
         assert_test(SLICE_AT(entity->skills, 1).range == expected[id].other_skill.range);
         assert_test(SLICE_AT(entity->skills, 1).damage == expected[id].other_skill.damage);
         assert_test(SLICE_AT(entity->skills, 1).ap_cost == expected[id].other_skill.ap_cost);
+        assert_test(SLICE_AT(entity->skills, 1).aoe_radius == expected[id].other_skill.aoe_radius);
     }
 
     assert_test(grid_tile_kind(game.grid, (position_t){7, 4}) == TILE_WALL);
