@@ -225,6 +225,50 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
     }
 }
 
+// Recomputes the hovered blast preview -- driven by hover movement and
+// skill selection rather than an explicit mode switch (see game_set_mode
+// for the analogous compute-and-stage pattern this mirrors). Read-only:
+// never mutates entity/turn/AP/HP/position state, only
+// game->render.blast_preview_tiles.
+//
+// Not called from game_set_mode: render_cache_reset (called at the top of
+// every game_set_mode) already nullifies blast_preview_tiles, and
+// render_cache_set_reachable/set_attack_range (F1-05) both re-push a fresh
+// empty blast_preview marker on top of whatever they adopt -- so
+// game_set_mode always leaves blast_preview_tiles empty by construction on
+// every mode change, with no extra call needed here.
+PRIVATE ptrdiff_t game_update_blast_preview(game_state_t *game, linear_allocator_t *allocator) {
+    entity_t *active = turn_active_entity(game->turn);
+
+    bool eligible = game->mode == GAME_MODE_ATTACK && active->team == ENTITY_TEAM_PLAYER;
+    skill_t skill = eligible ? SLICE_AT(active->skills, game->selected_skill) : (skill_t){0};
+
+    bool should_show = eligible
+        && skill.aoe_radius > 0
+        && game->hover_valid
+        && pathing_in_range(game->grid, game->entities, active->position, game->hover, skill.range);
+
+    if (!should_show) {
+        render_cache_clear_blast_preview(&game->scratch, &game->render);
+        return 0;
+    }
+
+    render_cache_clear_blast_preview(&game->scratch, &game->render);
+
+    slice_t temp_align = linear_allocator_push_alignment(allocator, _Alignof(position_t));
+    slice_position_t temp_tiles = pathing_compute_blast_tiles(allocator, game->grid, game->entities, game->hover, skill.aoe_radius);
+
+    slice_t blast_preview_align;
+    slice_position_t blast_preview_tiles;
+    ptrdiff_t shift = game_scratch_push(allocator, &game->scratch, 0, temp_align, temp_tiles, &blast_preview_align, &blast_preview_tiles);
+    // Reset to zero for usage sanity
+    temp_align = (slice_t){0,0}; temp_tiles.slice = (slice_t){0,0};
+
+    render_cache_set_blast_preview(&game->scratch, &game->render, blast_preview_align, blast_preview_tiles);
+
+    return shift;
+}
+
 // Advances the cursor past the entity that just finished acting, then lets
 // the AI play out every consecutive enemy turn until either a player entity
 // becomes active or the game ends.
@@ -380,7 +424,12 @@ PRIVATE ptrdiff_t game_on_skill_button_pressed(game_state_t *game, linear_alloca
     assert_debug(index < entity_skill_count(active));
 
     game->selected_skill = index;
-    return game_set_mode(game, allocator, game->mode);
+    ptrdiff_t shift = game_set_mode(game, allocator, game->mode);
+    // Refresh the preview at the current hover tile for the newly selected
+    // skill, without requiring the mouse to move -- game_set_mode itself
+    // only clears blast_preview_tiles, it doesn't recompute it.
+    shift += game_update_blast_preview(game, allocator);
+    return shift;
 }
 
 PRIVATE ptrdiff_t game_on_end_turn_pressed(game_state_t *game, linear_allocator_t *allocator) {
@@ -444,6 +493,6 @@ PUBLIC ptrdiff_t game_on_input_event(game_state_t *game, linear_allocator_t *all
             game->hover = (position_t){ tx, ty };
         }
 
-        return 0;
+        return game_update_blast_preview(game, allocator);
     }
 }

@@ -18,6 +18,9 @@ static const rgba_t COLOR_TILE_CHASM = { 20, 30, 55, 255 };
 static const rgba_t COLOR_TILE_CHASM_INSET = { 30, 45, 80, 255 };
 static const rgba_t COLOR_REACHABLE_TINT = { 80, 140, 220, 255 };
 static const rgba_t COLOR_ATTACK_RANGE_TINT = { 230, 140, 60, 255 };
+// Distinct from COLOR_ATTACK_RANGE_TINT so "what this hit would do" (the
+// hovered blast footprint) reads differently from "where I can target".
+static const rgba_t COLOR_BLAST_PREVIEW_TINT = { 220, 40, 40, 255 };
 static const rgba_t COLOR_WHITE = { 255, 255, 255, 255 };
 // Always-on "whose turn it is" marker; distinct from COLOR_WHITE so it
 // doesn't collide with the mode-gated selection outline.
@@ -108,6 +111,17 @@ PRIVATE void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
         } else {
             graphics_draw_rectangle(fb, fb_width, px, py, ts, ts, COLOR_ATTACK_RANGE_TINT);
         }
+    }
+
+    // Drawn after attack_range_tiles so the blast preview layers on top of
+    // it (render_cache_t's blast_preview_tiles is independent of, and
+    // coexists with, attack_range_tiles -- see F1-05).
+    for (SLICE_FOREACH(game.render.blast_preview_tiles, tile_s)) {
+        position_t tile = SLICE_DEREF(tile_s);
+        int px, py;
+        grid_to_screen(game.viewport, tile.x, tile.y, &px, &py);
+        int ts = game.viewport.tile_size;
+        graphics_draw_rectangle_dithered(fb, fb_width, px, py, ts, ts, COLOR_BLAST_PREVIEW_TINT);
     }
 
     if (game.hover_valid) {
