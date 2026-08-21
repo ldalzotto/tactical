@@ -29,9 +29,13 @@ PUBLIC game_state_t scenario_setup_default(linear_allocator_t* allocator, int gr
     slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
     slice_skill_t skills = skill_list_init(allocator);
 
+    // p1 carries SKILL_FIREBALL instead of SKILL_MELEE: VIEWPORT_MAX_SKILL_BUTTONS
+    // caps the skill-button row at 2, so a 3rd skill would sit behind a
+    // button the player can never click -- swapping keeps SKILL_FIREBALL
+    // reachable end-to-end through the real game, not just unit tests.
     skill_t *p1_skills_begin = skills.end;
     skill_list_add(allocator, &skills, SKILL_RANGED);
-    skill_list_add(allocator, &skills, SKILL_MELEE);
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
     p1->skills = (slice_skill_t){ .begin = p1_skills_begin, .end = skills.end };
 
     skill_t *p2_skills_begin = skills.end;
