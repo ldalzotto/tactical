@@ -69,9 +69,9 @@ function buildImportObject({ createWindow, presentWindow, debugLog, reportPanic 
                 const message = decodeWasmMemoryString(memory, beginPtr, endPtr - beginPtr);
                 (debugLog ?? console.log)(message);
             },
-            report_panic(filePtr, fileLen, line, msgPtr, msgLen) {
-                const file = decodeWasmMemoryString(memory, filePtr, fileLen);
-                const message = decodeWasmMemoryString(memory, msgPtr, msgLen);
+            report_panic(fileBegin, fileEnd, line, msgBegin, msgEnd) {
+                const file = decodeWasmMemoryString(memory, fileBegin, fileEnd - fileBegin);
+                const message = decodeWasmMemoryString(memory, msgBegin, msgEnd - msgBegin);
                 if (reportPanic) {
                     reportPanic({ file, line, message });
                 }
