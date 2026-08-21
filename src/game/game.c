@@ -245,6 +245,33 @@ PRIVATE ptrdiff_t game_advance_turn(game_state_t *game, linear_allocator_t *allo
     return shift;
 }
 
+// Casts an AoE skill centered on `impact` via action_try_attack_area, then
+// reconciles turn order for every casualty (removing each dead entity from
+// game->turn) and checks game over exactly once (not per-casualty --
+// game_check_game_over asserts game->game_over == GAME_OVER_NONE on entry).
+// active->team can never appear in out_hit (action_try_attack_area excludes
+// same-team damage), so the active entity is never among the casualties
+// reconciled here. Only called once the AoE precondition (player-controlled
+// active entity, GAME_MODE_ATTACK, skill.aoe_radius > 0) already holds.
+PRIVATE ptrdiff_t game_cast_attack_area(game_state_t *game, linear_allocator_t *allocator, entity_t *active, skill_t skill, position_t impact) {
+    slice_entity_ptr_t out_hit;
+    if (!action_try_attack_area(allocator, game->grid, game->entities, active, skill, impact, &out_hit)) {
+        return 0;
+    }
+
+    for (SLICE_FOREACH(out_hit, hit_s)) {
+        entity_t *hit = SLICE_DEREF(hit_s);
+        if (!hit->alive) {
+            game->turn = turn_remove_dead_entity(game->turn, hit);
+        }
+    }
+    game_check_game_over(game);
+
+    linear_allocator_pop(allocator, out_hit.slice);
+
+    return game_set_mode(game, allocator, GAME_MODE_MOVEMENT);
+}
+
 PRIVATE ptrdiff_t game_on_entity_pressed(game_state_t *game, linear_allocator_t *allocator, entity_t* entity) {
     assert_debug(game->game_over == GAME_OVER_NONE);
     assert_debug(entity != 0);
@@ -264,7 +291,12 @@ PRIVATE ptrdiff_t game_on_entity_pressed(game_state_t *game, linear_allocator_t 
         return 0;
     }
 
-    if (action_try_attack(game->grid, game->entities, active, SLICE_AT(active->skills, game->selected_skill), entity)) {
+    skill_t skill = SLICE_AT(active->skills, game->selected_skill);
+    if (skill.aoe_radius > 0) {
+        return game_cast_attack_area(game, allocator, active, skill, entity->position);
+    }
+
+    if (action_try_attack(game->grid, game->entities, active, skill, entity)) {
         // If the entity just died, we remove dead entities
         if (!entity->alive) {
             game->turn = turn_remove_dead_entity(game->turn, entity);
@@ -282,14 +314,27 @@ PRIVATE ptrdiff_t game_on_tile_pressed(game_state_t *game, linear_allocator_t *a
     if (active->team != ENTITY_TEAM_PLAYER) {
         return 0;
     }
+
+    if (game->mode == GAME_MODE_ATTACK) {
+        // AoE skills are cast by clicking any in-range tile (empty or
+        // occupied); non-AoE skills keep the entity-only-click behavior
+        // above and just no-op on a tile press in attack mode.
+        skill_t skill = SLICE_AT(active->skills, game->selected_skill);
+        if (skill.aoe_radius > 0) {
+            return game_cast_attack_area(game, allocator, active, skill, target);
+        }
+        return 0;
+    }
+
     if (game->mode != GAME_MODE_MOVEMENT) {
         return 0;
     }
 
     // The caller (game_on_input_event) already routed occupied tiles to
     // game_on_entity_pressed; reaching here with an entity on `target` would
-    // be a dispatch bug, so assert the invariant instead of silently
-    // no-oping on a tile the player can't actually select.
+    // be a dispatch bug in the movement path (the AoE path above legally
+    // allows an occupied impact tile), so assert the invariant instead of
+    // silently no-oping on a tile the player can't actually select.
     assert_debug(entity_find_at(game->entities, target) == 0);
 
     if (action_try_move(allocator, game->grid, game->entities, active, target)) {
