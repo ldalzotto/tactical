@@ -240,7 +240,18 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
 PRIVATE ptrdiff_t game_update_blast_preview(game_state_t *game, linear_allocator_t *allocator) {
     entity_t *active = turn_active_entity(game->turn);
 
-    bool eligible = game->mode == GAME_MODE_ATTACK && active->team == ENTITY_TEAM_PLAYER;
+    bool eligible = game->mode == GAME_MODE_ATTACK;
+    // mode can only be GAME_MODE_ATTACK when the active entity is
+    // player-controlled: game_on_attack_toggle_pressed and
+    // game_on_skill_button_pressed (game_set_mode's only two callers that
+    // can leave mode at ATTACK) both gate on active->team ==
+    // ENTITY_TEAM_PLAYER before ever calling it with ATTACK. Asserted
+    // rather than re-checked here since MOUSE_MOVE (unlike those two) fires
+    // regardless of whose turn it is.
+    if (eligible) {
+        assert_debug(active->team == ENTITY_TEAM_PLAYER);
+    }
+
     skill_t skill = eligible ? SLICE_AT(active->skills, game->selected_skill) : (skill_t){0};
 
     bool should_show = eligible

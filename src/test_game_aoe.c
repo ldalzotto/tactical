@@ -539,6 +539,297 @@ PRIVATE void test_aoe_ignores_already_dead_entities_within_radius(linear_allocat
     game_deinit(allocator, game);
 }
 
+// F1-08: live blast preview tests, extending this same suite (shared
+// SKILL_FIREBALL/attack-mode-selection setup boilerplate with F1-07 above).
+// Driven via test_move_tile/test_move_to_pixel (MOUSE_MOVE) and
+// test_tile_list_contains against game.render.blast_preview_tiles (F1-05).
+
+// Hovering a valid AoE impact tile populates blast_preview_tiles with
+// exactly the cover-shadowed blast footprint pathing_compute_blast_tiles
+// would return for that tile -- same wall setup as
+// test_aoe_cover_shadows_the_blast, but checked via hover instead of cast.
+PRIVATE void test_aoe_preview_matches_blast_shape_under_hover(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 5, 5);
+    grid_set_tile(grid, (position_t){2, 3}, TILE_WALL);
+
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 2}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    p->skills = skills;
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    // Impact center (2,2): the wall at (2,3) shadows (2,4) from it, same as
+    // test_aoe_cover_shadows_the_blast.
+    test_move_tile(&game, allocator, (position_t){2, 2});
+
+    assert_test(test_tile_list_contains(game.render.blast_preview_tiles, (position_t){2, 2}));
+    assert_test(test_tile_list_contains(game.render.blast_preview_tiles, (position_t){4, 2}));
+    assert_test(!test_tile_list_contains(game.render.blast_preview_tiles, (position_t){2, 4}));
+
+    game_deinit(allocator, game);
+}
+
+// Moving hover from one valid impact tile to another recomputes the
+// preview to match the new tile exactly -- not a stale union of both.
+PRIVATE void test_aoe_preview_updates_as_hover_moves(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 8, 3);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    p->skills = skills;
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+
+    test_move_tile(&game, allocator, (position_t){3, 1});
+    assert_test(test_tile_list_contains(game.render.blast_preview_tiles, (position_t){5, 1}));
+
+    test_move_tile(&game, allocator, (position_t){2, 1});
+    // (5,1) was in range of the (3,1) center (distance 2) but is outside
+    // aoe_radius (2) of the new (2,1) center (distance 3): a stale union
+    // would still contain it.
+    assert_test(!test_tile_list_contains(game.render.blast_preview_tiles, (position_t){5, 1}));
+    assert_test(test_tile_list_contains(game.render.blast_preview_tiles, (position_t){2, 1}));
+
+    game_deinit(allocator, game);
+}
+
+// Hover leaving the grid (hover_valid becomes false) empties the preview.
+PRIVATE void test_aoe_preview_clears_when_hover_leaves_grid(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 8, 3);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    p->skills = skills;
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    test_move_tile(&game, allocator, (position_t){3, 1});
+    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) > 0);
+
+    // Well outside the viewport in every direction -- screen_to_grid fails,
+    // hover_valid becomes false.
+    test_move_to_pixel(&game, allocator, -100, -100);
+    assert_test(!game.hover_valid);
+    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) == 0);
+
+    game_deinit(allocator, game);
+}
+
+// Toggling out of GAME_MODE_ATTACK empties the preview, matching
+// render_cache_reset's existing clear-on-mode-change behavior.
+PRIVATE void test_aoe_preview_clears_on_mode_change(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 8, 3);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    p->skills = skills;
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    test_move_tile(&game, allocator, (position_t){3, 1});
+    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) > 0);
+
+    test_click_attack_toggle(&game, allocator);
+    assert_test(game.mode == GAME_MODE_MOVEMENT);
+    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) == 0);
+
+    game_deinit(allocator, game);
+}
+
+// Switching from an AoE skill to a non-AoE one (SKILL_MELEE) empties an
+// already-populated preview.
+PRIVATE void test_aoe_preview_clears_on_skill_switch_to_non_aoe(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 8, 3);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    // skills[0] = SKILL_FIREBALL (AoE, selected by default), skills[1] =
+    // SKILL_MELEE (not AoE).
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p->skills = skills;
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    test_move_tile(&game, allocator, (position_t){3, 1});
+    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) > 0);
+
+    test_click_skill_button(&game, allocator, 1);
+    assert_test(game.selected_skill == 1);
+    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) == 0);
+
+    game_deinit(allocator, game);
+}
+
+// Hovering a tile beyond the attacker's skill.range leaves the preview
+// empty -- no partial/incorrect preview for an uncastable target.
+PRIVATE void test_aoe_preview_clears_for_out_of_range_hover(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 10, 1);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    p->skills = skills;
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    // Distance 6, beyond SKILL_FIREBALL.range (4).
+    test_move_tile(&game, allocator, (position_t){6, 0});
+
+    assert_test(game.hover_valid);
+    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) == 0);
+
+    game_deinit(allocator, game);
+}
+
+// While a preview is populated, attack_range_tiles remains populated and
+// correct -- the two overlays coexist (F1-05), not mutually exclusive.
+PRIVATE void test_aoe_preview_coexists_with_attack_range(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 8, 3);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    p->skills = skills;
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    test_move_tile(&game, allocator, (position_t){3, 1});
+
+    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) > 0);
+    assert_test(SLICE_TYPESIZE(game.render.attack_range_tiles) > 0);
+    // The hovered impact tile itself is a legal attack-range target too.
+    assert_test(test_tile_list_contains(game.render.attack_range_tiles, (position_t){3, 1}));
+
+    game_deinit(allocator, game);
+}
+
+// Hovering (and the preview computation it triggers) never mutates
+// entity/turn state -- purely visual, same guarantee game_set_mode already
+// gives reachable_tiles/attack_range_tiles.
+PRIVATE void test_aoe_preview_computation_is_read_only(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 8, 3);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 1, 3);
+    entity_t* e = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *e_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e->skills = (slice_skill_t){ .begin = e_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, e);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+
+    position_t p_position_before = p->position;
+    int p_ap_before = p->ap, p_hp_before = p->hp, p_mp_before = p->mp;
+    position_t e_position_before = e->position;
+    int e_ap_before = e->ap, e_hp_before = e->hp, e_mp_before = e->mp;
+
+    test_move_tile(&game, allocator, (position_t){3, 1});
+    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) > 0);
+
+    assert_test(position_equals(p->position, p_position_before));
+    assert_test(p->ap == p_ap_before);
+    assert_test(p->hp == p_hp_before);
+    assert_test(p->mp == p_mp_before);
+    assert_test(position_equals(e->position, e_position_before));
+    assert_test(e->ap == e_ap_before);
+    assert_test(e->hp == e_hp_before);
+    assert_test(e->mp == e_mp_before);
+
+    game_deinit(allocator, game);
+}
+
 const test_case_t g_game_aoe_tests[] = {
     { TEST_NAME("aoe_blast_hits_all_enemies_in_radius_and_spares_beyond"), test_aoe_blast_hits_all_enemies_in_radius_and_spares_beyond },
     { TEST_NAME("aoe_cover_shadows_the_blast"), test_aoe_cover_shadows_the_blast },
@@ -550,6 +841,14 @@ const test_case_t g_game_aoe_tests[] = {
     { TEST_NAME("aoe_cast_onto_empty_tile_hits_surrounding_entities"), test_aoe_cast_onto_empty_tile_hits_surrounding_entities },
     { TEST_NAME("aoe_insufficient_ap_fails_cleanly"), test_aoe_insufficient_ap_fails_cleanly },
     { TEST_NAME("aoe_ignores_already_dead_entities_within_radius"), test_aoe_ignores_already_dead_entities_within_radius },
+    { TEST_NAME("aoe_preview_matches_blast_shape_under_hover"), test_aoe_preview_matches_blast_shape_under_hover },
+    { TEST_NAME("aoe_preview_updates_as_hover_moves"), test_aoe_preview_updates_as_hover_moves },
+    { TEST_NAME("aoe_preview_clears_when_hover_leaves_grid"), test_aoe_preview_clears_when_hover_leaves_grid },
+    { TEST_NAME("aoe_preview_clears_on_mode_change"), test_aoe_preview_clears_on_mode_change },
+    { TEST_NAME("aoe_preview_clears_on_skill_switch_to_non_aoe"), test_aoe_preview_clears_on_skill_switch_to_non_aoe },
+    { TEST_NAME("aoe_preview_clears_for_out_of_range_hover"), test_aoe_preview_clears_for_out_of_range_hover },
+    { TEST_NAME("aoe_preview_coexists_with_attack_range"), test_aoe_preview_coexists_with_attack_range },
+    { TEST_NAME("aoe_preview_computation_is_read_only"), test_aoe_preview_computation_is_read_only },
 };
 
 const uint32_t g_game_aoe_tests_count = sizeof(g_game_aoe_tests) / sizeof(g_game_aoe_tests[0]);
