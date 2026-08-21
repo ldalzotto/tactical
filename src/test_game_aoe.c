@@ -1,0 +1,555 @@
+#include "test_game_aoe.h"
+#include "lib/assert.h"
+#include "game/entity.h"
+#include "game/skill.h"
+#include "game/grid.h"
+#include "game/turn.h"
+#include "test_game_helpers.h"
+
+// F1-07: functional AoE tests -- click-to-cast, damage application, turn
+// order reconciliation, game over. Driven exclusively through the public
+// game API (game_on_input_event via test_game_helpers.h's click wrappers),
+// matching this codebase's convention for testing action/pathing behavior
+// (see test_game_combat.c/test_game_movement.c). Hover-preview behavior is
+// F1-08, in this same file/suite.
+
+// Blast center (3,1), aoe_radius 2. e_in_a and e_in_b sit at the near/far
+// edge of that radius (off the attacker's own approach row, so neither
+// blocks the attacker's line of sight to the impact tile the way an entity
+// standing on that ray would -- see test_game_combat.c's
+// ranged_attack_blocked_by_enemy_in_path) and take damage; e_out sits one
+// tile past the edge and is untouched.
+PRIVATE void test_aoe_blast_hits_all_enemies_in_radius_and_spares_beyond(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 8, 3);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 1, 3);
+    entity_t* e_in_a = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 1, 3);
+    entity_t* e_in_b = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){5, 1}, 10, 1, 3);
+    entity_t* e_out = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){6, 1}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *e_in_a_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_in_a->skills = (slice_skill_t){ .begin = e_in_a_skills_begin, .end = skills.end };
+    skill_t *e_in_b_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_in_b->skills = (slice_skill_t){ .begin = e_in_b_skills_begin, .end = skills.end };
+    skill_t *e_out_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_out->skills = (slice_skill_t){ .begin = e_out_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, e_in_a);
+    turn_order_add(allocator, &order, e_in_b);
+    turn_order_add(allocator, &order, e_out);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    test_click_tile(&game, allocator, (position_t){3, 1});
+
+    assert_test(e_in_a->hp == 10 - SKILL_FIREBALL.damage);
+    assert_test(e_in_b->hp == 10 - SKILL_FIREBALL.damage);
+    assert_test(e_out->hp == 10);
+    assert_test(p->ap == 1 - SKILL_FIREBALL.ap_cost);
+
+    game_deinit(allocator, game);
+}
+
+// A wall directly between the blast center and an enemy within Manhattan
+// radius casts a shadow: the enemy behind it takes no damage, while another
+// enemy at the same radius but with a clear sightline does.
+PRIVATE void test_aoe_cover_shadows_the_blast(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 5, 5);
+    grid_set_tile(grid, (position_t){2, 3}, TILE_WALL);
+
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 2}, 10, 1, 3);
+    entity_t* e_shadowed = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){2, 4}, 10, 1, 3);
+    entity_t* e_clear = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){4, 2}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *e_shadowed_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_shadowed->skills = (slice_skill_t){ .begin = e_shadowed_skills_begin, .end = skills.end };
+    skill_t *e_clear_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_clear->skills = (slice_skill_t){ .begin = e_clear_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, e_shadowed);
+    turn_order_add(allocator, &order, e_clear);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    // Impact center (2,2): the wall at (2,3) sits directly between it and
+    // e_shadowed at (2,4), both within aoe_radius (2) of the center.
+    test_click_tile(&game, allocator, (position_t){2, 2});
+
+    assert_test(e_shadowed->hp == 10);
+    assert_test(e_clear->hp == 10 - SKILL_FIREBALL.damage);
+    assert_test(p->ap == 1 - SKILL_FIREBALL.ap_cost);
+
+    game_deinit(allocator, game);
+}
+
+// Casting on an ally's tile (entity-click AoE dispatch, per F1-04) puts
+// both the ally and the attacker itself inside the blast radius: neither
+// takes damage, since AoE damage always excludes the attacker's own team.
+// An enemy at the edge of the same radius still takes damage.
+PRIVATE void test_aoe_no_friendly_fire_spares_ally_and_attacker(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 6, 5);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){2, 2}, 10, 1, 3);
+    entity_t* ally = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){3, 2}, 10, 1, 3);
+    entity_t* e = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){5, 2}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *ally_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    ally->skills = (slice_skill_t){ .begin = ally_skills_begin, .end = skills.end };
+    skill_t *e_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e->skills = (slice_skill_t){ .begin = e_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, ally);
+    turn_order_add(allocator, &order, e);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    // ally occupies (3,2): this click routes through game_on_entity_pressed,
+    // not game_on_tile_pressed -- the entity-click AoE path.
+    test_click_tile(&game, allocator, ally->position);
+
+    assert_test(ally->hp == 10);
+    // p's own tile (2,2) is within aoe_radius (2) of the impact (3,2), yet
+    // p itself takes no damage either.
+    assert_test(p->hp == 10);
+    assert_test(e->hp == 10 - SKILL_FIREBALL.damage);
+    assert_test(p->ap == 1 - SKILL_FIREBALL.ap_cost);
+
+    game_deinit(allocator, game);
+}
+
+// AP is spent exactly once per successful cast, regardless of how many
+// entities the blast hits (3, here).
+PRIVATE void test_aoe_ap_spent_exactly_once_regardless_of_hit_count(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 8, 3);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 3, 3);
+    // None of these sit on the attacker's straight-line approach to the
+    // impact tile (3,1) -- see the sibling test above for why that matters.
+    entity_t* e1 = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 1, 3);
+    entity_t* e2 = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 2}, 10, 1, 3);
+    entity_t* e3 = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){5, 1}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *e1_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e1->skills = (slice_skill_t){ .begin = e1_skills_begin, .end = skills.end };
+    skill_t *e2_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e2->skills = (slice_skill_t){ .begin = e2_skills_begin, .end = skills.end };
+    skill_t *e3_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e3->skills = (slice_skill_t){ .begin = e3_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, e1);
+    turn_order_add(allocator, &order, e2);
+    turn_order_add(allocator, &order, e3);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    test_click_tile(&game, allocator, (position_t){3, 1});
+
+    assert_test(e1->hp == 10 - SKILL_FIREBALL.damage);
+    assert_test(e2->hp == 10 - SKILL_FIREBALL.damage);
+    assert_test(e3->hp == 10 - SKILL_FIREBALL.damage);
+    assert_test(p->ap == 3 - SKILL_FIREBALL.ap_cost);
+
+    game_deinit(allocator, game);
+}
+
+// Two ways an AoE cast can legally fail: the impact tile is beyond
+// skill.range (Manhattan distance), or it's within range but LOS-blocked
+// by a wall. Both spend no AP and damage nothing -- action_try_attack_area
+// returning false, per F1-03.
+PRIVATE void test_aoe_out_of_range_and_los_blocked_impact_fails_cleanly(linear_allocator_t *allocator) {
+    // Out of range: impact at distance 6, beyond SKILL_FIREBALL.range (4).
+    {
+        slice_t grid_padding = grid_align(allocator);
+        grid_t grid = grid_init(allocator, 10, 1);
+        slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+        slice_entity_t entities = entity_list_init(allocator);
+        entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 1, 3);
+        entity_t* e = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){7, 0}, 10, 1, 3);
+
+        slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+        slice_skill_t skills = skill_list_init(allocator);
+        skill_t *p_skills_begin = skills.end;
+        skill_list_add(allocator, &skills, SKILL_FIREBALL);
+        p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+        skill_t *e_skills_begin = skills.end;
+        skill_list_add(allocator, &skills, SKILL_MELEE);
+        e->skills = (slice_skill_t){ .begin = e_skills_begin, .end = skills.end };
+
+        slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+        slice_entity_ptr_t order = turn_order_init(allocator);
+        turn_order_add(allocator, &order, p);
+        turn_order_add(allocator, &order, e);
+
+        game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+        test_click_tile(&game, allocator, p->position);
+        test_click_attack_toggle(&game, allocator);
+        test_click_tile(&game, allocator, (position_t){6, 0});
+
+        assert_test(p->ap == 1);
+        assert_test(e->hp == 10);
+        assert_test(game.mode == GAME_MODE_ATTACK);
+
+        game_deinit(allocator, game);
+    }
+
+    // LOS-blocked: impact at distance 4 (within range), but a wall sits on
+    // the straight ray from the attacker. The impact tile is occupied by e,
+    // so this click also exercises the entity-click AoE path failing.
+    {
+        slice_t grid_padding = grid_align(allocator);
+        grid_t grid = grid_init(allocator, 5, 3);
+        grid_set_tile(grid, (position_t){2, 1}, TILE_WALL);
+
+        slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+        slice_entity_t entities = entity_list_init(allocator);
+        entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 1, 3);
+        entity_t* e = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){4, 1}, 10, 1, 3);
+
+        slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+        slice_skill_t skills = skill_list_init(allocator);
+        skill_t *p_skills_begin = skills.end;
+        skill_list_add(allocator, &skills, SKILL_FIREBALL);
+        p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+        skill_t *e_skills_begin = skills.end;
+        skill_list_add(allocator, &skills, SKILL_MELEE);
+        e->skills = (slice_skill_t){ .begin = e_skills_begin, .end = skills.end };
+
+        slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+        slice_entity_ptr_t order = turn_order_init(allocator);
+        turn_order_add(allocator, &order, p);
+        turn_order_add(allocator, &order, e);
+
+        game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+        test_click_tile(&game, allocator, p->position);
+        test_click_attack_toggle(&game, allocator);
+        test_click_tile(&game, allocator, e->position);
+
+        assert_test(p->ap == 1);
+        assert_test(e->hp == 10);
+        assert_test(game.mode == GAME_MODE_ATTACK);
+
+        game_deinit(allocator, game);
+    }
+}
+
+// A blast that kills two of three enemies in one cast removes both from
+// game.turn.order, leaves the cursor pointing at the still-active attacker,
+// and leaves every remaining entry alive.
+PRIVATE void test_aoe_multi_kill_reconciles_turn_order(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 8, 3);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 1, 3);
+    // Off the attacker's straight-line approach to the impact tile (3,1) --
+    // see test_aoe_blast_hits_all_enemies_in_radius_and_spares_beyond.
+    entity_t* e1 = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 3, 1, 3);
+    entity_t* e2 = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 2}, 3, 1, 3);
+    // Beyond aoe_radius (2) of the impact (3,1): survives untouched.
+    entity_t* e3 = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){6, 1}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *e1_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e1->skills = (slice_skill_t){ .begin = e1_skills_begin, .end = skills.end };
+    skill_t *e2_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e2->skills = (slice_skill_t){ .begin = e2_skills_begin, .end = skills.end };
+    skill_t *e3_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e3->skills = (slice_skill_t){ .begin = e3_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, e1);
+    turn_order_add(allocator, &order, e2);
+    turn_order_add(allocator, &order, e3);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    test_click_tile(&game, allocator, (position_t){3, 1});
+
+    assert_test(!e1->alive);
+    assert_test(!e2->alive);
+    assert_test(e3->alive);
+    assert_test(SLICE_TYPESIZE(game.turn.order) == 2);
+    assert_test(SLICE_AT(game.turn.order, 0) == p);
+    assert_test(SLICE_AT(game.turn.order, 1) == e3);
+    assert_test(turn_active_entity(game.turn) == p);
+    assert_test(game.game_over == GAME_OVER_NONE);
+
+    game_deinit(allocator, game);
+}
+
+// A blast that kills every remaining enemy in one cast (two, here) sets
+// game.game_over to GAME_OVER_WIN exactly once -- game_check_game_over
+// asserts its precondition on entry, so a double call would itself panic
+// under assert_debug.
+PRIVATE void test_aoe_multi_kill_wipes_enemy_team_triggers_game_over(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 8, 3);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 1, 3);
+    // Off the attacker's straight-line approach to the impact tile (3,1) --
+    // see test_aoe_blast_hits_all_enemies_in_radius_and_spares_beyond.
+    entity_t* e1 = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 3, 1, 3);
+    entity_t* e2 = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 2}, 3, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *e1_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e1->skills = (slice_skill_t){ .begin = e1_skills_begin, .end = skills.end };
+    skill_t *e2_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e2->skills = (slice_skill_t){ .begin = e2_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, e1);
+    turn_order_add(allocator, &order, e2);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    test_click_tile(&game, allocator, (position_t){3, 1});
+
+    assert_test(!e1->alive);
+    assert_test(!e2->alive);
+    assert_test(game.game_over == GAME_OVER_WIN);
+    assert_test(SLICE_TYPESIZE(game.turn.order) == 1);
+    assert_test(turn_active_entity(game.turn) == p);
+
+    game_deinit(allocator, game);
+}
+
+// Casting with no entity on the impact tile itself still works and hits
+// whichever entities are in the surrounding radius -- the tile-click AoE
+// dispatch path (game_on_tile_pressed), distinct from the entity-click
+// cases exercised above.
+PRIVATE void test_aoe_cast_onto_empty_tile_hits_surrounding_entities(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 6, 1);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 1, 3);
+    entity_t* e = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *e_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e->skills = (slice_skill_t){ .begin = e_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, e);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    // (2,0) is empty -- e sits one tile further out, within aoe_radius (2).
+    assert_test(entity_find_at(game.entities, (position_t){2, 0}) == 0);
+    test_click_tile(&game, allocator, (position_t){2, 0});
+
+    assert_test(e->hp == 10 - SKILL_FIREBALL.damage);
+    assert_test(p->ap == 1 - SKILL_FIREBALL.ap_cost);
+    assert_test(p->hp == 10);
+    // A successful AoE cast closes attack mode automatically, same as
+    // single-target attacks.
+    assert_test(game.mode == GAME_MODE_MOVEMENT);
+
+    game_deinit(allocator, game);
+}
+
+// Insufficient AP fails an AoE cast the same way it fails a single-target
+// one (action_try_attack_area's ap_cost check, mirroring action_try_attack).
+PRIVATE void test_aoe_insufficient_ap_fails_cleanly(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 6, 1);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    // ap = 0 (also becomes max_ap, so turn_init's reset leaves it at 0).
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 0, 3);
+    entity_t* e = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *e_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e->skills = (slice_skill_t){ .begin = e_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, e);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    test_click_tile(&game, allocator, (position_t){2, 0});
+
+    assert_test(p->ap == 0);
+    assert_test(e->hp == 10);
+    assert_test(game.mode == GAME_MODE_ATTACK);
+
+    game_deinit(allocator, game);
+}
+
+// A corpse (dead but still present in game.entities -- a live entity's
+// position only frees up once it dies, entity_find_at already skips it via
+// its alive check) sitting inside a later blast radius takes no further
+// damage: action_try_attack_area's entity loop skips already-dead entities
+// the same way it skips same-team ones.
+PRIVATE void test_aoe_ignores_already_dead_entities_within_radius(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 6, 3);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 2, 3);
+    // Killed by a melee attack below, before the AoE cast -- its corpse
+    // then sits within the later AoE blast radius.
+    entity_t* corpse = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){1, 1}, 1, 1, 3);
+    entity_t* e_live = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){5, 1}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *corpse_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    corpse->skills = (slice_skill_t){ .begin = corpse_skills_begin, .end = skills.end };
+    skill_t *e_live_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_live->skills = (slice_skill_t){ .begin = e_live_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, corpse);
+    turn_order_add(allocator, &order, e_live);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    // skills[0] (SKILL_MELEE) is selected by default: kills the adjacent
+    // corpse-to-be outright (hp 1, damage 5).
+    test_click_tile(&game, allocator, corpse->position);
+    assert_test(!corpse->alive);
+    assert_test(p->ap == 1);
+
+    // Switch to SKILL_FIREBALL and cast centered on (3,1): corpse (1,1) is
+    // within aoe_radius (2) of the center but already dead; e_live (5,1) is
+    // also within radius and alive, so it takes damage normally.
+    test_click_attack_toggle(&game, allocator);
+    test_click_skill_button(&game, allocator, 1);
+    test_click_tile(&game, allocator, (position_t){3, 1});
+
+    assert_test(corpse->hp == 0);
+    assert_test(!corpse->alive);
+    assert_test(e_live->hp == 10 - SKILL_FIREBALL.damage);
+    assert_test(p->ap == 1 - SKILL_FIREBALL.ap_cost);
+
+    game_deinit(allocator, game);
+}
+
+const test_case_t g_game_aoe_tests[] = {
+    { TEST_NAME("aoe_blast_hits_all_enemies_in_radius_and_spares_beyond"), test_aoe_blast_hits_all_enemies_in_radius_and_spares_beyond },
+    { TEST_NAME("aoe_cover_shadows_the_blast"), test_aoe_cover_shadows_the_blast },
+    { TEST_NAME("aoe_no_friendly_fire_spares_ally_and_attacker"), test_aoe_no_friendly_fire_spares_ally_and_attacker },
+    { TEST_NAME("aoe_ap_spent_exactly_once_regardless_of_hit_count"), test_aoe_ap_spent_exactly_once_regardless_of_hit_count },
+    { TEST_NAME("aoe_out_of_range_and_los_blocked_impact_fails_cleanly"), test_aoe_out_of_range_and_los_blocked_impact_fails_cleanly },
+    { TEST_NAME("aoe_multi_kill_reconciles_turn_order"), test_aoe_multi_kill_reconciles_turn_order },
+    { TEST_NAME("aoe_multi_kill_wipes_enemy_team_triggers_game_over"), test_aoe_multi_kill_wipes_enemy_team_triggers_game_over },
+    { TEST_NAME("aoe_cast_onto_empty_tile_hits_surrounding_entities"), test_aoe_cast_onto_empty_tile_hits_surrounding_entities },
+    { TEST_NAME("aoe_insufficient_ap_fails_cleanly"), test_aoe_insufficient_ap_fails_cleanly },
+    { TEST_NAME("aoe_ignores_already_dead_entities_within_radius"), test_aoe_ignores_already_dead_entities_within_radius },
+};
+
+const uint32_t g_game_aoe_tests_count = sizeof(g_game_aoe_tests) / sizeof(g_game_aoe_tests[0]);

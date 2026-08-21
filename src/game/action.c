@@ -60,15 +60,21 @@ PUBLIC bool action_try_attack_area(linear_allocator_t *allocator, grid_t grid, s
 
     attacker->ap -= skill.ap_cost;
 
-    slice_position_t blast_tiles = pathing_compute_blast_tiles(allocator, grid, entities, impact, skill.aoe_radius);
-
-    // Reserve worst-case capacity (every entity hit) up front, above
-    // blast_tiles, so out_hit can be filled by direct index instead of
-    // growing incrementally -- lets the final trim below pop both the
-    // unused reservation tail and blast_tiles in a single call.
+    // Reserve worst-case capacity (every entity hit) up front, *before*
+    // computing blast_tiles, so out_hit can be filled by direct index
+    // instead of growing incrementally, and so blast_tiles (position_t,
+    // same alignment as entity_ptr_t on this target) lands correctly
+    // aligned without needing its own separate alignment push -- entity_count
+    // * sizeof(entity_ptr_t) is always a multiple of that alignment.
+    // Caller must have `allocator`'s cursor aligned to _Alignof(entity_ptr_t)
+    // before calling (matching this codebase's push-align-then-push
+    // convention for every other typed list -- see entity_list_align et al.);
+    // this function does not self-align.
     int entity_count = (int)SLICE_TYPESIZE(entities);
     slice_entity_ptr_t hit_capacity;
     hit_capacity = LINEAR_ALLOCATOR_PUSH(allocator, hit_capacity, entity_count);
+
+    slice_position_t blast_tiles = pathing_compute_blast_tiles(allocator, grid, entities, impact, skill.aoe_radius);
 
     int hit_count = 0;
     for (SLICE_FOREACH(entities, entity_s)) {
