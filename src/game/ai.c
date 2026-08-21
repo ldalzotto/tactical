@@ -34,7 +34,7 @@ PRIVATE int ai_distance_to_adjacency(pathing_state_t pathing, grid_t grid, posit
 
 PRIVATE entity_t* ai_find_nearest_player(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* enemy) {
     int max_steps = grid.width * grid.height;
-    pathing_state_t pathing = pathing_compute_distances(allocator, grid, entities, enemy->position, max_steps);
+    pathing_state_t pathing = pathing_compute_walking_distances(allocator, grid, entities, enemy->position, max_steps);
 
     entity_t* best_entity = 0;
     int best_dist = -1;
@@ -65,7 +65,7 @@ PRIVATE void ai_step_toward(linear_allocator_t *allocator, grid_t grid, slice_en
     int max_steps = grid.width * grid.height;
     // We compute the distance from the target.
     // The smallest distance of ennemy neighbor is the tile we are going to move towards.
-    pathing_state_t pathing = pathing_compute_distances(allocator, grid, entities, target->position, max_steps);
+    pathing_state_t pathing = pathing_compute_walking_distances(allocator, grid, entities, target->position, max_steps);
 
     bool found = false;
     int best_dist = -1;
@@ -126,11 +126,11 @@ PRIVATE skill_t* ai_preferred_skill(entity_t *enemy) {
 
 // Highest-damage skill (see ai_skill_beats) among those currently in range
 // of `target`, or 0 if none are in range.
-PRIVATE skill_t* ai_best_in_range_skill(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *enemy, entity_t *target) {
+PRIVATE skill_t* ai_best_in_range_skill(grid_t grid, slice_entity_t entities, entity_t *enemy, entity_t *target) {
     skill_t *best = 0;
     for (SLICE_FOREACH(enemy->skills, skill_s)) {
         skill_t *skill = &SLICE_DEREF(skill_s);
-        if (!skill_target_in_range(allocator, grid, entities, enemy, *skill, target)) {
+        if (!skill_target_in_range(grid, entities, enemy, *skill, target)) {
             continue;
         }
         if (best == 0 || ai_skill_beats(*skill, *best)) {
@@ -153,14 +153,14 @@ PUBLIC entity_t* ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, 
 
     skill_t *preferred = ai_preferred_skill(enemy);
 
-    while (enemy->mp > 0 && !skill_target_in_range(allocator, grid, entities, enemy, *preferred, target)) {
+    while (enemy->mp > 0 && !skill_target_in_range(grid, entities, enemy, *preferred, target)) {
         ai_step_toward(allocator, grid, entities, enemy, target);
     }
 
-    skill_t *attack_skill = ai_best_in_range_skill(allocator, grid, entities, enemy, target);
+    skill_t *attack_skill = ai_best_in_range_skill(grid, entities, enemy, target);
     if (attack_skill == 0) {
         return 0;
     }
 
-    return action_try_attack(allocator, grid, entities, enemy, *attack_skill, target) ? target : 0;
+    return action_try_attack(grid, entities, enemy, *attack_skill, target) ? target : 0;
 }

@@ -8,11 +8,7 @@ PUBLIC void pathing_deinit(linear_allocator_t *allocator, pathing_state_t state)
     linear_allocator_pop(allocator, state.align);
 }
 
-// Shared flood fill for pathing_compute_distances and, as a range/grid-bounds
-// broad phase, pathing_compute_line_of_sight -- the latter passes an empty
-// entities slice, so occupancy never blocks and dist ends up as plain
-// Manhattan distance clipped to the grid and to walls; it then filters that
-// down further with its own ray-based occlusion check.
+// Flood fill for pathing_compute_walking_distances.
 PRIVATE pathing_state_t pathing_bfs(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, position_t from, int max_steps) {
     assert_debug(grid_in_bounds(grid, from));
 
@@ -85,15 +81,21 @@ PRIVATE pathing_state_t pathing_bfs(linear_allocator_t *allocator, grid_t grid, 
     };
 }
 
-PUBLIC pathing_state_t pathing_compute_distances(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, position_t from, int max_steps) {
+PUBLIC pathing_state_t pathing_compute_walking_distances(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, position_t from, int max_steps) {
     return pathing_bfs(allocator, grid, entities, from, max_steps);
+}
+
+PRIVATE int pathing_manhattan_distance(position_t a, position_t b) {
+    int dx = a.x - b.x;
+    int dy = a.y - b.y;
+    return (dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy);
 }
 
 // True if the straight ray from `from` to `to` (`to` != `from`) is
 // unobstructed: every intermediate tile -- both endpoints excluded, so
 // neither `from`'s nor `to`'s own tile can block sight to itself -- does
 // not block sight and is unoccupied.
-PRIVATE bool pathing_line_of_sight_clear(grid_t grid, slice_entity_t entities, position_t from, position_t to) {
+PUBLIC bool pathing_line_of_sight_clear(grid_t grid, slice_entity_t entities, position_t from, position_t to) {
     geometry_line_iter_t it = geometry_line_iter_start(from, to);
 
     position_t tile;
@@ -110,28 +112,12 @@ PRIVATE bool pathing_line_of_sight_clear(grid_t grid, slice_entity_t entities, p
     return true;
 }
 
-PUBLIC pathing_state_t pathing_compute_line_of_sight(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, position_t from, int max_range) {
-    // Broad phase: an entity-free flood fill gives every walkable tile
-    // within max_range Manhattan steps, clipped to the grid -- a diamond,
-    // ignoring who's standing where. Narrow phase below strips out anything
-    // not actually visible along a straight ray from `from`.
-    pathing_state_t state = pathing_bfs(allocator, grid, (slice_entity_t){0}, from, max_range);
-
-    for (int ty = 0; ty < grid.height; ty++) {
-        for (int tx = 0; tx < grid.width; tx++) {
-            int index = ty * grid.width + tx;
-            if (SLICE_AT(state.dist, index) <= 0) {
-                continue;
-            }
-
-            position_t tile = { tx, ty };
-            if (!pathing_line_of_sight_clear(grid, entities, from, tile)) {
-                SLICE_AT(state.dist, index) = -1;
-            }
-        }
+PUBLIC bool pathing_in_range(grid_t grid, slice_entity_t entities, position_t from, position_t to, int max_range) {
+    if (pathing_manhattan_distance(from, to) > max_range) {
+        return false;
     }
 
-    return state;
+    return pathing_line_of_sight_clear(grid, entities, from, to);
 }
 
 PUBLIC int pathing_distance_at(pathing_state_t state, grid_t grid, position_t position) {

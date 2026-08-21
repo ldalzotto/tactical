@@ -110,7 +110,7 @@ PRIVATE void test_game_ai_insufficient_mp_moves_partial_no_attack_on_end_turn(li
     assert_test(enemy->position.y == 0);
     assert_test(enemy->mp == 0);
     assert_test(enemy->ap == 2);
-    assert_test(!skill_target_in_range(allocator, grid, entities, enemy, SLICE_AT(enemy->skills, 0), p));
+    assert_test(!skill_target_in_range(grid, entities, enemy, SLICE_AT(enemy->skills, 0), p));
     assert_test(p->hp == 10);
 
     game_deinit(allocator, game);
@@ -146,7 +146,7 @@ PRIVATE void test_game_ai_obstacle_forces_detour_on_end_turn(linear_allocator_t 
     test_click_end_turn(&game, allocator);
 
     assert_test(turn_active_entity(game.turn) == p);
-    assert_test(skill_target_in_range(allocator, grid, entities, enemy, SLICE_AT(enemy->skills, 0), p));
+    assert_test(skill_target_in_range(grid, entities, enemy, SLICE_AT(enemy->skills, 0), p));
     assert_test(p->hp == 5);
     assert_test(enemy->ap == 1);
 
