@@ -10,6 +10,8 @@ static bool g_trap_occurred = false;
 __attribute__((import_module("env"), import_name("report_panic")))
 extern void __report_panic(void *file_begin, void *file_end, int line, void *msg_begin, void *msg_end);
 
+// May have no callers when APP_ASSERTIONS is off.
+__attribute__((unused))
 PUBLIC void panic_at(bool condition, slice_t file, int line, slice_t msg) {
     if (!condition) {
 #ifdef APP_BUILD_TESTS
