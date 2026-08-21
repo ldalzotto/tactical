@@ -6,6 +6,7 @@
 
 #include "entity.h"
 #include "grid.h"
+#include "turn.h"
 
 // True on success (mover's mp -= BFS distance, position updated). False, no
 // mutation, if: tile not walkable, tile occupied, or unreachable within
@@ -19,6 +20,20 @@ PUBLIC bool action_try_move(linear_allocator_t *allocator, grid_t grid, slice_en
 // - attacker.ap < skill.ap_cost
 // - defender out of skill.range (via skill_target_in_range)
 PUBLIC bool action_try_attack(grid_t grid, slice_entity_t entities, entity_t* attacker, skill_t skill, entity_t* defender);
+
+// AoE counterpart of action_try_attack: targets a tile (the blast center)
+// instead of a specific defender. True on success: attacker ap -=
+// skill.ap_cost, every alive entity in the blast footprint
+// (pathing_compute_blast_tiles, radius = skill.aoe_radius) whose team
+// differs from attacker's takes skill.damage via entity_damage, and
+// *out_hit is populated with exactly those damaged entities (staged on
+// allocator; caller pops it when done). No friendly fire: same-team
+// entities (including the attacker itself) are never damaged. False, no
+// mutation, if: attacker.ap < skill.ap_cost, or impact is out of
+// skill.range/LOS from attacker (via pathing_in_range). Only valid for AoE
+// skills (skill.aoe_radius > 0, debug-asserted) -- single-target skills
+// keep using action_try_attack.
+PUBLIC bool action_try_attack_area(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *attacker, skill_t skill, position_t impact, slice_entity_ptr_t *out_hit);
 
 #ifdef APP_UNITY_BUILD
 #include "action.c"
