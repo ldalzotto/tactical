@@ -39,14 +39,6 @@ PUBLIC void linear_allocator_pop(linear_allocator_t *allocator, slice_t marker) 
     allocator->cursor = marker.begin;
 }
 
-PUBLIC void linear_allocator_pop_move(linear_allocator_t *allocator, slice_t from, slice_t to) {
-    assert_debug(to.begin <= from.begin);
-    assert_debug(from.end == allocator->cursor);
-    ptrdiff_t size = SLICE_BYTESIZE(from);
-    __builtin_memmove(to.begin, from.begin, (size_t)size);
-    allocator->cursor = byteoffset(to.begin, size);
-}
-
 // Grows `allocator` by `size` bytes, opening a gap at `at` by sliding
 // everything above it up. Callers holding slices/pointers into the shifted
 // region must rebase them themselves.

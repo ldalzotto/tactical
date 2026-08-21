@@ -158,70 +158,6 @@ PRIVATE void test_linear_allocator_pop_panics_on_marker_end_mismatch(linear_allo
 }
 #endif
 
-PRIVATE void test_linear_allocator_pop_move(linear_allocator_t *allocator) {
-    slice_t data = linear_allocator_push(allocator, 64);
-    linear_allocator_t local = linear_allocator_init(data);
-
-    slice_uint8_t a = LINEAR_ALLOCATOR_PUSH(&local, a, 4);
-    SLICE_AT(a, 0) = 'A'; SLICE_AT(a, 1) = 'A';
-    SLICE_AT(a, 2) = 'A'; SLICE_AT(a, 3) = 'A';
-
-    slice_uint8_t b = LINEAR_ALLOCATOR_PUSH(&local, b, 4);
-
-    slice_uint8_t c = LINEAR_ALLOCATOR_PUSH(&local, c, 4);
-    SLICE_AT(c, 0) = 'C'; SLICE_AT(c, 1) = 'C';
-    SLICE_AT(c, 2) = 'C'; SLICE_AT(c, 3) = 'C';
-
-    LINEAR_ALLOCATOR_POP_MOVE(&local, c, b);
-
-    assert_test(SLICE_AT(b, 0) == 'C');
-    assert_test(SLICE_AT(b, 1) == 'C');
-    assert_test(SLICE_AT(b, 2) == 'C');
-    assert_test(SLICE_AT(b, 3) == 'C');
-    assert_test(local.cursor == byteoffset(b.begin, 4));
-
-    linear_allocator_pop(&local, (slice_t){ b.begin, local.cursor });
-    linear_allocator_pop(&local, a.slice);
-
-    linear_allocator_pop(allocator, data);
-}
-
-#ifdef APP_ASSERTIONS
-PRIVATE void test_linear_allocator_pop_move_panics_on_move_forward(linear_allocator_t *allocator) {
-    slice_t data = linear_allocator_push(allocator, 64);
-    linear_allocator_t local = linear_allocator_init(data);
-
-    slice_uint8_t a = LINEAR_ALLOCATOR_PUSH(&local, a, 4);
-    slice_uint8_t b = LINEAR_ALLOCATOR_PUSH(&local, b, 4);
-    (void)a;
-
-    slice_t to = { byteoffset(b.begin, 4), byteoffset(b.begin, 8) };
-
-    expect_panic_begin();
-    linear_allocator_pop_move(&local, b.slice, to);
-    assert_test(expect_panic_end());
-
-    linear_allocator_pop(allocator, data);
-}
-
-PRIVATE void test_linear_allocator_pop_move_panics_on_from_not_top_of_stack(linear_allocator_t *allocator) {
-    slice_t data = linear_allocator_push(allocator, 64);
-    linear_allocator_t local = linear_allocator_init(data);
-
-    slice_uint8_t a = LINEAR_ALLOCATOR_PUSH(&local, a, 4);
-    slice_uint8_t b = LINEAR_ALLOCATOR_PUSH(&local, b, 4);
-    (void)b;
-
-    slice_t to = { a.begin, a.begin };
-
-    expect_panic_begin();
-    linear_allocator_pop_move(&local, a.slice, to);
-    assert_test(expect_panic_end());
-
-    linear_allocator_pop(allocator, data);
-}
-#endif
-
 PRIVATE void test_linear_allocator_insert(linear_allocator_t *allocator) {
     slice_t data = linear_allocator_push(allocator, 64);
     linear_allocator_t local = linear_allocator_init(data);
@@ -441,11 +377,6 @@ const test_case_t g_memory_tests[] = {
 #ifdef APP_ASSERTIONS
     { TEST_NAME("linear_allocator_pop_panics_on_marker_before_data_begin"), test_linear_allocator_pop_panics_on_marker_before_data_begin },
     { TEST_NAME("linear_allocator_pop_panics_on_marker_end_mismatch"), test_linear_allocator_pop_panics_on_marker_end_mismatch },
-#endif
-    { TEST_NAME("linear_allocator_pop_move"), test_linear_allocator_pop_move },
-#ifdef APP_ASSERTIONS
-    { TEST_NAME("linear_allocator_pop_move_panics_on_move_forward"), test_linear_allocator_pop_move_panics_on_move_forward },
-    { TEST_NAME("linear_allocator_pop_move_panics_on_from_not_top_of_stack"), test_linear_allocator_pop_move_panics_on_from_not_top_of_stack },
 #endif
     { TEST_NAME("linear_allocator_insert"), test_linear_allocator_insert },
 #ifdef APP_ASSERTIONS

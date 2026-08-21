@@ -20,7 +20,6 @@ PUBLIC void linear_allocator_deinit(linear_allocator_t *allocator);
 PUBLIC slice_t linear_allocator_push(linear_allocator_t *allocator, size_t size);
 PUBLIC slice_t linear_allocator_push_alignment(linear_allocator_t *allocator, size_t alignment);
 PUBLIC void linear_allocator_pop(linear_allocator_t *allocator, slice_t marker);
-PUBLIC void linear_allocator_pop_move(linear_allocator_t *allocator, slice_t from, slice_t to);
 PUBLIC void linear_allocator_insert(linear_allocator_t *allocator, void *at, size_t size);
 PUBLIC void linear_allocator_copy(linear_allocator_t *allocator, slice_t from, slice_t to);
 
@@ -32,9 +31,6 @@ PUBLIC void linear_allocator_copy(linear_allocator_t *allocator, slice_t from, s
 
 #define LINEAR_ALLOCATOR_POP(allocator, typed_slice) \
     linear_allocator_pop((allocator), (typed_slice).slice)
-
-#define LINEAR_ALLOCATOR_POP_MOVE(allocator, from, to) \
-    linear_allocator_pop_move((allocator), (from).slice, (to).slice)
 
 PUBLIC void *byteoffset(void *pointer, ptrdiff_t by);
 #define typeoffset(pointer, by) (typeof(*pointer)*)byteoffset(pointer, by * sizeof(typeof(*pointer)))
