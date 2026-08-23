@@ -383,7 +383,7 @@ PRIVATE ptrdiff_t game_cast_attack_area(game_state_t *game, linear_allocator_t *
     slice_t hit_align = linear_allocator_push_alignment(allocator, _Alignof(entity_ptr_t));
 
     slice_entity_ptr_t out_hit;
-    if (!action_try_attack_area(allocator, game->grid, game->entities, active, skill, impact, blast_tiles, &out_hit)) {
+    if (!action_try_attack_area(allocator, game->entities, active, skill, impact, game->pathing.attack_range_tiles, blast_tiles, &out_hit)) {
         linear_allocator_pop(allocator, hit_align);
         if (!cached_blast_valid) {
             linear_allocator_pop(allocator, blast_tiles.slice);
