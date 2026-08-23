@@ -831,6 +831,169 @@ PRIVATE void test_aoe_preview_computation_is_read_only(linear_allocator_t *alloc
     game_deinit(allocator, game);
 }
 
+// Re-selecting the already-active AoE skill via its skill button (not a
+// mouse move) while hovering a valid, in-range impact tile recomputes the
+// preview through game_on_skill_button_pressed's own eligibility check --
+// distinct from the mouse-move path exercised by the tests above.
+PRIVATE void test_aoe_reselecting_skill_button_stages_preview_for_in_range_hover(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 8, 3);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    // A second skill is required for the skill-button row to be visible at
+    // all -- layout_visible_skill_button_count returns 0 for skill_count <=
+    // 1, in which case a click here would never even dispatch to
+    // game_on_skill_button_pressed.
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p->skills = skills;
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    test_move_tile(&game, allocator, (position_t){3, 1});
+    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) > 0);
+
+    // Re-clicking skill button 0 re-selects SKILL_FIREBALL (already active)
+    // while hover is still valid and in range: game_on_skill_button_pressed
+    // must restage the preview itself, not just rely on the prior hover.
+    test_click_skill_button(&game, allocator, 0);
+
+    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) > 0);
+    assert_test(test_tile_list_contains(game.render.blast_preview_tiles, (position_t){3, 1}));
+
+    game_deinit(allocator, game);
+}
+
+// Same skill-button re-selection path, but the hovered tile is out of the
+// skill's range: game_on_skill_button_pressed's skill_area_in_range check
+// must fail closed, leaving the preview empty.
+PRIVATE void test_aoe_reselecting_skill_button_leaves_preview_empty_for_out_of_range_hover(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 10, 1);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    // A second skill is required for the skill-button row to be visible at
+    // all -- see the sibling in-range test above.
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p->skills = skills;
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    // Distance 6, beyond SKILL_FIREBALL.range (4): hover_valid is true (the
+    // tile is on the grid) but skill_area_in_range must reject it.
+    test_move_tile(&game, allocator, (position_t){6, 0});
+    assert_test(game.hover_valid);
+    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) == 0);
+
+    test_click_skill_button(&game, allocator, 0);
+
+    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) == 0);
+
+    game_deinit(allocator, game);
+}
+
+// Clicking a skill button while still in GAME_MODE_MOVEMENT (attack mode
+// never toggled on) must not stage a preview, regardless of hover state --
+// game_on_skill_button_pressed's mode check has to gate this independently
+// of skill_is_aoe/skill_area_in_range.
+PRIVATE void test_aoe_skill_button_in_movement_mode_does_not_stage_preview(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 8, 3);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    // A second skill is required for the skill-button row to be visible at
+    // all -- see test_aoe_reselecting_skill_button_stages_preview_for_in_range_hover.
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p->skills = skills;
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    assert_test(game.mode == GAME_MODE_MOVEMENT);
+    test_move_tile(&game, allocator, (position_t){3, 1});
+    assert_test(game.hover_valid);
+
+    // Skill buttons are visible whenever mode != GAME_MODE_NONE (and
+    // skill_count > 1), so this is clickable in movement mode even though
+    // attack was never toggled on.
+    test_click_skill_button(&game, allocator, 0);
+
+    assert_test(game.mode == GAME_MODE_MOVEMENT);
+    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) == 0);
+
+    game_deinit(allocator, game);
+}
+
+// Hovering over a valid, in-range tile in attack mode while a non-AoE skill
+// is selected must not stage a preview -- the mouse-move handler's
+// skill_is_aoe check has to reject a melee skill, not just accept fireballs
+// (every other hover test in this suite only ever hovers with an AoE
+// skill selected).
+PRIVATE void test_aoe_hover_with_non_aoe_skill_selected_stages_no_preview(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 8, 3);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    // skills[0] = SKILL_MELEE (not AoE, selected by default), skills[1] =
+    // SKILL_FIREBALL (AoE).
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    p->skills = skills;
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    assert_test(game.selected_skill == 0);
+
+    // (3,1) is within SKILL_FIREBALL's range/radius of the attacker, but
+    // SKILL_MELEE is what's selected here.
+    test_move_tile(&game, allocator, (position_t){3, 1});
+
+    assert_test(game.hover_valid);
+    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) == 0);
+
+    game_deinit(allocator, game);
+}
+
 const test_case_t g_game_aoe_tests[] = {
     { TEST_NAME("aoe_blast_hits_all_enemies_in_radius_and_spares_beyond"), test_aoe_blast_hits_all_enemies_in_radius_and_spares_beyond },
     { TEST_NAME("aoe_blast_ignores_obstacles"), test_aoe_blast_ignores_obstacles },
@@ -850,6 +1013,10 @@ const test_case_t g_game_aoe_tests[] = {
     { TEST_NAME("aoe_preview_clears_for_out_of_range_hover"), test_aoe_preview_clears_for_out_of_range_hover },
     { TEST_NAME("aoe_preview_coexists_with_attack_range"), test_aoe_preview_coexists_with_attack_range },
     { TEST_NAME("aoe_preview_computation_is_read_only"), test_aoe_preview_computation_is_read_only },
+    { TEST_NAME("aoe_reselecting_skill_button_stages_preview_for_in_range_hover"), test_aoe_reselecting_skill_button_stages_preview_for_in_range_hover },
+    { TEST_NAME("aoe_reselecting_skill_button_leaves_preview_empty_for_out_of_range_hover"), test_aoe_reselecting_skill_button_leaves_preview_empty_for_out_of_range_hover },
+    { TEST_NAME("aoe_skill_button_in_movement_mode_does_not_stage_preview"), test_aoe_skill_button_in_movement_mode_does_not_stage_preview },
+    { TEST_NAME("aoe_hover_with_non_aoe_skill_selected_stages_no_preview"), test_aoe_hover_with_non_aoe_skill_selected_stages_no_preview },
 };
 
 const uint32_t g_game_aoe_tests_count = sizeof(g_game_aoe_tests) / sizeof(g_game_aoe_tests[0]);
