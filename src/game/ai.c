@@ -97,7 +97,15 @@ PRIVATE void ai_step_toward(linear_allocator_t *allocator, grid_t grid, slice_en
     // is reachable from that player (the BFS path is reversible), so `found`
     // is always true here.
     assert_debug(found);
-    action_try_move(allocator, grid, entities, enemy, best_position);
+
+    // action_try_move (F2-03) takes its distance grid from the caller
+    // instead of computing it -- unlike game.c's player-move path, there's
+    // no long-lived cache to reuse here (a different entity, a different
+    // turn), so this mirrors what action_try_move used to do internally:
+    // a fresh BFS rooted at the mover, capped at its own mp.
+    pathing_state_t move_distances = pathing_compute_walking_distances(allocator, grid, entities, enemy->position, enemy->mp);
+    action_try_move(move_distances, grid, enemy, best_position);
+    pathing_deinit(allocator, move_distances);
 }
 
 // True if a beats b as the "preferred" skill: higher damage, tie-broken by
