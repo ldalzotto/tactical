@@ -4,6 +4,15 @@
 
 #include "../lib/assert.h"
 
+PRIVATE bool position_in_tiles(slice_position_t tiles, position_t position) {
+    for (SLICE_FOREACH(tiles, tile_s)) {
+        if (position_equals(SLICE_DEREF(tile_s), position)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 PUBLIC bool action_try_move(pathing_state_t walking_distances, grid_t grid, entity_t* entity, position_t target) {
     int distance = pathing_distance_at(walking_distances, grid, target);
 
@@ -33,14 +42,7 @@ PUBLIC bool action_try_attack(entity_t* attacker, skill_t skill, entity_t* defen
         return false;
     }
 
-    bool in_range = false;
-    for (SLICE_FOREACH(attack_range_tiles, tile_s)) {
-        if (position_equals(SLICE_DEREF(tile_s), defender->position)) {
-            in_range = true;
-            break;
-        }
-    }
-    if (!in_range) {
+    if (!position_in_tiles(attack_range_tiles, defender->position)) {
         return false;
     }
 
@@ -58,14 +60,7 @@ PUBLIC bool action_try_attack_area(linear_allocator_t *allocator, slice_entity_t
         return false;
     }
 
-    bool in_range = false;
-    for (SLICE_FOREACH(attack_range_tiles, tile_s)) {
-        if (position_equals(SLICE_DEREF(tile_s), impact)) {
-            in_range = true;
-            break;
-        }
-    }
-    if (!in_range) {
+    if (!position_in_tiles(attack_range_tiles, impact)) {
         return false;
     }
 
@@ -88,14 +83,7 @@ PUBLIC bool action_try_attack_area(linear_allocator_t *allocator, slice_entity_t
             continue;
         }
 
-        bool in_blast = false;
-        for (SLICE_FOREACH(blast_tiles, tile_s)) {
-            if (position_equals(SLICE_DEREF(tile_s), entity->position)) {
-                in_blast = true;
-                break;
-            }
-        }
-        if (!in_blast) {
+        if (!position_in_tiles(blast_tiles, entity->position)) {
             continue;
         }
 
