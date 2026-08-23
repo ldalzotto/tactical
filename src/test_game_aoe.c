@@ -1165,6 +1165,88 @@ PRIVATE void test_aoe_cast_at_different_tile_than_hover_falls_back_to_fresh_comp
     game_deinit(allocator, game);
 }
 
+// F2-05: end-to-end proof that game.pathing.blast_preview_tiles (what the
+// overlay shows) and action_try_attack_area's actual hit set (what
+// execution damages) are exactly the same footprint -- captured generically
+// over every opposing-team entity, rather than a hand-picked in/out pair as
+// in test_aoe_cast_reuses_hovered_blast_preview above, so this stands as an
+// independent regression guard even if that test's specific entity
+// placements ever change.
+PRIVATE void test_aoe_blast_preview_tiles_match_what_execution_hits(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 8, 3);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 1, 3);
+    entity_t* e_in_a = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 1, 3);
+    entity_t* e_in_b = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){5, 1}, 10, 1, 3);
+    entity_t* e_out = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){6, 1}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *e_in_a_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_in_a->skills = (slice_skill_t){ .begin = e_in_a_skills_begin, .end = skills.end };
+    skill_t *e_in_b_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_in_b->skills = (slice_skill_t){ .begin = e_in_b_skills_begin, .end = skills.end };
+    skill_t *e_out_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_out->skills = (slice_skill_t){ .begin = e_out_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, e_in_a);
+    turn_order_add(allocator, &order, e_in_b);
+    turn_order_add(allocator, &order, e_out);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    test_move_tile(&game, allocator, (position_t){3, 1});
+    assert_test(game.pathing.blast_preview_valid);
+
+    // Capture the previewed footprint before casting mutates game state.
+    position_t footprint[64];
+    int footprint_count = 0;
+    for (SLICE_FOREACH(game.pathing.blast_preview_tiles, tile_s)) {
+        assert_test(footprint_count < 64);
+        footprint[footprint_count] = SLICE_DEREF(tile_s);
+        footprint_count++;
+    }
+    assert_test(footprint_count > 0);
+
+    test_click_tile(&game, allocator, (position_t){3, 1});
+
+    for (SLICE_FOREACH(game.entities, entity_s)) {
+        entity_t *entity = &SLICE_DEREF(entity_s);
+        if (entity->team != ENTITY_TEAM_ENEMY) {
+            continue;
+        }
+
+        bool in_footprint = false;
+        for (int i = 0; i < footprint_count; i++) {
+            if (position_equals(footprint[i], entity->position)) {
+                in_footprint = true;
+                break;
+            }
+        }
+
+        if (in_footprint) {
+            assert_test(entity->hp == 10 - SKILL_FIREBALL.damage);
+        } else {
+            assert_test(entity->hp == 10);
+        }
+    }
+
+    game_deinit(allocator, game);
+}
+
 const test_case_t g_game_aoe_tests[] = {
     { TEST_NAME("aoe_blast_hits_all_enemies_in_radius_and_spares_beyond"), test_aoe_blast_hits_all_enemies_in_radius_and_spares_beyond },
     { TEST_NAME("aoe_blast_ignores_obstacles"), test_aoe_blast_ignores_obstacles },
@@ -1191,6 +1273,7 @@ const test_case_t g_game_aoe_tests[] = {
     { TEST_NAME("aoe_cast_reuses_hovered_blast_preview"), test_aoe_cast_reuses_hovered_blast_preview },
     { TEST_NAME("aoe_cast_without_prior_hover_falls_back_to_fresh_compute"), test_aoe_cast_without_prior_hover_falls_back_to_fresh_compute },
     { TEST_NAME("aoe_cast_at_different_tile_than_hover_falls_back_to_fresh_compute"), test_aoe_cast_at_different_tile_than_hover_falls_back_to_fresh_compute },
+    { TEST_NAME("aoe_blast_preview_tiles_match_what_execution_hits"), test_aoe_blast_preview_tiles_match_what_execution_hits },
 };
 
 const uint32_t g_game_aoe_tests_count = sizeof(g_game_aoe_tests) / sizeof(g_game_aoe_tests[0]);
