@@ -54,7 +54,7 @@ PUBLIC bool action_try_attack_area(linear_allocator_t *allocator, grid_t grid, s
         return false;
     }
 
-    if (!pathing_in_range(grid, entities, attacker->position, impact, skill.range)) {
+    if (!skill_area_in_range(grid, entities, attacker, skill, impact)) {
         return false;
     }
 

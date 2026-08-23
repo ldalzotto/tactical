@@ -18,6 +18,14 @@ extern const skill_t SKILL_FIREBALL;
 // on an intermediate tile (see pathing_in_range).
 PUBLIC bool skill_target_in_range(grid_t grid, slice_entity_t entities, entity_t* attacker, skill_t skill, entity_t* target);
 
+// True if `skill` has an area-of-effect footprint (as opposed to a
+// single-target skill).
+PUBLIC bool skill_is_aoe(skill_t skill);
+
+// Same as skill_target_in_range, but for an AoE skill's impact tile rather
+// than a specific entity target.
+PUBLIC bool skill_area_in_range(grid_t grid, slice_entity_t entities, entity_t* attacker, skill_t skill, position_t impact);
+
 #ifdef APP_UNITY_BUILD
 #include "skill.c"
 #endif

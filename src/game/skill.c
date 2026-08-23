@@ -9,3 +9,11 @@ const skill_t SKILL_FIREBALL = { .range = 4, .aoe_radius = 2, .damage = 4, .ap_c
 PUBLIC bool skill_target_in_range(grid_t grid, slice_entity_t entities, entity_t* attacker, skill_t skill, entity_t* target) {
     return pathing_in_range(grid, entities, attacker->position, target->position, skill.range);
 }
+
+PUBLIC bool skill_is_aoe(skill_t skill) {
+    return skill.aoe_radius > 0;
+}
+
+PUBLIC bool skill_area_in_range(grid_t grid, slice_entity_t entities, entity_t* attacker, skill_t skill, position_t impact) {
+    return pathing_in_range(grid, entities, attacker->position, impact, skill.range);
+}
