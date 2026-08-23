@@ -9,6 +9,7 @@
     "build:release:verbose": "node server/build.js --release --verbose",
     "build:unity": "node server/build.js --unity",
     "build:unity:release": "node server/build.js --unity --release",
+    "build:pages": "node scripts/build-pages.js",
     "start": "node server/server.js",
     "start:release": "node server/server.js --release",
     "start:unity": "node server/server.js --unity",
