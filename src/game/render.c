@@ -114,7 +114,7 @@ PRIVATE void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
     }
 
     // Drawn after attack_range_tiles so the blast preview layers on top of
-    // it (pathing_cache_t's blast_preview_tiles is independent of, and
+    // it (pathing_ranges_t's blast_preview_tiles is independent of, and
     // coexists with, attack_range_tiles -- see F1-05).
     for (SLICE_FOREACH(game.pathing.blast_preview_tiles, tile_s)) {
         position_t tile = SLICE_DEREF(tile_s);

@@ -4,7 +4,7 @@
 #include "action.h"
 #include "ai.h"
 #include "pathing.h"
-#include "pathing_cache.h"
+#include "pathing_ranges.h"
 #include "skill.h"
 
 PRIVATE void game_check_game_over(game_state_t *game) {
@@ -177,7 +177,7 @@ PRIVATE ptrdiff_t game_scratch_stage_pathing(linear_allocator_t *allocator, line
 
     // Push data to the game scratch. The outer alignment marker absorbs the
     // real padding, so the pathing_state_t's own internal align marker is
-    // pushed zero-length right after it (see pathing_cache.h's doc comment
+    // pushed zero-length right after it (see pathing_ranges.h's doc comment
     // on the two nested markers).
     *out_align = linear_allocator_push_alignment(scratch, _Alignof(int32_t));
     out->align = linear_allocator_push(scratch, 0);
@@ -203,7 +203,7 @@ PRIVATE ptrdiff_t game_scratch_stage_pathing(linear_allocator_t *allocator, line
 // Growing can relocate memory above game->scratch, so the byte shift applied
 // (0 if none) is returned for callers to propagate and rebase against.
 PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocator, game_mode_t mode) {
-    pathing_cache_reset(&game->scratch, &game->pathing);
+    pathing_ranges_reset(&game->scratch, &game->pathing);
     game->mode = mode;
 
     if (mode == GAME_MODE_NONE) {
@@ -218,7 +218,7 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
         // distance 0) rather than short-circuited, so
         // game->pathing.walking_distances is always a validly-sized dist
         // grid for action_try_move (F2-03) to query -- never the
-        // zero-length marker pathing_cache_reset leaves it at.
+        // zero-length marker pathing_ranges_reset leaves it at.
         pathing_state_t pathing = pathing_compute_walking_distances(allocator, game->grid, game->entities, active->position, active->mp);
 
         slice_t temp_align = linear_allocator_push_alignment(allocator, _Alignof(position_t));
@@ -256,7 +256,7 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
         linear_allocator_pop(allocator, pathing.dist.slice);
         linear_allocator_pop(allocator, pathing.align);
 
-        pathing_cache_set_reachable(&game->scratch, &game->pathing, walking_distances_align, walking_distances, reachable_align, reachable_tiles);
+        pathing_ranges_set_reachable(&game->scratch, &game->pathing, walking_distances_align, walking_distances, reachable_align, reachable_tiles);
 
         return shift;
     } else {
@@ -292,7 +292,7 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
         // Reset to zero for usage sanity
         temp_align = (slice_t){0,0}; temp_tiles.slice = (slice_t){0,0};
 
-        pathing_cache_set_attack_range(&game->scratch, &game->pathing, attack_range_align, attack_range_tiles);
+        pathing_ranges_set_attack_range(&game->scratch, &game->pathing, attack_range_align, attack_range_tiles);
 
         return shift;
     }
@@ -300,10 +300,10 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
 
 // Computes the blast footprint centered on `impact` and stages it into
 // `scratch` as the new blast_preview_tiles (see game_scratch_push and
-// pathing_cache_set_blast_preview). Takes only the primitives it needs
+// pathing_ranges_set_blast_preview). Takes only the primitives it needs
 // rather than game_state_t -- callers decide eligibility (mode, hover
 // validity, selected skill) themselves before calling this.
-PRIVATE ptrdiff_t game_stage_blast_preview(linear_allocator_t *allocator, linear_allocator_t *scratch, pathing_cache_t *pathing, grid_t grid, position_t impact, int aoe_radius) {
+PRIVATE ptrdiff_t game_stage_blast_preview(linear_allocator_t *allocator, linear_allocator_t *scratch, pathing_ranges_t *pathing, grid_t grid, position_t impact, int aoe_radius) {
     slice_t temp_align = linear_allocator_push_alignment(allocator, _Alignof(position_t));
     slice_position_t temp_tiles = pathing_compute_blast_tiles(allocator, grid, impact, aoe_radius);
 
@@ -313,7 +313,7 @@ PRIVATE ptrdiff_t game_stage_blast_preview(linear_allocator_t *allocator, linear
     // Reset to zero for usage sanity
     temp_align = (slice_t){0,0}; temp_tiles.slice = (slice_t){0,0};
 
-    pathing_cache_set_blast_preview(scratch, pathing, blast_preview_align, blast_preview_tiles, impact);
+    pathing_ranges_set_blast_preview(scratch, pathing, blast_preview_align, blast_preview_tiles, impact);
 
     return shift;
 }
@@ -512,7 +512,7 @@ PRIVATE ptrdiff_t game_on_attack_toggle_pressed(game_state_t *game, linear_alloc
 
 // Sets game->selected_skill to index and recomputes the range preview.
 // No-op if not player-controlled, no mode active, or index out of range.
-// Safe to call repeatedly: game_set_mode's pathing_cache_reset rewinds
+// Safe to call repeatedly: game_set_mode's pathing_ranges_reset rewinds
 // game->scratch before each re-push.
 PRIVATE ptrdiff_t game_on_skill_button_pressed(game_state_t *game, linear_allocator_t *allocator, int index) {
     assert_debug(game->game_over == GAME_OVER_NONE);
@@ -533,7 +533,7 @@ PRIVATE ptrdiff_t game_on_skill_button_pressed(game_state_t *game, linear_alloca
     // skill, without requiring the mouse to move -- game_set_mode itself
     // only clears blast_preview_tiles, it doesn't recompute it.
     skill_t skill = SLICE_AT(active->skills, index);
-    pathing_cache_clear_blast_preview(&game->scratch, &game->pathing);
+    pathing_ranges_clear_blast_preview(&game->scratch, &game->pathing);
     if (game->mode == GAME_MODE_ATTACK && game->hover_valid && skill_is_aoe(skill)
             && skill_can_target_area(game->grid, game->entities, active, skill, game->hover)) {
         shift += game_stage_blast_preview(allocator, &game->scratch, &game->pathing, game->grid, game->hover, skill.aoe_radius);
@@ -609,7 +609,7 @@ PUBLIC ptrdiff_t game_on_input_event(game_state_t *game, linear_allocator_t *all
         // ENTITY_TEAM_PLAYER before ever calling it with ATTACK. Asserted
         // rather than re-checked here since MOUSE_MOVE (unlike those two)
         // fires regardless of whose turn it is.
-        pathing_cache_clear_blast_preview(&game->scratch, &game->pathing);
+        pathing_ranges_clear_blast_preview(&game->scratch, &game->pathing);
         if (game->mode == GAME_MODE_ATTACK) {
             entity_t *active = turn_active_entity(game->turn);
             skill_t skill = SLICE_AT(active->skills, game->selected_skill);

@@ -10,7 +10,7 @@
 #include "grid.h"
 #include "layout.h"
 #include "position.h"
-#include "pathing_cache.h"
+#include "pathing_ranges.h"
 #include "turn.h"
 
 typedef enum {
@@ -48,7 +48,7 @@ typedef struct {
     linear_allocator_t scratch;  // internal arena for game-owned working data; hosts
                                   // pathing.reachable_tiles/attack_range_tiles, and any future
                                   // per-game UI-state buffer
-    pathing_cache_t pathing;
+    pathing_ranges_t pathing;
 } game_state_t;
 
 // Assembles game state from already-allocated grid, entity list, skill list

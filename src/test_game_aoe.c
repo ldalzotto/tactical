@@ -660,7 +660,7 @@ PRIVATE void test_aoe_preview_clears_when_hover_leaves_grid(linear_allocator_t *
 }
 
 // Toggling out of GAME_MODE_ATTACK empties the preview, matching
-// pathing_cache_reset's existing clear-on-mode-change behavior.
+// pathing_ranges_reset's existing clear-on-mode-change behavior.
 PRIVATE void test_aoe_preview_clears_on_mode_change(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 8, 3);
