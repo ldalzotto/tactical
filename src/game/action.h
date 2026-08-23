@@ -26,7 +26,7 @@ PUBLIC bool action_try_move(pathing_state_t walking_distances, grid_t grid, enti
 //
 // This function never computes the range check itself -- the caller
 // supplies `attack_range_tiles` (e.g. game->pathing.attack_range_tiles,
-// built once per attack-mode-entry via skill_target_in_range/
+// built once per attack-mode-entry via skill_can_target/
 // pathing_in_range over the whole grid -- see game.c), and is responsible
 // for it actually matching `skill`/`attacker`'s range; this function trusts
 // it as given, the same way action_try_attack_area trusts its blast_tiles.

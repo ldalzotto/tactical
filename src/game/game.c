@@ -535,7 +535,7 @@ PRIVATE ptrdiff_t game_on_skill_button_pressed(game_state_t *game, linear_alloca
     skill_t skill = SLICE_AT(active->skills, index);
     pathing_cache_clear_blast_preview(&game->scratch, &game->pathing);
     if (game->mode == GAME_MODE_ATTACK && game->hover_valid && skill_is_aoe(skill)
-            && skill_area_in_range(game->grid, game->entities, active, skill, game->hover)) {
+            && skill_can_target_area(game->grid, game->entities, active, skill, game->hover)) {
         shift += game_stage_blast_preview(allocator, &game->scratch, &game->pathing, game->grid, game->hover, skill.aoe_radius);
     }
     return shift;
@@ -615,7 +615,7 @@ PUBLIC ptrdiff_t game_on_input_event(game_state_t *game, linear_allocator_t *all
             skill_t skill = SLICE_AT(active->skills, game->selected_skill);
             assert_debug(active->team == ENTITY_TEAM_PLAYER);
             if (game->hover_valid && skill_is_aoe(skill)
-                    && skill_area_in_range(game->grid, game->entities, active, skill, game->hover)) {
+                    && skill_can_target_area(game->grid, game->entities, active, skill, game->hover)) {
                 return game_stage_blast_preview(allocator, &game->scratch, &game->pathing, game->grid, game->hover, skill.aoe_radius);
             }
         }

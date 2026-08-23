@@ -883,7 +883,7 @@ PRIVATE void test_aoe_reselecting_skill_button_stages_preview_for_in_range_hover
 }
 
 // Same skill-button re-selection path, but the hovered tile is out of the
-// skill's range: game_on_skill_button_pressed's skill_area_in_range check
+// skill's range: game_on_skill_button_pressed's skill_can_target_area check
 // must fail closed, leaving the preview empty.
 PRIVATE void test_aoe_reselecting_skill_button_leaves_preview_empty_for_out_of_range_hover(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
@@ -909,7 +909,7 @@ PRIVATE void test_aoe_reselecting_skill_button_leaves_preview_empty_for_out_of_r
     test_click_tile(&game, allocator, p->position);
     test_click_attack_toggle(&game, allocator);
     // Distance 6, beyond SKILL_FIREBALL.range (4): hover_valid is true (the
-    // tile is on the grid) but skill_area_in_range must reject it.
+    // tile is on the grid) but skill_can_target_area must reject it.
     test_move_tile(&game, allocator, (position_t){6, 0});
     assert_test(game.hover_valid);
     assert_test(SLICE_TYPESIZE(game.pathing.blast_preview_tiles) == 0);
@@ -924,7 +924,7 @@ PRIVATE void test_aoe_reselecting_skill_button_leaves_preview_empty_for_out_of_r
 // Clicking a skill button while still in GAME_MODE_MOVEMENT (attack mode
 // never toggled on) must not stage a preview, regardless of hover state --
 // game_on_skill_button_pressed's mode check has to gate this independently
-// of skill_is_aoe/skill_area_in_range.
+// of skill_is_aoe/skill_can_target_area.
 PRIVATE void test_aoe_skill_button_in_movement_mode_does_not_stage_preview(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 8, 3);
