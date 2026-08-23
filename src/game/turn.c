@@ -15,13 +15,8 @@ PUBLIC void turn_order_deinit(linear_allocator_t *allocator, slice_entity_ptr_t 
 PUBLIC void turn_order_add(linear_allocator_t *allocator, slice_entity_ptr_t *order, entity_t *entity) {
     // Same append-in-place discipline as entity_spawn: only allowed right
     // after the previous add, with nothing else pushed in between.
-    assert_debug(allocator->cursor == order->end);
-
-    slice_entity_ptr_t entry;
-    entry = LINEAR_ALLOCATOR_PUSH(allocator, entry, 1);
+    slice_entity_ptr_t entry = LINEAR_ALLOCATOR_PUSH_GROW(allocator, order, 1);
     SLICE_DEREF(entry) = entity;
-
-    order->end = entry.end;
 }
 
 PRIVATE void turn_reset_points(entity_t *entity) {
