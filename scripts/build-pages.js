@@ -40,6 +40,7 @@ try {
   // Step 3: Copy and process web artifacts
   log('Copying web artifacts...');
   copyFile('web/index.html', path.join(DIST_DIR, 'index.html'));
+  copyFile('web/wasm-shared.js', path.join(DIST_DIR, 'wasm-shared.js'));
 
   // Copy main.js and fix paths for GitHub Pages (absolute → relative)
   const mainJsSrc = fs.readFileSync('web/main.js', 'utf8');
