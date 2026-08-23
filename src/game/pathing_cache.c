@@ -36,6 +36,7 @@ PUBLIC void pathing_cache_reset(linear_allocator_t *scratch, pathing_cache_t *ca
     cache->attack_range_tiles = LINEAR_ALLOCATOR_PUSH(scratch, cache->attack_range_tiles, 0);
     cache->blast_preview_align = linear_allocator_push(scratch, 0);
     cache->blast_preview_tiles = LINEAR_ALLOCATOR_PUSH(scratch, cache->blast_preview_tiles, 0);
+    cache->blast_preview_valid = false;
 
     pathing_cache_assert_layout(*cache);
 }
@@ -49,6 +50,7 @@ PUBLIC void pathing_cache_set_reachable(linear_allocator_t *scratch, pathing_cac
     cache->attack_range_tiles = LINEAR_ALLOCATOR_PUSH(scratch, cache->attack_range_tiles, 0);
     cache->blast_preview_align = linear_allocator_push(scratch, 0);
     cache->blast_preview_tiles = LINEAR_ALLOCATOR_PUSH(scratch, cache->blast_preview_tiles, 0);
+    cache->blast_preview_valid = false;
 
     pathing_cache_assert_layout(*cache);
 }
@@ -58,14 +60,17 @@ PUBLIC void pathing_cache_set_attack_range(linear_allocator_t *scratch, pathing_
     cache->attack_range_tiles = attack_range_tiles;
     cache->blast_preview_align = linear_allocator_push(scratch, 0);
     cache->blast_preview_tiles = LINEAR_ALLOCATOR_PUSH(scratch, cache->blast_preview_tiles, 0);
+    cache->blast_preview_valid = false;
 
     pathing_cache_assert_layout(*cache);
 }
 
-PUBLIC void pathing_cache_set_blast_preview(linear_allocator_t *scratch, pathing_cache_t *cache, slice_t blast_preview_align, slice_position_t blast_preview_tiles) {
+PUBLIC void pathing_cache_set_blast_preview(linear_allocator_t *scratch, pathing_cache_t *cache, slice_t blast_preview_align, slice_position_t blast_preview_tiles, position_t impact) {
     (void)scratch;
     cache->blast_preview_align = blast_preview_align;
     cache->blast_preview_tiles = blast_preview_tiles;
+    cache->blast_preview_impact = impact;
+    cache->blast_preview_valid = true;
 
     pathing_cache_assert_layout(*cache);
 }
@@ -76,6 +81,7 @@ PUBLIC void pathing_cache_clear_blast_preview(linear_allocator_t *scratch, pathi
 
     cache->blast_preview_align = linear_allocator_push(scratch, 0);
     cache->blast_preview_tiles = LINEAR_ALLOCATOR_PUSH(scratch, cache->blast_preview_tiles, 0);
+    cache->blast_preview_valid = false;
 
     pathing_cache_assert_layout(*cache);
 }

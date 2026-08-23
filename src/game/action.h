@@ -44,7 +44,14 @@ PUBLIC bool action_try_attack(grid_t grid, slice_entity_t entities, entity_t* at
 // al.). *out_hit is staged starting at that aligned cursor, so a single
 // `linear_allocator_pop(allocator, out_hit->slice)` followed by popping the
 // caller's own alignment marker fully unwinds everything this call staged.
-PUBLIC bool action_try_attack_area(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *attacker, skill_t skill, position_t impact, slice_entity_ptr_t *out_hit);
+//
+// `cached_blast_tiles` is reused as the blast footprint (skipping
+// pathing_compute_blast_tiles entirely) when `cached_blast_valid` is true --
+// the caller is responsible for verifying it was actually computed for this
+// `impact` (see game_cast_attack_area); this function trusts the flag as
+// given. When reused, `cached_blast_tiles` must remain valid (not popped or
+// overwritten) for the duration of this call.
+PUBLIC bool action_try_attack_area(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *attacker, skill_t skill, position_t impact, slice_position_t cached_blast_tiles, bool cached_blast_valid, slice_entity_ptr_t *out_hit);
 
 #ifdef APP_UNITY_BUILD
 #include "action.c"
