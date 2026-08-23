@@ -6,15 +6,15 @@
 #include "pathing.h"
 #include "position.h"
 
-// Pathing data shared by rendering and action execution, cached so it isn't
-// recomputed on every frame or read.
+// Range data for the currently selected entity, shared by rendering and
+// action execution, cached so it isn't recomputed on every frame or read.
 // - walking_distances is the raw BFS dist grid reachable_tiles is derived
 //   from; valid only while mode == GAME_MODE_MOVEMENT (nullified otherwise,
 //   same as reachable_tiles). action_try_move queries it directly instead
 //   of re-running the BFS.
 // - reachable_tiles and attack_range_tiles are mutually exclusive: exactly
 //   one is populated at a time (the other nullified), matching the
-//   move/attack toggle -- scratch only ever holds one live tile cache
+//   move/attack toggle -- scratch only ever holds one live tile region
 //   between the two of them.
 // - blast_preview_tiles is independent of that pair: it can be populated at
 //   the same time as attack_range_tiles (while attack_range_tiles is
@@ -56,13 +56,13 @@ typedef struct {
                                         // with no structural guarantee the click matches the hover
     bool blast_preview_valid;          // true once blast_preview_tiles holds a real footprint for
                                         // blast_preview_impact; false whenever it's the empty marker
-} pathing_cache_t;
+} pathing_ranges_t;
 
-// Pops all four caches to nothing, then pushes fresh empty markers for
+// Pops all four regions to nothing, then pushes fresh empty markers for
 // walking_distances, reachable_tiles, attack_range_tiles and
 // blast_preview_tiles -- scratch collapses to the pre-selection watermark
-// with all four caches nullified.
-PUBLIC void pathing_cache_reset(linear_allocator_t *scratch, pathing_cache_t *cache);
+// with all four regions nullified.
+PUBLIC void pathing_ranges_reset(linear_allocator_t *scratch, pathing_ranges_t *ranges);
 
 // Adopts `walking_distances_align`/`walking_distances` as the new
 // walking_distances region and `reachable_align`/`reachable_tiles` as the
@@ -70,15 +70,15 @@ PUBLIC void pathing_cache_reset(linear_allocator_t *scratch, pathing_cache_t *ca
 // linear_allocator_push_alignment then one linear_allocator_push per tile
 // while iterating), then re-pushes empty attack_range_tiles and
 // blast_preview_tiles on top so they stay the topmost scratch regions.
-// Requires all four caches empty (call right after pathing_cache_reset).
-PUBLIC void pathing_cache_set_reachable(linear_allocator_t *scratch, pathing_cache_t *cache, slice_t walking_distances_align, pathing_state_t walking_distances, slice_t reachable_align, slice_position_t reachable_tiles);
+// Requires all four regions empty (call right after pathing_ranges_reset).
+PUBLIC void pathing_ranges_set_reachable(linear_allocator_t *scratch, pathing_ranges_t *ranges, slice_t walking_distances_align, pathing_state_t walking_distances, slice_t reachable_align, slice_position_t reachable_tiles);
 
 // Adopts `attack_range_align`/`attack_range_tiles` (built the same way as
-// for pathing_cache_set_reachable) as the new attack_range_tiles region,
+// for pathing_ranges_set_reachable) as the new attack_range_tiles region,
 // then re-pushes an empty blast_preview_tiles on top so it stays the
 // topmost scratch region. Requires walking_distances/reachable_tiles
-// already empty (call right after pathing_cache_reset).
-PUBLIC void pathing_cache_set_attack_range(linear_allocator_t *scratch, pathing_cache_t *cache, slice_t attack_range_align, slice_position_t attack_range_tiles);
+// already empty (call right after pathing_ranges_reset).
+PUBLIC void pathing_ranges_set_attack_range(linear_allocator_t *scratch, pathing_ranges_t *ranges, slice_t attack_range_align, slice_position_t attack_range_tiles);
 
 // Adopts `blast_preview_align`/`blast_preview_tiles` (built the same way)
 // as the new blast_preview_tiles region, computed for `impact`, and sets
@@ -86,19 +86,19 @@ PUBLIC void pathing_cache_set_attack_range(linear_allocator_t *scratch, pathing_
 // require reachable_tiles/attack_range_tiles to be empty -- blast_preview_tiles
 // is independently toggled and always the topmost scratch region, so it's
 // always safe to call. The caller must have already cleared the previous
-// blast_preview_tiles region first (see pathing_cache_clear_blast_preview)
+// blast_preview_tiles region first (see pathing_ranges_clear_blast_preview)
 // before staging new data on top of scratch, since this recomputes on
-// every hover move rather than only right after a pathing_cache_reset.
-PUBLIC void pathing_cache_set_blast_preview(linear_allocator_t *scratch, pathing_cache_t *cache, slice_t blast_preview_align, slice_position_t blast_preview_tiles, position_t impact);
+// every hover move rather than only right after a pathing_ranges_reset.
+PUBLIC void pathing_ranges_set_blast_preview(linear_allocator_t *scratch, pathing_ranges_t *ranges, slice_t blast_preview_align, slice_position_t blast_preview_tiles, position_t impact);
 
 // Pops the current blast_preview_tiles region and re-pushes a fresh empty
 // marker in its place, and clears blast_preview_valid -- cheaper than a
-// full pathing_cache_reset when only the preview needs clearing (e.g.
+// full pathing_ranges_reset when only the preview needs clearing (e.g.
 // hover leaving the grid, or moving to a tile with no valid blast), and
 // the mandatory first step before staging a new non-empty preview via
-// pathing_cache_set_blast_preview.
-PUBLIC void pathing_cache_clear_blast_preview(linear_allocator_t *scratch, pathing_cache_t *cache);
+// pathing_ranges_set_blast_preview.
+PUBLIC void pathing_ranges_clear_blast_preview(linear_allocator_t *scratch, pathing_ranges_t *ranges);
 
 #ifdef APP_UNITY_BUILD
-#include "pathing_cache.c"
+#include "pathing_ranges.c"
 #endif
