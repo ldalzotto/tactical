@@ -543,7 +543,7 @@ PRIVATE void test_aoe_ignores_already_dead_entities_within_radius(linear_allocat
 // F1-08: live blast preview tests, extending this same suite (shared
 // SKILL_FIREBALL/attack-mode-selection setup boilerplate with F1-07 above).
 // Driven via test_move_tile/test_move_to_pixel (MOUSE_MOVE) and
-// test_tile_list_contains against game.render.blast_preview_tiles (F1-05).
+// test_tile_list_contains against game.pathing.blast_preview_tiles (F1-05).
 
 // Hovering a valid AoE impact tile populates blast_preview_tiles with
 // exactly the Manhattan-radius blast footprint pathing_compute_blast_tiles
@@ -575,9 +575,9 @@ PRIVATE void test_aoe_preview_ignores_obstacles(linear_allocator_t *allocator) {
     // no longer shadows anything, same as test_aoe_blast_ignores_obstacles.
     test_move_tile(&game, allocator, (position_t){2, 2});
 
-    assert_test(test_tile_list_contains(game.render.blast_preview_tiles, (position_t){2, 2}));
-    assert_test(test_tile_list_contains(game.render.blast_preview_tiles, (position_t){4, 2}));
-    assert_test(test_tile_list_contains(game.render.blast_preview_tiles, (position_t){2, 4}));
+    assert_test(test_tile_list_contains(game.pathing.blast_preview_tiles, (position_t){2, 2}));
+    assert_test(test_tile_list_contains(game.pathing.blast_preview_tiles, (position_t){4, 2}));
+    assert_test(test_tile_list_contains(game.pathing.blast_preview_tiles, (position_t){2, 4}));
 
     game_deinit(allocator, game);
 }
@@ -606,14 +606,14 @@ PRIVATE void test_aoe_preview_updates_as_hover_moves(linear_allocator_t *allocat
     test_click_attack_toggle(&game, allocator);
 
     test_move_tile(&game, allocator, (position_t){3, 1});
-    assert_test(test_tile_list_contains(game.render.blast_preview_tiles, (position_t){5, 1}));
+    assert_test(test_tile_list_contains(game.pathing.blast_preview_tiles, (position_t){5, 1}));
 
     test_move_tile(&game, allocator, (position_t){2, 1});
     // (5,1) was in range of the (3,1) center (distance 2) but is outside
     // aoe_radius (2) of the new (2,1) center (distance 3): a stale union
     // would still contain it.
-    assert_test(!test_tile_list_contains(game.render.blast_preview_tiles, (position_t){5, 1}));
-    assert_test(test_tile_list_contains(game.render.blast_preview_tiles, (position_t){2, 1}));
+    assert_test(!test_tile_list_contains(game.pathing.blast_preview_tiles, (position_t){5, 1}));
+    assert_test(test_tile_list_contains(game.pathing.blast_preview_tiles, (position_t){2, 1}));
 
     game_deinit(allocator, game);
 }
@@ -640,19 +640,19 @@ PRIVATE void test_aoe_preview_clears_when_hover_leaves_grid(linear_allocator_t *
     test_click_tile(&game, allocator, p->position);
     test_click_attack_toggle(&game, allocator);
     test_move_tile(&game, allocator, (position_t){3, 1});
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) > 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_preview_tiles) > 0);
 
     // Well outside the viewport in every direction -- screen_to_grid fails,
     // hover_valid becomes false.
     test_move_to_pixel(&game, allocator, -100, -100);
     assert_test(!game.hover_valid);
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) == 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_preview_tiles) == 0);
 
     game_deinit(allocator, game);
 }
 
 // Toggling out of GAME_MODE_ATTACK empties the preview, matching
-// render_cache_reset's existing clear-on-mode-change behavior.
+// pathing_cache_reset's existing clear-on-mode-change behavior.
 PRIVATE void test_aoe_preview_clears_on_mode_change(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 8, 3);
@@ -674,11 +674,11 @@ PRIVATE void test_aoe_preview_clears_on_mode_change(linear_allocator_t *allocato
     test_click_tile(&game, allocator, p->position);
     test_click_attack_toggle(&game, allocator);
     test_move_tile(&game, allocator, (position_t){3, 1});
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) > 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_preview_tiles) > 0);
 
     test_click_attack_toggle(&game, allocator);
     assert_test(game.mode == GAME_MODE_MOVEMENT);
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) == 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_preview_tiles) == 0);
 
     game_deinit(allocator, game);
 }
@@ -709,11 +709,11 @@ PRIVATE void test_aoe_preview_clears_on_skill_switch_to_non_aoe(linear_allocator
     test_click_tile(&game, allocator, p->position);
     test_click_attack_toggle(&game, allocator);
     test_move_tile(&game, allocator, (position_t){3, 1});
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) > 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_preview_tiles) > 0);
 
     test_click_skill_button(&game, allocator, 1);
     assert_test(game.selected_skill == 1);
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) == 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_preview_tiles) == 0);
 
     game_deinit(allocator, game);
 }
@@ -744,7 +744,7 @@ PRIVATE void test_aoe_preview_clears_for_out_of_range_hover(linear_allocator_t *
     test_move_tile(&game, allocator, (position_t){6, 0});
 
     assert_test(game.hover_valid);
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) == 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_preview_tiles) == 0);
 
     game_deinit(allocator, game);
 }
@@ -773,10 +773,10 @@ PRIVATE void test_aoe_preview_coexists_with_attack_range(linear_allocator_t *all
     test_click_attack_toggle(&game, allocator);
     test_move_tile(&game, allocator, (position_t){3, 1});
 
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) > 0);
-    assert_test(SLICE_TYPESIZE(game.render.attack_range_tiles) > 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_preview_tiles) > 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.attack_range_tiles) > 0);
     // The hovered impact tile itself is a legal attack-range target too.
-    assert_test(test_tile_list_contains(game.render.attack_range_tiles, (position_t){3, 1}));
+    assert_test(test_tile_list_contains(game.pathing.attack_range_tiles, (position_t){3, 1}));
 
     game_deinit(allocator, game);
 }
@@ -817,7 +817,7 @@ PRIVATE void test_aoe_preview_computation_is_read_only(linear_allocator_t *alloc
     int e_ap_before = e->ap, e_hp_before = e->hp, e_mp_before = e->mp;
 
     test_move_tile(&game, allocator, (position_t){3, 1});
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) > 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_preview_tiles) > 0);
 
     assert_test(position_equals(p->position, p_position_before));
     assert_test(p->ap == p_ap_before);
@@ -861,15 +861,15 @@ PRIVATE void test_aoe_reselecting_skill_button_stages_preview_for_in_range_hover
     test_click_tile(&game, allocator, p->position);
     test_click_attack_toggle(&game, allocator);
     test_move_tile(&game, allocator, (position_t){3, 1});
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) > 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_preview_tiles) > 0);
 
     // Re-clicking skill button 0 re-selects SKILL_FIREBALL (already active)
     // while hover is still valid and in range: game_on_skill_button_pressed
     // must restage the preview itself, not just rely on the prior hover.
     test_click_skill_button(&game, allocator, 0);
 
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) > 0);
-    assert_test(test_tile_list_contains(game.render.blast_preview_tiles, (position_t){3, 1}));
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_preview_tiles) > 0);
+    assert_test(test_tile_list_contains(game.pathing.blast_preview_tiles, (position_t){3, 1}));
 
     game_deinit(allocator, game);
 }
@@ -904,11 +904,11 @@ PRIVATE void test_aoe_reselecting_skill_button_leaves_preview_empty_for_out_of_r
     // tile is on the grid) but skill_area_in_range must reject it.
     test_move_tile(&game, allocator, (position_t){6, 0});
     assert_test(game.hover_valid);
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) == 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_preview_tiles) == 0);
 
     test_click_skill_button(&game, allocator, 0);
 
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) == 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_preview_tiles) == 0);
 
     game_deinit(allocator, game);
 }
@@ -949,7 +949,7 @@ PRIVATE void test_aoe_skill_button_in_movement_mode_does_not_stage_preview(linea
     test_click_skill_button(&game, allocator, 0);
 
     assert_test(game.mode == GAME_MODE_MOVEMENT);
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) == 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_preview_tiles) == 0);
 
     game_deinit(allocator, game);
 }
@@ -989,7 +989,7 @@ PRIVATE void test_aoe_hover_with_non_aoe_skill_selected_stages_no_preview(linear
     test_move_tile(&game, allocator, (position_t){3, 1});
 
     assert_test(game.hover_valid);
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) == 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_preview_tiles) == 0);
 
     game_deinit(allocator, game);
 }

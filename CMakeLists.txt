@@ -66,7 +66,7 @@ else()
         src/game/pathing.c
         src/game/position.c
         src/game/render.c
-        src/game/render_cache.c
+        src/game/pathing_cache.c
         src/game/scenario.c
         src/game/skill.c
         src/game/turn.c

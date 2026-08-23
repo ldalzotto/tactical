@@ -41,10 +41,10 @@ PRIVATE void test_game_selecting_entity_computes_reachable_tiles_within_mp_and_m
     // (2,0) is dist 2 (in range), (3,0) is dist 3 and (3,3) is dist 6 (both
     // beyond mp) -- so the highlighted set doubles as a check that BFS
     // distance and the max-steps cap both land where expected.
-    assert_test(!test_tile_list_contains(game.render.reachable_tiles, (position_t){0, 0}));
-    assert_test(test_tile_list_contains(game.render.reachable_tiles, (position_t){2, 0}));
-    assert_test(!test_tile_list_contains(game.render.reachable_tiles, (position_t){3, 0}));
-    assert_test(!test_tile_list_contains(game.render.reachable_tiles, (position_t){3, 3}));
+    assert_test(!test_tile_list_contains(game.pathing.reachable_tiles, (position_t){0, 0}));
+    assert_test(test_tile_list_contains(game.pathing.reachable_tiles, (position_t){2, 0}));
+    assert_test(!test_tile_list_contains(game.pathing.reachable_tiles, (position_t){3, 0}));
+    assert_test(!test_tile_list_contains(game.pathing.reachable_tiles, (position_t){3, 3}));
 
     test_click_tile(&game, allocator, (position_t){2, 0});
 
@@ -79,13 +79,13 @@ PRIVATE void test_game_obstacles_block_reachable_tiles_and_movement(linear_alloc
 
     test_click_tile(&game, allocator, p->position);
 
-    assert_test(!test_tile_list_contains(game.render.reachable_tiles, (position_t){2, 0}));
-    assert_test(!test_tile_list_contains(game.render.reachable_tiles, (position_t){2, 1}));
-    assert_test(test_tile_list_contains(game.render.reachable_tiles, (position_t){1, 1}));
+    assert_test(!test_tile_list_contains(game.pathing.reachable_tiles, (position_t){2, 0}));
+    assert_test(!test_tile_list_contains(game.pathing.reachable_tiles, (position_t){2, 1}));
+    assert_test(test_tile_list_contains(game.pathing.reachable_tiles, (position_t){1, 1}));
     // (4,1) sits right past the wall: with mp 4, it's only in range if
     // the walk-around-the-wall path (6 tiles) is what BFS actually took
     // -- the direct 4-tile path is blocked, so it must be absent.
-    assert_test(!test_tile_list_contains(game.render.reachable_tiles, (position_t){4, 1}));
+    assert_test(!test_tile_list_contains(game.pathing.reachable_tiles, (position_t){4, 1}));
 
     // Clicking straight onto the wall is a no-op: unwalkable tiles never
     // become a valid move target, wall or no wall around it.
@@ -125,13 +125,13 @@ PRIVATE void test_game_occupied_tile_blocks_corridor_reachability(linear_allocat
 
     test_click_tile(&game, allocator, p->position);
 
-    assert_test(test_tile_list_contains(game.render.reachable_tiles, (position_t){1, 0}));
+    assert_test(test_tile_list_contains(game.pathing.reachable_tiles, (position_t){1, 0}));
     // The occupied tile itself, and everything past it in this single-file
     // corridor, are unreachable: the living blocker seals the corridor even
     // though the mover has plenty of mp to cross it.
-    assert_test(!test_tile_list_contains(game.render.reachable_tiles, (position_t){2, 0}));
-    assert_test(!test_tile_list_contains(game.render.reachable_tiles, (position_t){3, 0}));
-    assert_test(!test_tile_list_contains(game.render.reachable_tiles, (position_t){4, 0}));
+    assert_test(!test_tile_list_contains(game.pathing.reachable_tiles, (position_t){2, 0}));
+    assert_test(!test_tile_list_contains(game.pathing.reachable_tiles, (position_t){3, 0}));
+    assert_test(!test_tile_list_contains(game.pathing.reachable_tiles, (position_t){4, 0}));
 
     game_deinit(allocator, game);
 }

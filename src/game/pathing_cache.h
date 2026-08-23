@@ -5,8 +5,8 @@
 #include "../lib/memory.h"
 #include "position.h"
 
-// Data derived purely for rendering, cached so render_frame never recomputes
-// it per frame.
+// Pathing data shared by rendering and action execution, cached so it isn't
+// recomputed on every frame or read.
 // - reachable_tiles and attack_range_tiles are mutually exclusive: exactly
 //   one is populated at a time (the other nullified), matching the
 //   move/attack toggle -- scratch only ever holds one live tile cache
@@ -34,28 +34,28 @@ typedef struct {
     slice_position_t blast_preview_tiles; // blast footprint under the current hover,
                                            // while an AoE skill is selected in attack mode; recomputed
                                            // on every hover move (see game_update_blast_preview)
-} render_cache_t;
+} pathing_cache_t;
 
 // Pops all three range caches to nothing, then pushes fresh empty markers
 // for reachable_tiles, attack_range_tiles and blast_preview_tiles --
 // scratch collapses to the pre-selection watermark with all three caches
 // nullified.
-PUBLIC void render_cache_reset(linear_allocator_t *scratch, render_cache_t *cache);
+PUBLIC void pathing_cache_reset(linear_allocator_t *scratch, pathing_cache_t *cache);
 
 // Adopts `reachable_align`/`reachable_tiles` as the new reachable_tiles
 // region (caller builds them via linear_allocator_push_alignment then one
 // linear_allocator_push per tile while iterating), then re-pushes empty
 // attack_range_tiles and blast_preview_tiles on top so they stay the
 // topmost scratch regions. Requires all three caches empty (call right
-// after render_cache_reset).
-PUBLIC void render_cache_set_reachable(linear_allocator_t *scratch, render_cache_t *cache, slice_t reachable_align, slice_position_t reachable_tiles);
+// after pathing_cache_reset).
+PUBLIC void pathing_cache_set_reachable(linear_allocator_t *scratch, pathing_cache_t *cache, slice_t reachable_align, slice_position_t reachable_tiles);
 
 // Adopts `attack_range_align`/`attack_range_tiles` (built the same way as
-// for render_cache_set_reachable) as the new attack_range_tiles region,
+// for pathing_cache_set_reachable) as the new attack_range_tiles region,
 // then re-pushes an empty blast_preview_tiles on top so it stays the
 // topmost scratch region. Requires reachable_tiles already empty (call
-// right after render_cache_reset).
-PUBLIC void render_cache_set_attack_range(linear_allocator_t *scratch, render_cache_t *cache, slice_t attack_range_align, slice_position_t attack_range_tiles);
+// right after pathing_cache_reset).
+PUBLIC void pathing_cache_set_attack_range(linear_allocator_t *scratch, pathing_cache_t *cache, slice_t attack_range_align, slice_position_t attack_range_tiles);
 
 // Adopts `blast_preview_align`/`blast_preview_tiles` (built the same way)
 // as the new blast_preview_tiles region. Unlike the two setters above,
@@ -63,18 +63,18 @@ PUBLIC void render_cache_set_attack_range(linear_allocator_t *scratch, render_ca
 // blast_preview_tiles is independently toggled and always the topmost
 // scratch region, so it's always safe to call. The caller must have
 // already cleared the previous blast_preview_tiles region first (see
-// render_cache_clear_blast_preview) before staging new data on top of
+// pathing_cache_clear_blast_preview) before staging new data on top of
 // scratch, since this recomputes on every hover move rather than only
-// right after a render_cache_reset.
-PUBLIC void render_cache_set_blast_preview(linear_allocator_t *scratch, render_cache_t *cache, slice_t blast_preview_align, slice_position_t blast_preview_tiles);
+// right after a pathing_cache_reset.
+PUBLIC void pathing_cache_set_blast_preview(linear_allocator_t *scratch, pathing_cache_t *cache, slice_t blast_preview_align, slice_position_t blast_preview_tiles);
 
 // Pops the current blast_preview_tiles region and re-pushes a fresh empty
-// marker in its place -- cheaper than a full render_cache_reset when only
+// marker in its place -- cheaper than a full pathing_cache_reset when only
 // the preview needs clearing (e.g. hover leaving the grid, or moving to a
 // tile with no valid blast), and the mandatory first step before staging a
-// new non-empty preview via render_cache_set_blast_preview.
-PUBLIC void render_cache_clear_blast_preview(linear_allocator_t *scratch, render_cache_t *cache);
+// new non-empty preview via pathing_cache_set_blast_preview.
+PUBLIC void pathing_cache_clear_blast_preview(linear_allocator_t *scratch, pathing_cache_t *cache);
 
 #ifdef APP_UNITY_BUILD
-#include "render_cache.c"
+#include "pathing_cache.c"
 #endif
