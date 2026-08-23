@@ -294,7 +294,15 @@ PRIVATE ptrdiff_t game_advance_turn(game_state_t *game, linear_allocator_t *allo
         if (attacked != 0) {
             // If the entity just died, we remove dead entities
             if (!attacked->alive) {
-                game->turn = turn_remove_dead_entity(game->turn, attacked);
+                slice_t dead_align = linear_allocator_push_alignment(allocator, _Alignof(entity_ptr_t));
+                slice_entity_ptr_t dead;
+                dead = LINEAR_ALLOCATOR_PUSH(allocator, dead, 1);
+                SLICE_DEREF(dead) = attacked;
+
+                game->turn = turn_remove_dead_entities(game->turn, dead);
+
+                linear_allocator_pop(allocator, dead.slice);
+                linear_allocator_pop(allocator, dead_align);
             }
             game_check_game_over(game);
         }
@@ -326,14 +334,21 @@ PRIVATE ptrdiff_t game_cast_attack_area(game_state_t *game, linear_allocator_t *
         return 0;
     }
 
+    // dead sits directly above out_hit, both entity_ptr_t lists, so it's
+    // already aligned -- no extra alignment push needed here.
+    slice_entity_ptr_t dead;
+    dead = LINEAR_ALLOCATOR_PUSH(allocator, dead, 0);
     for (SLICE_FOREACH(out_hit, hit_s)) {
         entity_t *hit = SLICE_DEREF(hit_s);
         if (!hit->alive) {
-            game->turn = turn_remove_dead_entity(game->turn, hit);
+            slice_entity_ptr_t entry = LINEAR_ALLOCATOR_PUSH_GROW(allocator, &dead, 1);
+            SLICE_DEREF(entry) = hit;
         }
     }
+    game->turn = turn_remove_dead_entities(game->turn, dead);
     game_check_game_over(game);
 
+    linear_allocator_pop(allocator, dead.slice);
     linear_allocator_pop(allocator, out_hit.slice);
     linear_allocator_pop(allocator, hit_align);
 
@@ -367,7 +382,15 @@ PRIVATE ptrdiff_t game_on_entity_pressed(game_state_t *game, linear_allocator_t 
     if (action_try_attack(game->grid, game->entities, active, skill, entity)) {
         // If the entity just died, we remove dead entities
         if (!entity->alive) {
-            game->turn = turn_remove_dead_entity(game->turn, entity);
+            slice_t dead_align = linear_allocator_push_alignment(allocator, _Alignof(entity_ptr_t));
+            slice_entity_ptr_t dead;
+            dead = LINEAR_ALLOCATOR_PUSH(allocator, dead, 1);
+            SLICE_DEREF(dead) = entity;
+
+            game->turn = turn_remove_dead_entities(game->turn, dead);
+
+            linear_allocator_pop(allocator, dead.slice);
+            linear_allocator_pop(allocator, dead_align);
         }
         game_check_game_over(game);
         return game_set_mode(game, allocator, GAME_MODE_MOVEMENT);

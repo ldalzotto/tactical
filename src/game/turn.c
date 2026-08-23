@@ -42,23 +42,35 @@ PUBLIC turn_state_t turn_advance(turn_state_t state) {
     return state;
 }
 
-PUBLIC turn_state_t turn_remove_dead_entity(turn_state_t state, entity_t *dead) {
+PUBLIC turn_state_t turn_remove_dead_entities(turn_state_t state, slice_entity_ptr_t dead) {
     assert_debug(SLICE_TYPESIZE(state.order) > 0);
-    assert_debug(!dead->alive);
+
     // The active entity can never die: action_try_attack and
     // action_try_attack_area both reject same-team damage, and the
     // currently-active entity is always on the attacker's own team (it's
-    // the one doing the attacking), so it can never appear as `dead` here --
+    // the one doing the attacking), so it can never appear in `dead` --
     // including from its own AoE blast.
     entity_t *active = turn_active_entity(state);
-    assert_debug(dead != active);
+    for ( SLICE_FOREACH(dead, dead_s) ) {
+        entity_t *d = SLICE_DEREF(dead_s);
+        assert_debug(!d->alive);
+        assert_debug(d != active);
+    }
 
     slice_entity_ptr_t write = state.order;
     int new_cursor = state.cursor;
     for ( SLICE_FOREACH(state.order, read) ) {
         entity_t *entity = SLICE_DEREF(read);
 
-        if (entity != dead) {
+        bool is_dead = false;
+        for ( SLICE_FOREACH(dead, dead_s) ) {
+            if (SLICE_DEREF(dead_s) == entity) {
+                is_dead = true;
+                break;
+            }
+        }
+
+        if (!is_dead) {
             if (entity == active) {
                 new_cursor = (int)typesize(state.order.begin, write.begin);
             }
@@ -68,14 +80,12 @@ PUBLIC turn_state_t turn_remove_dead_entity(turn_state_t state, entity_t *dead) 
     }
     state.order.end = write.begin;
 
-    // Unlike a single-target kill, an AoE blast can down several entities
-    // at once (see action_try_attack_area): the caller reconciles them by
-    // calling this function once per casualty in the same batch, so a
-    // casualty not yet processed may transiently still sit in `order`,
-    // already dead, between one call and the next -- no per-call "everyone
-    // remaining is alive" invariant holds here anymore. The full order is
-    // still checked to be entirely alive once the batch finishes (see
-    // assert_game_invariants, run after every input event).
+    // The whole casualty batch is reconciled in this single call, so unlike
+    // the old per-casualty calling convention, every entity left in the
+    // order is guaranteed to still be alive once this returns.
+    for ( SLICE_FOREACH(state.order, remaining) ) {
+        assert_debug(SLICE_DEREF(remaining)->alive);
+    }
 
     state.cursor = new_cursor;
 
