@@ -31,15 +31,22 @@ PUBLIC bool action_try_attack(entity_t* attacker, skill_t skill, entity_t* defen
 // skill.ap_cost, every alive entity in `blast_tiles` whose team differs
 // from attacker's takes skill.damage via entity_damage, and *out_hit is
 // populated with exactly those damaged entities (staged on allocator;
-// caller pops it when done). No friendly fire. False, no mutation, if:
-// attacker.ap < skill.ap_cost, or impact isn't in `attack_range_tiles`.
-// Only valid for AoE skills (skill.aoe_radius > 0, debug-asserted).
+// caller pops it when done). No friendly fire. False, no mutation, if
+// attacker.ap < skill.ap_cost. Only valid for AoE skills (skill.aoe_radius >
+// 0, debug-asserted).
+//
+// Unlike action_try_attack, `impact` being in `attack_range_tiles` is a
+// debug-asserted precondition rather than a runtime check: the only caller
+// (game_cast_attack_area) already validates it via skill_can_target_area
+// before calling, the same check `attack_range_tiles` itself is built from
+// (see game_set_mode), so a caller reaching here with an out-of-range impact
+// is a dispatch bug, not a normal rejected click.
 //
 // Doesn't compute the blast footprint or range check itself -- caller
-// supplies `blast_tiles` (pathing_compute_blast_tiles, or a reused cached
-// preview -- see game_cast_attack_area) and `attack_range_tiles` (same
-// trusted cache as action_try_attack), and is trusted that `blast_tiles`
-// matches `impact`.
+// supplies `blast_tiles` (pathing_compute_blast_tiles, or -- the only actual
+// caller -- game->pathing.blast_tiles, already staged for `impact`; see
+// game_cast_attack_area) and `attack_range_tiles` (same trusted cache as
+// action_try_attack), and is trusted that `blast_tiles` matches `impact`.
 //
 // Caller must have `allocator`'s cursor aligned to _Alignof(entity_ptr_t)
 // before calling, with `blast_tiles` already staged below that cursor --

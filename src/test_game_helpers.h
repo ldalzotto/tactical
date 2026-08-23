@@ -15,10 +15,17 @@
 
 // game_on_entity_pressed/game_on_tile_pressed/game_on_end_turn_pressed are
 // private to game.c: drive them the same way real input does, through
-// game_on_input_event.
+// game_on_input_event. A real pointer always hovers a tile before clicking
+// it, which is what stages game->pathing.blast_tiles for that tile ahead of
+// an AoE cast (game_cast_attack_area asserts it's already staged rather than
+// computing it) -- so this sends the matching MOUSE_MOVE first, same as a
+// real click would.
 static inline void test_click_tile(game_state_t *game, linear_allocator_t *allocator, position_t target) {
     int px, py;
     grid_to_screen(game->viewport, target.x, target.y, &px, &py);
+    input_event_t move = { .type = INPUT_EVENT_MOUSE_MOVE, .x = px + 1, .y = py + 1 };
+    game_on_input_event(game, allocator, move);
+    assert_game_invariants(game);
     input_event_t click = { .type = INPUT_EVENT_MOUSE_CLICK, .x = px + 1, .y = py + 1 };
     game_on_input_event(game, allocator, click);
     assert_game_invariants(game);
