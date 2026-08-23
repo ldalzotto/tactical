@@ -21,8 +21,9 @@ typedef enum {
 
 // Whether the turn's active entity (turn_active_entity) has been selected by
 // the player this turn, and if so, whether entity_pressed on an enemy
-// attempts an attack instead of a no-op. NONE and MOVEMENT both show
-// pathing.reachable_tiles (NONE leaves it empty); ATTACK shows
+// attempts an attack instead of a no-op. MOVEMENT shows the reachable-tiles
+// overlay (read off pathing.walking_distances); NONE shows nothing (render.c
+// gates the overlay on mode == MOVEMENT); ATTACK shows
 // pathing.attack_range_tiles instead.
 typedef enum {
     GAME_MODE_NONE = 0,
@@ -46,7 +47,7 @@ typedef struct {
     int selected_skill; // index into the active entity's skills, reset to 0 on turn advance
     game_over_t game_over;
     linear_allocator_t scratch;  // internal arena for game-owned working data; hosts
-                                  // pathing.reachable_tiles/attack_range_tiles, and any future
+                                  // pathing.walking_distances/attack_range_tiles, and any future
                                   // per-game UI-state buffer
     pathing_ranges_t pathing;
 } game_state_t;

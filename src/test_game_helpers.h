@@ -65,3 +65,25 @@ static inline bool test_tile_list_contains(slice_position_t tiles, position_t ta
     }
     return false;
 }
+
+// Mirrors the reachable-tiles overlay render.c draws: a tile is reachable
+// this turn iff its walking_distances entry is >= 1 (0 is the mover's own
+// tile, excluded).
+static inline bool test_position_reachable(game_state_t *game, position_t target) {
+    return pathing_distance_at(game->pathing.walking_distances, game->grid, target) >= 1;
+}
+
+// Counts tiles the walking_distances overlay marks reachable this turn --
+// only valid to call in GAME_MODE_MOVEMENT (walking_distances is an empty
+// marker otherwise).
+static inline int test_reachable_tile_count(game_state_t *game) {
+    int count = 0;
+    for (int ty = 0; ty < game->grid.height; ty++) {
+        for (int tx = 0; tx < game->grid.width; tx++) {
+            if (test_position_reachable(game, (position_t){tx, ty})) {
+                count++;
+            }
+        }
+    }
+    return count;
+}
