@@ -138,7 +138,7 @@ PRIVATE skill_t* ai_best_in_range_skill(grid_t grid, slice_entity_t entities, en
     skill_t *best = 0;
     for (SLICE_FOREACH(enemy->skills, skill_s)) {
         skill_t *skill = &SLICE_DEREF(skill_s);
-        if (!skill_target_in_range(grid, entities, enemy, *skill, target)) {
+        if (!skill_can_target(grid, entities, enemy, *skill, target)) {
             continue;
         }
         if (best == 0 || ai_skill_beats(*skill, *best)) {
@@ -161,7 +161,7 @@ PUBLIC entity_t* ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, 
 
     skill_t *preferred = ai_preferred_skill(enemy);
 
-    while (enemy->mp > 0 && !skill_target_in_range(grid, entities, enemy, *preferred, target)) {
+    while (enemy->mp > 0 && !skill_can_target(grid, entities, enemy, *preferred, target)) {
         ai_step_toward(allocator, grid, entities, enemy, target);
     }
 
@@ -171,7 +171,7 @@ PUBLIC entity_t* ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, 
     }
 
     // ai_best_in_range_skill already confirmed target is in attack_skill's
-    // range via skill_target_in_range -- action_try_attack (F2) no longer
+    // range via skill_can_target -- action_try_attack (F2) no longer
     // computes that itself, so hand it a single-tile range set for the
     // position already known to qualify, the same way action_try_move
     // builds its own BFS here instead of reusing a long-lived cache (see
