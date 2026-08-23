@@ -45,6 +45,36 @@ PUBLIC void assert_game_invariants(game_state_t *game) {
         assert_test(SLICE_TYPESIZE(game->pathing.attack_range_tiles) == 0);
     }
 
+    // walking_distances (F2-02) agrees exactly with reachable_tiles: a tile
+    // has a positive walking_distances distance if and only if it's in
+    // reachable_tiles -- proving the persisted BFS grid action_try_move
+    // (F2-03) queries and the tile list render.c draws describe exactly the
+    // same set, never allowed to silently diverge. (The upper bound,
+    // distance <= active->mp for every reached tile, is pathing_bfs's own
+    // max_steps contract -- guaranteed by construction, not independently
+    // re-checked here.) Guarded on the dist grid being non-empty:
+    // game_set_mode leaves it (like reachable_tiles) at its zero-length
+    // reset marker when the active entity has no mp, so there's nothing to
+    // query.
+    if (game->mode == GAME_MODE_MOVEMENT && SLICE_TYPESIZE(game->pathing.walking_distances.dist) > 0) {
+        int in_range_count = 0;
+        for (int ty = 0; ty < game->grid.height; ty++) {
+            for (int tx = 0; tx < game->grid.width; tx++) {
+                position_t position = { tx, ty };
+                int distance = pathing_distance_at(game->pathing.walking_distances, game->grid, position);
+                if (distance >= 1) {
+                    in_range_count++;
+                }
+            }
+        }
+        assert_test(in_range_count == SLICE_TYPESIZE(game->pathing.reachable_tiles));
+
+        for (SLICE_FOREACH(game->pathing.reachable_tiles, tile_s)) {
+            position_t tile = SLICE_DEREF(tile_s);
+            assert_test(pathing_distance_at(game->pathing.walking_distances, game->grid, tile) >= 1);
+        }
+    }
+
     // game_over, when set, is consistent with alive counts. GAME_OVER_NONE
     // isn't checked the other way: game_check_game_over only runs after
     // combat, so plenty of valid states (e.g. a scenario with no enemies at
