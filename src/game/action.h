@@ -6,12 +6,16 @@
 
 #include "entity.h"
 #include "grid.h"
+#include "pathing.h"
 #include "turn.h"
 
 // True on success (mover's mp -= BFS distance, position updated). False, no
 // mutation, if: tile not walkable, tile occupied, or unreachable within
-// mover's current mp (via pathing_compute_walking_distances rooted at the mover).
-PUBLIC bool action_try_move(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* entity, position_t target);
+// mover's current mp. Distance comes from the caller-supplied
+// `walking_distances`, not computed here -- the caller is responsible for
+// supplying a dist grid BFS'd from `entity`'s current position (this
+// function neither computes nor verifies that itself).
+PUBLIC bool action_try_move(pathing_state_t walking_distances, grid_t grid, entity_t* entity, position_t target);
 
 // True on success: attacker ap -= skill.ap_cost, defender takes skill.damage
 // via entity_damage. Both entities must be alive (debug-asserted).

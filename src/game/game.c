@@ -213,10 +213,12 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
     entity_t *active = turn_active_entity(game->turn);
 
     if (mode == GAME_MODE_MOVEMENT) {
-        if (active->mp <= 0) {
-            return 0;
-        }
-
+        // Computed even when active->mp <= 0 (yielding reachable_tiles
+        // empty and walking_distances holding only the mover's own tile at
+        // distance 0) rather than short-circuited, so
+        // game->pathing.walking_distances is always a validly-sized dist
+        // grid for action_try_move (F2-03) to query -- never the
+        // zero-length marker pathing_cache_reset leaves it at.
         pathing_state_t pathing = pathing_compute_walking_distances(allocator, game->grid, game->entities, active->position, active->mp);
 
         slice_t temp_align = linear_allocator_push_alignment(allocator, _Alignof(position_t));
@@ -464,7 +466,7 @@ PRIVATE ptrdiff_t game_on_tile_pressed(game_state_t *game, linear_allocator_t *a
     // silently no-oping on a tile the player can't actually select.
     assert_debug(entity_find_at(game->entities, target) == 0);
 
-    if (action_try_move(allocator, game->grid, game->entities, active, target)) {
+    if (action_try_move(game->pathing.walking_distances, game->grid, active, target)) {
         return game_set_mode(game, allocator, GAME_MODE_MOVEMENT);
     }
 

@@ -4,18 +4,15 @@
 
 #include "../lib/assert.h"
 
-PUBLIC bool action_try_move(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* entity, position_t target) {
-    pathing_state_t pathing = pathing_compute_walking_distances(allocator, grid, entities, entity->position, entity->mp);
-
-    int distance = pathing_distance_at(pathing, grid, target);
-
-    pathing_deinit(allocator, pathing);
+PUBLIC bool action_try_move(pathing_state_t walking_distances, grid_t grid, entity_t* entity, position_t target) {
+    int distance = pathing_distance_at(walking_distances, grid, target);
 
     if (distance < 0) {
         return false;
     }
-    // pathing_compute_walking_distances caps the BFS at entity->mp, so a reachable
-    // tile can never have a distance greater than the mover's remaining mp.
+    // walking_distances is BFS'd capped at entity->mp by its caller, so a
+    // reachable tile can never have a distance greater than the mover's
+    // remaining mp.
     assert_debug(distance <= entity->mp);
 
     entity->mp -= distance;

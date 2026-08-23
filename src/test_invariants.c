@@ -52,11 +52,11 @@ PUBLIC void assert_game_invariants(game_state_t *game) {
     // same set, never allowed to silently diverge. (The upper bound,
     // distance <= active->mp for every reached tile, is pathing_bfs's own
     // max_steps contract -- guaranteed by construction, not independently
-    // re-checked here.) Guarded on the dist grid being non-empty:
-    // game_set_mode leaves it (like reachable_tiles) at its zero-length
-    // reset marker when the active entity has no mp, so there's nothing to
-    // query.
-    if (game->mode == GAME_MODE_MOVEMENT && SLICE_TYPESIZE(game->pathing.walking_distances.dist) > 0) {
+    // re-checked here.) game_set_mode always populates walking_distances
+    // while mode is MOVEMENT, even at mp == 0 (a validly-sized dist grid
+    // with only the mover's own tile reached), so no emptiness guard is
+    // needed here.
+    if (game->mode == GAME_MODE_MOVEMENT) {
         int in_range_count = 0;
         for (int ty = 0; ty < game->grid.height; ty++) {
             for (int tx = 0; tx < game->grid.width; tx++) {
