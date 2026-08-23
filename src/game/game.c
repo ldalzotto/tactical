@@ -142,15 +142,14 @@ PRIVATE ptrdiff_t game_scratch_push(linear_allocator_t *allocator, linear_alloca
 
 // Grows `scratch` in place if needed to fit `temp`'s dist array and copies
 // it in as `out`. Unlike game_scratch_push, does *not* pop `temp` off
-// `allocator`: a second region (`temp_align`/`temp_tiles`, scanned out of
-// `temp`) still sits above it there and isn't ready to unwind yet, so
-// `temp` can't be popped until the caller persists and pops that region
-// itself (see game_scratch_push). Both regions are rebased in place if
+// `allocator`: a second region still sits above it there and isn't ready to
+// unwind yet, so `temp` can't be popped until the caller persists and pops
+// that region itself (see game_scratch_push). `temp` is rebased in place if
 // growth relocates memory. Returns the shift applied (0 if it already fit);
-// callers must propagate it to anything else held above `scratch`.
+// callers must propagate it to anything else held above `scratch`, including
+// that second region via slice_shift.
 PRIVATE ptrdiff_t game_scratch_stage_pathing(linear_allocator_t *allocator, linear_allocator_t *scratch,
         pathing_state_t *temp,
-        slice_t *temp_align, slice_position_t *temp_tiles,
         slice_t *out_align, pathing_state_t *out) {
     size_t needed = (size_t)SLICE_BYTESIZE(temp->dist);
     size_t worst_case_padding = _Alignof(int32_t) - 1;
@@ -165,8 +164,6 @@ PRIVATE ptrdiff_t game_scratch_stage_pathing(linear_allocator_t *allocator, line
 
         temp->align = slice_shift(temp->align, extra);
         temp->dist.slice = slice_shift(temp->dist.slice, extra);
-        *temp_align = slice_shift(*temp_align, extra);
-        temp_tiles->slice = slice_shift(temp_tiles->slice, extra);
 
         shift = extra;
     }
@@ -233,7 +230,9 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
         // growth relocates it.
         slice_t walking_distances_align;
         pathing_state_t walking_distances;
-        ptrdiff_t shift = game_scratch_stage_pathing(allocator, &game->scratch, &pathing, &temp_align, &temp_tiles, &walking_distances_align, &walking_distances);
+        ptrdiff_t shift = game_scratch_stage_pathing(allocator, &game->scratch, &pathing, &walking_distances_align, &walking_distances);
+        temp_align = slice_shift(temp_align, shift);
+        temp_tiles.slice = slice_shift(temp_tiles.slice, shift);
 
         slice_t reachable_align;
         slice_position_t reachable_tiles;
