@@ -22,8 +22,15 @@ PUBLIC bool action_try_move(pathing_state_t walking_distances, grid_t grid, enti
 // False, no mutation, if:
 // - same team
 // - attacker.ap < skill.ap_cost
-// - defender out of skill.range (via skill_target_in_range)
-PUBLIC bool action_try_attack(grid_t grid, slice_entity_t entities, entity_t* attacker, skill_t skill, entity_t* defender);
+// - defender's position isn't among `attack_range_tiles`
+//
+// This function never computes the range check itself -- the caller
+// supplies `attack_range_tiles` (e.g. game->pathing.attack_range_tiles,
+// built once per attack-mode-entry via skill_target_in_range/
+// pathing_in_range over the whole grid -- see game.c), and is responsible
+// for it actually matching `skill`/`attacker`'s range; this function trusts
+// it as given, the same way action_try_attack_area trusts its blast_tiles.
+PUBLIC bool action_try_attack(entity_t* attacker, skill_t skill, entity_t* defender, slice_position_t attack_range_tiles);
 
 // AoE counterpart of action_try_attack: targets a tile (the blast center)
 // instead of a specific defender. True on success: attacker ap -=

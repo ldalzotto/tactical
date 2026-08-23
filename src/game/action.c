@@ -21,7 +21,7 @@ PUBLIC bool action_try_move(pathing_state_t walking_distances, grid_t grid, enti
     return true;
 }
 
-PUBLIC bool action_try_attack(grid_t grid, slice_entity_t entities, entity_t* attacker, skill_t skill, entity_t* defender) {
+PUBLIC bool action_try_attack(entity_t* attacker, skill_t skill, entity_t* defender, slice_position_t attack_range_tiles) {
     assert_debug(attacker->alive);
     assert_debug(defender->alive);
 
@@ -33,7 +33,14 @@ PUBLIC bool action_try_attack(grid_t grid, slice_entity_t entities, entity_t* at
         return false;
     }
 
-    if (!skill_target_in_range(grid, entities, attacker, skill, defender)) {
+    bool in_range = false;
+    for (SLICE_FOREACH(attack_range_tiles, tile_s)) {
+        if (position_equals(SLICE_DEREF(tile_s), defender->position)) {
+            in_range = true;
+            break;
+        }
+    }
+    if (!in_range) {
         return false;
     }
 
