@@ -34,6 +34,18 @@ PUBLIC slice_t linear_allocator_push_alignment(linear_allocator_t *allocator, si
     return linear_allocator_push(allocator, padding);
 }
 
+// Appends `grow` bytes right above `*slice`, extending it in place, and
+// returns just the newly-pushed portion (like linear_allocator_push).
+// `*slice` must be the top of the live region (its end must equal the
+// cursor) -- use this for the "push one, deref the new slot" pattern of
+// building a list directly on the allocator.
+PUBLIC slice_t linear_allocator_push_grow(linear_allocator_t *allocator, slice_t *slice, size_t grow) {
+    assert_debug(slice->end == allocator->cursor);
+    slice_t pushed = linear_allocator_push(allocator, grow);
+    slice->end = pushed.end;
+    return pushed;
+}
+
 PUBLIC void linear_allocator_pop(linear_allocator_t *allocator, slice_t marker) {
     assert_debug(marker.begin >= allocator->data.begin && marker.end == allocator->cursor);
     allocator->cursor = marker.begin;
@@ -64,6 +76,20 @@ PUBLIC void linear_allocator_copy(linear_allocator_t *allocator, slice_t from, s
     assert_debug(to.begin >= allocator->data.begin && to.end <= allocator->data.end);
     assert_debug(bytesize(from.begin, from.end) == bytesize(to.begin, to.end));
     __builtin_memcpy(to.begin, from.begin, (size_t)bytesize(to.begin, to.end));
+}
+
+// linear_allocator_pop_move: compacts by moving `from` (top of the live
+// region) down onto `to`, then pops. Use to discard scratch space between
+// a result and the cursor once the result's final size is known.
+PUBLIC slice_t linear_allocator_pop_move(linear_allocator_t *allocator, slice_t from, void *to) {
+    assert_debug(from.end == allocator->cursor);
+    size_t size = (size_t)bytesize(from.begin, from.end);
+    void *to_end = byteoffset(to, (ptrdiff_t)size);
+    assert_debug(to_end <= from.begin);
+    __builtin_memmove(to, from.begin, size);
+    allocator->cursor = to_end;
+    slice_t result = { to, to_end };
+    return result;
 }
 
 PUBLIC void *slice_at(slice_t s, size_t index, size_t alignment) {

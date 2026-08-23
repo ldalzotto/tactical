@@ -17,6 +17,7 @@ typedef struct {
     int range;
     int damage;
     int ap_cost;
+    int aoe_radius; // 0 = single-target (existing behavior); > 0 = blast radius (see pathing_compute_blast_tiles)
 } skill_t;
 
 SLICE_DEFINE(skill_t);
