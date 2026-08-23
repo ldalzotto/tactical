@@ -31,6 +31,11 @@ PUBLIC game_state_t game_init(linear_allocator_t *allocator, slice_t grid_align,
     // range can push tile counts arbitrarily high.
     slice_t scratch_region = linear_allocator_push(allocator, 0);
     linear_allocator_t scratch = linear_allocator_init(scratch_region);
+    slice_t walking_distances_align = linear_allocator_push(&scratch, 0);
+    pathing_state_t walking_distances = {
+        .align = linear_allocator_push(&scratch, 0),
+        .dist = LINEAR_ALLOCATOR_PUSH(&scratch, walking_distances.dist, 0),
+    };
     slice_t reachable_align = linear_allocator_push(&scratch, 0);
     slice_position_t reachable_tiles = LINEAR_ALLOCATOR_PUSH(&scratch, reachable_tiles, 0);
     slice_t attack_range_align = linear_allocator_push(&scratch, 0);
@@ -55,6 +60,8 @@ PUBLIC game_state_t game_init(linear_allocator_t *allocator, slice_t grid_align,
         .game_over = GAME_OVER_NONE,
         .scratch = scratch,
         .pathing = {
+            .walking_distances_align = walking_distances_align,
+            .walking_distances = walking_distances,
             .reachable_align = reachable_align,
             .reachable_tiles = reachable_tiles,
             .attack_range_align = attack_range_align,
@@ -73,6 +80,9 @@ PUBLIC void game_deinit(linear_allocator_t *allocator, game_state_t state) {
     linear_allocator_pop(&state.scratch, state.pathing.attack_range_align);
     LINEAR_ALLOCATOR_POP(&state.scratch, state.pathing.reachable_tiles);
     linear_allocator_pop(&state.scratch, state.pathing.reachable_align);
+    LINEAR_ALLOCATOR_POP(&state.scratch, state.pathing.walking_distances.dist);
+    linear_allocator_pop(&state.scratch, state.pathing.walking_distances.align);
+    linear_allocator_pop(&state.scratch, state.pathing.walking_distances_align);
     linear_allocator_deinit(&state.scratch);
     linear_allocator_pop(allocator, state.scratch.data);
     turn_order_deinit(allocator, state.turn.capacity);
@@ -130,6 +140,53 @@ PRIVATE ptrdiff_t game_scratch_push(linear_allocator_t *allocator, linear_alloca
     return shift;
 }
 
+// Grows `scratch` in place if needed to fit `temp`'s dist array and copies
+// it in as `out`. Unlike game_scratch_push, does *not* pop `temp` off
+// `allocator` -- `temp` sits below a second region on `allocator`,
+// `temp_align`/`temp_tiles`, that the caller isn't ready to unwind yet
+// (e.g. a tile list built by scanning `temp`, staged above it and not yet
+// itself persisted), so `temp` isn't the topmost thing there and can't be
+// popped directly; both regions are only rebased in place when growth
+// relocates memory. Once the caller has separately persisted and popped
+// `temp_align`/`temp_tiles` (see game_scratch_push), `temp` becomes the
+// topmost thing on `allocator` and can be popped normally. Returns the
+// shift applied (0 if it already fit); callers must propagate it to
+// anything else they hold above `scratch`.
+PRIVATE ptrdiff_t game_scratch_stage_pathing(linear_allocator_t *allocator, linear_allocator_t *scratch,
+        pathing_state_t *temp,
+        slice_t *temp_align, slice_position_t *temp_tiles,
+        slice_t *out_align, pathing_state_t *out) {
+    size_t needed = (size_t)SLICE_BYTESIZE(temp->dist);
+    size_t worst_case_padding = _Alignof(int32_t) - 1;
+    size_t available = (size_t)bytesize(scratch->cursor, scratch->data.end);
+    size_t required = needed + worst_case_padding;
+
+    ptrdiff_t shift = 0;
+    if (required > available) {
+        ptrdiff_t extra = (ptrdiff_t)(required - available);
+        linear_allocator_insert(allocator, scratch->data.end, (size_t)extra);
+        scratch->data.end = byteoffset(scratch->data.end, extra);
+
+        temp->align = slice_shift(temp->align, extra);
+        temp->dist.slice = slice_shift(temp->dist.slice, extra);
+        *temp_align = slice_shift(*temp_align, extra);
+        temp_tiles->slice = slice_shift(temp_tiles->slice, extra);
+
+        shift = extra;
+    }
+
+    // Push data to the game scratch. The outer alignment marker absorbs the
+    // real padding, so the pathing_state_t's own internal align marker is
+    // pushed zero-length right after it (see pathing_cache.h's doc comment
+    // on the two nested markers).
+    *out_align = linear_allocator_push_alignment(scratch, _Alignof(int32_t));
+    out->align = linear_allocator_push(scratch, 0);
+    out->dist = LINEAR_ALLOCATOR_PUSH(scratch, out->dist, SLICE_TYPESIZE(temp->dist));
+    linear_allocator_copy(scratch, temp->dist.slice, out->dist.slice);
+
+    return shift;
+}
+
 // Switches to `mode`. reachable_tiles and attack_range_tiles are mutually
 // exclusive, so each branch nullifies the one it isn't populating:
 // - NONE: nullifies both -- nothing selected, nothing to show.
@@ -176,15 +233,28 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
             }
         }
 
+        // Copy the BFS dist grid into game->scratch first (it must sit lower
+        // in the stack than reachable_tiles) without yet popping it off
+        // `allocator` -- temp_tiles still sits above it there. `pathing` is
+        // rebased in place by this call if growth relocates it.
+        slice_t walking_distances_align;
+        pathing_state_t walking_distances;
+        ptrdiff_t shift = game_scratch_stage_pathing(allocator, &game->scratch, &pathing, &temp_align, &temp_tiles, &walking_distances_align, &walking_distances);
+
         slice_t reachable_align;
         slice_position_t reachable_tiles;
-        ptrdiff_t shift = game_scratch_push(allocator, &game->scratch, &pathing, temp_align, temp_tiles, &reachable_align, &reachable_tiles);
+        shift += game_scratch_push(allocator, &game->scratch, &pathing, temp_align, temp_tiles, &reachable_align, &reachable_tiles);
         // Reset to zero for usage sanity
         temp_align = (slice_t){0,0}; temp_tiles.slice = (slice_t){0,0};
 
-        pathing_cache_set_reachable(&game->scratch, &game->pathing, reachable_align, reachable_tiles);
+        // temp_tiles was just popped by game_scratch_push above, so
+        // `pathing`'s original allocator-resident copy is now the sole
+        // remaining -- and topmost -- thing staged there; pop it now that
+        // game->pathing.walking_distances holds the persisted copy.
+        linear_allocator_pop(allocator, pathing.dist.slice);
+        linear_allocator_pop(allocator, pathing.align);
 
-        pathing_deinit(allocator, pathing);
+        pathing_cache_set_reachable(&game->scratch, &game->pathing, walking_distances_align, walking_distances, reachable_align, reachable_tiles);
 
         return shift;
     } else {
