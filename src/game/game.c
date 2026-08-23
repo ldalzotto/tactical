@@ -361,22 +361,34 @@ PRIVATE ptrdiff_t game_advance_turn(game_state_t *game, linear_allocator_t *allo
 // reconciled here. Only called once the AoE precondition (player-controlled
 // active entity, GAME_MODE_ATTACK, skill.aoe_radius > 0) already holds.
 PRIVATE ptrdiff_t game_cast_attack_area(game_state_t *game, linear_allocator_t *allocator, entity_t *active, skill_t skill, position_t impact) {
-    // action_try_attack_area requires allocator's cursor pre-aligned to
-    // _Alignof(entity_ptr_t) (it does not self-align -- see its doc
-    // comment); paired with the pop below so this fully unwinds either way.
-    slice_t hit_align = linear_allocator_push_alignment(allocator, _Alignof(entity_ptr_t));
-
     // Reuse the staged blast preview (F2-04) when it was computed for this
     // exact impact tile -- a hover event isn't guaranteed to have preceded
     // this click at all, let alone at the same tile, so the tag is checked
-    // rather than trusted.
+    // rather than trusted. Otherwise compute it fresh here, staged on
+    // `allocator` below hit_align (pushed next) so action_try_attack_area's
+    // hit list always lands directly at hit_align's aligned cursor, the top
+    // of the allocator, regardless of which path was taken.
     bool cached_blast_valid = game->pathing.blast_preview_valid
         && position_equals(game->pathing.blast_preview_impact, impact);
-    slice_position_t cached_blast_tiles = game->pathing.blast_preview_tiles;
+    slice_t blast_align = { 0 };
+    slice_position_t blast_tiles = game->pathing.blast_preview_tiles;
+    if (!cached_blast_valid) {
+        blast_align = linear_allocator_push_alignment(allocator, _Alignof(position_t));
+        blast_tiles = pathing_compute_blast_tiles(allocator, game->grid, impact, skill.aoe_radius);
+    }
+
+    // action_try_attack_area requires allocator's cursor pre-aligned to
+    // _Alignof(entity_ptr_t) (it does not self-align -- see its doc
+    // comment); paired with the pops below so this fully unwinds either way.
+    slice_t hit_align = linear_allocator_push_alignment(allocator, _Alignof(entity_ptr_t));
 
     slice_entity_ptr_t out_hit;
-    if (!action_try_attack_area(allocator, game->grid, game->entities, active, skill, impact, cached_blast_tiles, cached_blast_valid, &out_hit)) {
+    if (!action_try_attack_area(allocator, game->grid, game->entities, active, skill, impact, blast_tiles, &out_hit)) {
         linear_allocator_pop(allocator, hit_align);
+        if (!cached_blast_valid) {
+            linear_allocator_pop(allocator, blast_tiles.slice);
+            linear_allocator_pop(allocator, blast_align);
+        }
         return 0;
     }
 
@@ -397,6 +409,10 @@ PRIVATE ptrdiff_t game_cast_attack_area(game_state_t *game, linear_allocator_t *
     linear_allocator_pop(allocator, dead.slice);
     linear_allocator_pop(allocator, out_hit.slice);
     linear_allocator_pop(allocator, hit_align);
+    if (!cached_blast_valid) {
+        linear_allocator_pop(allocator, blast_tiles.slice);
+        linear_allocator_pop(allocator, blast_align);
+    }
 
     return game_set_mode(game, allocator, GAME_MODE_MOVEMENT);
 }

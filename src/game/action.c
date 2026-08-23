@@ -43,7 +43,7 @@ PUBLIC bool action_try_attack(grid_t grid, slice_entity_t entities, entity_t* at
     return true;
 }
 
-PUBLIC bool action_try_attack_area(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *attacker, skill_t skill, position_t impact, slice_position_t cached_blast_tiles, bool cached_blast_valid, slice_entity_ptr_t *out_hit) {
+PUBLIC bool action_try_attack_area(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *attacker, skill_t skill, position_t impact, slice_position_t blast_tiles, slice_entity_ptr_t *out_hit) {
     assert_debug(attacker->alive);
     assert_debug(skill.aoe_radius > 0);
 
@@ -58,19 +58,13 @@ PUBLIC bool action_try_attack_area(linear_allocator_t *allocator, grid_t grid, s
     attacker->ap -= skill.ap_cost;
 
     // Caller must have `allocator`'s cursor aligned to _Alignof(entity_ptr_t)
-    // before calling (matching this codebase's push-align-then-push
-    // convention for every other typed list -- see entity_list_align et al.);
-    // this function does not self-align. When not reusing the cache,
-    // blast_tiles is staged first from that aligned cursor; sizeof(position_t)
-    // is a multiple of _Alignof(entity_ptr_t), so blast_tiles.end stays just
-    // as aligned, and hit can be grown one entity_ptr_t at a time right
-    // above it. When reusing the cache, blast_tiles lives in game->scratch
-    // instead (not staged on `allocator` at all), so hit is pushed directly
-    // at the caller's aligned cursor.
-    slice_position_t blast_tiles = cached_blast_valid
-        ? cached_blast_tiles
-        : pathing_compute_blast_tiles(allocator, grid, impact, skill.aoe_radius);
-
+    // before calling, with `blast_tiles` already staged below that cursor
+    // (this function does not self-align, and never touches blast_tiles'
+    // placement -- see game_cast_attack_area, which computes it beneath
+    // hit_align whether reused from cache or freshly computed) -- matching
+    // this codebase's push-align-then-push convention for every other typed
+    // list (see entity_list_align et al.). hit is pushed directly at that
+    // aligned cursor and grown one entity_ptr_t at a time.
     slice_entity_ptr_t hit;
     hit = LINEAR_ALLOCATOR_PUSH(allocator, hit, 0);
 
@@ -97,20 +91,7 @@ PUBLIC bool action_try_attack_area(linear_allocator_t *allocator, grid_t grid, s
         SLICE_DEREF(entry) = entity;
     }
 
-    if (cached_blast_valid) {
-        // blast_tiles lives in game->scratch (owned by the pathing cache),
-        // not staged on `allocator` -- hit already sits directly at the
-        // caller's aligned cursor with nothing beneath it on `allocator` to
-        // reclaim, so it's already final. Reusing linear_allocator_pop_move
-        // here (as in the branch below) would try to compact hit onto
-        // blast_tiles.begin, corrupting game->pathing.blast_preview_tiles.
-        *out_hit = hit;
-    } else {
-        // hit now sits above blast_tiles, which is no longer needed. Move hit
-        // down onto blast_tiles' space and pop the allocator back to just the
-        // hits, reclaiming blast_tiles in the same step.
-        *out_hit = (slice_entity_ptr_t){ .slice = linear_allocator_pop_move(allocator, hit.slice, blast_tiles.begin) };
-    }
+    *out_hit = hit;
 
     return true;
 }

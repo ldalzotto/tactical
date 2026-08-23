@@ -27,31 +27,32 @@ PUBLIC bool action_try_attack(grid_t grid, slice_entity_t entities, entity_t* at
 
 // AoE counterpart of action_try_attack: targets a tile (the blast center)
 // instead of a specific defender. True on success: attacker ap -=
-// skill.ap_cost, every alive entity in the blast footprint
-// (pathing_compute_blast_tiles, radius = skill.aoe_radius) whose team
-// differs from attacker's takes skill.damage via entity_damage, and
-// *out_hit is populated with exactly those damaged entities (staged on
-// allocator; caller pops it when done). No friendly fire: same-team
-// entities (including the attacker itself) are never damaged. False, no
-// mutation, if: attacker.ap < skill.ap_cost, or impact is out of
-// skill.range/LOS from attacker (via pathing_in_range). Only valid for AoE
-// skills (skill.aoe_radius > 0, debug-asserted) -- single-target skills
-// keep using action_try_attack.
+// skill.ap_cost, every alive entity in `blast_tiles` whose team differs
+// from attacker's takes skill.damage via entity_damage, and *out_hit is
+// populated with exactly those damaged entities (staged on allocator;
+// caller pops it when done). No friendly fire: same-team entities
+// (including the attacker itself) are never damaged. False, no mutation,
+// if: attacker.ap < skill.ap_cost, or impact is out of skill.range/LOS
+// from attacker (via pathing_in_range). Only valid for AoE skills
+// (skill.aoe_radius > 0, debug-asserted) -- single-target skills keep
+// using action_try_attack.
+//
+// This function never computes the blast footprint itself -- the caller
+// supplies it as `blast_tiles` (e.g. via pathing_compute_blast_tiles, or
+// reused from a cached preview -- see game_cast_attack_area), and is
+// responsible for it actually matching `impact`; this function trusts it
+// as given.
 //
 // Caller must have `allocator`'s cursor aligned to _Alignof(entity_ptr_t)
-// before calling -- this function does not self-align, matching this
+// before calling, with `blast_tiles` already staged below that cursor (not
+// interleaved with it) -- this function does not self-align, matching this
 // codebase's push-align-then-push convention (see entity_list_align et
 // al.). *out_hit is staged starting at that aligned cursor, so a single
 // `linear_allocator_pop(allocator, out_hit->slice)` followed by popping the
-// caller's own alignment marker fully unwinds everything this call staged.
-//
-// `cached_blast_tiles` is reused as the blast footprint (skipping
-// pathing_compute_blast_tiles entirely) when `cached_blast_valid` is true --
-// the caller is responsible for verifying it was actually computed for this
-// `impact` (see game_cast_attack_area); this function trusts the flag as
-// given. When reused, `cached_blast_tiles` must remain valid (not popped or
-// overwritten) for the duration of this call.
-PUBLIC bool action_try_attack_area(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *attacker, skill_t skill, position_t impact, slice_position_t cached_blast_tiles, bool cached_blast_valid, slice_entity_ptr_t *out_hit);
+// caller's own alignment marker fully unwinds everything this call staged
+// (blast_tiles, if the caller pushed it on `allocator` too, unwinds
+// separately with its own pop).
+PUBLIC bool action_try_attack_area(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *attacker, skill_t skill, position_t impact, slice_position_t blast_tiles, slice_entity_ptr_t *out_hit);
 
 #ifdef APP_UNITY_BUILD
 #include "action.c"

@@ -444,6 +444,9 @@ PRIVATE void test_aoe_cast_onto_empty_tile_hits_surrounding_entities(linear_allo
 
 // Insufficient AP fails an AoE cast the same way it fails a single-target
 // one (action_try_attack_area's ap_cost check, mirroring action_try_attack).
+// Hovers the impact tile first so the cast reuses the staged blast preview
+// (F2-04) rather than computing fresh -- game_cast_attack_area's cached
+// unwind path (no blast_align/blast_tiles pop) on failure.
 PRIVATE void test_aoe_insufficient_ap_fails_cleanly(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 6, 1);
@@ -471,6 +474,11 @@ PRIVATE void test_aoe_insufficient_ap_fails_cleanly(linear_allocator_t *allocato
 
     test_click_tile(&game, allocator, p->position);
     test_click_attack_toggle(&game, allocator);
+    test_move_tile(&game, allocator, (position_t){2, 0});
+
+    assert_test(game.pathing.blast_preview_valid);
+    assert_test(position_equals(game.pathing.blast_preview_impact, (position_t){2, 0}));
+
     test_click_tile(&game, allocator, (position_t){2, 0});
 
     assert_test(p->ap == 0);
@@ -995,8 +1003,8 @@ PRIVATE void test_aoe_hover_with_non_aoe_skill_selected_stages_no_preview(linear
 }
 
 // F2-04: hovering an impact tile stages game.pathing.blast_preview_tiles as
-// usual, then casting at that exact same tile reuses it (action_try_attack_area
-// never calls pathing_compute_blast_tiles in this path -- see action.c) --
+// usual, then casting at that exact same tile reuses it (game_cast_attack_area
+// skips its pathing_compute_blast_tiles call in this path -- see game.c) --
 // the resulting hit set matches what a fresh compute would independently
 // produce for this impact, same layout as
 // test_aoe_blast_hits_all_enemies_in_radius_and_spares_beyond.
