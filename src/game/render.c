@@ -112,10 +112,12 @@ PRIVATE void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
         }
     }
 
-    // Drawn after attack_range_tiles so the blast preview layers on top of
-    // it (pathing_ranges_t's blast_preview_tiles is independent of, and
-    // coexists with, attack_range_tiles -- see F1-05).
-    for (SLICE_FOREACH(game.pathing.blast_preview_tiles, tile_s)) {
+    // Drawn after attack_range_tiles so the blast overlay layers on top of
+    // it (pathing_ranges_t's blast_tiles is independent of, and coexists
+    // with, attack_range_tiles -- see F1-05). blast_tiles is the same data
+    // game_cast_attack_area resolves the cast against, not a rendering-only
+    // preview -- this loop is just a second reader of it.
+    for (SLICE_FOREACH(game.pathing.blast_tiles, tile_s)) {
         position_t tile = SLICE_DEREF(tile_s);
         int px, py;
         grid_to_screen(game.viewport, tile.x, tile.y, &px, &py);

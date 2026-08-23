@@ -3,53 +3,49 @@
 #include "../lib/assert.h"
 
 // Enforces the region stacking order in scratch (walking_distances <
-// attack_range_tiles < blast_preview_tiles). Every mutator below calls this
+// attack_range_tiles < blast_tiles). Every mutator below calls this
 // before returning, so a reorder bug trips an assert instead of silently
 // corrupting another region.
 PRIVATE void pathing_ranges_assert_layout(pathing_ranges_t ranges) {
     assert_debug(ranges.attack_range_align.begin >= ranges.walking_distances.dist.slice.end);
     assert_debug((void*)ranges.attack_range_tiles.begin >= ranges.walking_distances.dist.slice.end);
-    assert_debug(ranges.blast_preview_align.begin >= ranges.attack_range_tiles.slice.end);
-    assert_debug((void*)ranges.blast_preview_tiles.begin >= ranges.attack_range_tiles.slice.end);
+    assert_debug(ranges.blast_align.begin >= ranges.attack_range_tiles.slice.end);
+    assert_debug((void*)ranges.blast_tiles.begin >= ranges.attack_range_tiles.slice.end);
 }
 
 // Adopts a caller-built walking_distances region, then re-pushes empty
-// attack_range_tiles/blast_preview_tiles on top. Requires all three regions
+// attack_range_tiles/blast_tiles on top. Requires all three regions
 // empty (see pathing_ranges_reset/pathing_ranges_init).
 PRIVATE void pathing_ranges_set_walking_distances(linear_allocator_t *scratch, pathing_ranges_t *ranges, slice_t walking_distances_align, pathing_state_t walking_distances) {
     ranges->walking_distances_align = walking_distances_align;
     ranges->walking_distances = walking_distances;
     ranges->attack_range_align = linear_allocator_push(scratch, 0);
     ranges->attack_range_tiles = LINEAR_ALLOCATOR_PUSH(scratch, ranges->attack_range_tiles, 0);
-    ranges->blast_preview_align = linear_allocator_push(scratch, 0);
-    ranges->blast_preview_tiles = LINEAR_ALLOCATOR_PUSH(scratch, ranges->blast_preview_tiles, 0);
-    ranges->blast_preview_valid = false;
+    ranges->blast_align = linear_allocator_push(scratch, 0);
+    ranges->blast_tiles = LINEAR_ALLOCATOR_PUSH(scratch, ranges->blast_tiles, 0);
 
     pathing_ranges_assert_layout(*ranges);
 }
 
 // Adopts a caller-built attack_range_tiles region, then re-pushes an empty
-// blast_preview_tiles on top.
+// blast_tiles on top.
 PRIVATE void pathing_ranges_set_attack_range(linear_allocator_t *scratch, pathing_ranges_t *ranges, slice_t attack_range_align, slice_position_t attack_range_tiles) {
     ranges->attack_range_align = attack_range_align;
     ranges->attack_range_tiles = attack_range_tiles;
-    ranges->blast_preview_align = linear_allocator_push(scratch, 0);
-    ranges->blast_preview_tiles = LINEAR_ALLOCATOR_PUSH(scratch, ranges->blast_preview_tiles, 0);
-    ranges->blast_preview_valid = false;
+    ranges->blast_align = linear_allocator_push(scratch, 0);
+    ranges->blast_tiles = LINEAR_ALLOCATOR_PUSH(scratch, ranges->blast_tiles, 0);
 
     pathing_ranges_assert_layout(*ranges);
 }
 
-// Adopts a caller-built blast_preview_tiles region computed for `impact` and
-// sets blast_preview_valid. Safe to call any time (unlike the setters above,
-// doesn't require reachable/attack_range to be empty) as long as the
-// previous preview was cleared first via pathing_ranges_clear_blast_preview.
-PRIVATE void pathing_ranges_set_blast_preview(linear_allocator_t *scratch, pathing_ranges_t *ranges, slice_t blast_preview_align, slice_position_t blast_preview_tiles, position_t impact) {
+// Adopts a caller-built blast_tiles region. Safe to call any time (unlike
+// the setters above, doesn't require reachable/attack_range to be empty) as
+// long as the previous blast_tiles was cleared first via
+// pathing_ranges_clear_blast_tiles.
+PRIVATE void pathing_ranges_set_blast_tiles(linear_allocator_t *scratch, pathing_ranges_t *ranges, slice_t blast_align, slice_position_t blast_tiles) {
     (void)scratch;
-    ranges->blast_preview_align = blast_preview_align;
-    ranges->blast_preview_tiles = blast_preview_tiles;
-    ranges->blast_preview_impact = impact;
-    ranges->blast_preview_valid = true;
+    ranges->blast_align = blast_align;
+    ranges->blast_tiles = blast_tiles;
 
     pathing_ranges_assert_layout(*ranges);
 }
@@ -62,16 +58,16 @@ PUBLIC pathing_ranges_t pathing_ranges_init(linear_allocator_t *scratch) {
     };
     slice_t attack_range_align = linear_allocator_push(scratch, 0);
     slice_position_t attack_range_tiles = LINEAR_ALLOCATOR_PUSH(scratch, attack_range_tiles, 0);
-    slice_t blast_preview_align = linear_allocator_push(scratch, 0);
-    slice_position_t blast_preview_tiles = LINEAR_ALLOCATOR_PUSH(scratch, blast_preview_tiles, 0);
+    slice_t blast_align = linear_allocator_push(scratch, 0);
+    slice_position_t blast_tiles = LINEAR_ALLOCATOR_PUSH(scratch, blast_tiles, 0);
 
     pathing_ranges_t ranges = {
         .walking_distances_align = walking_distances_align,
         .walking_distances = walking_distances,
         .attack_range_align = attack_range_align,
         .attack_range_tiles = attack_range_tiles,
-        .blast_preview_align = blast_preview_align,
-        .blast_preview_tiles = blast_preview_tiles,
+        .blast_align = blast_align,
+        .blast_tiles = blast_tiles,
     };
 
     pathing_ranges_assert_layout(ranges);
@@ -80,8 +76,8 @@ PUBLIC pathing_ranges_t pathing_ranges_init(linear_allocator_t *scratch) {
 }
 
 PUBLIC void pathing_ranges_deinit(linear_allocator_t *scratch, pathing_ranges_t ranges) {
-    LINEAR_ALLOCATOR_POP(scratch, ranges.blast_preview_tiles);
-    linear_allocator_pop(scratch, ranges.blast_preview_align);
+    LINEAR_ALLOCATOR_POP(scratch, ranges.blast_tiles);
+    linear_allocator_pop(scratch, ranges.blast_align);
     LINEAR_ALLOCATOR_POP(scratch, ranges.attack_range_tiles);
     linear_allocator_pop(scratch, ranges.attack_range_align);
     LINEAR_ALLOCATOR_POP(scratch, ranges.walking_distances.dist);
@@ -189,26 +185,25 @@ PUBLIC ptrdiff_t pathing_ranges_push_attack_range(linear_allocator_t *allocator,
     return shift;
 }
 
-PUBLIC ptrdiff_t pathing_ranges_push_blast_preview(linear_allocator_t *allocator, linear_allocator_t *scratch, pathing_ranges_t *ranges, grid_t grid, position_t impact, int aoe_radius) {
+PUBLIC ptrdiff_t pathing_ranges_push_blast_tiles(linear_allocator_t *allocator, linear_allocator_t *scratch, pathing_ranges_t *ranges, grid_t grid, position_t impact, int aoe_radius) {
     slice_t temp_align = linear_allocator_push_alignment(allocator, _Alignof(position_t));
     slice_position_t temp_tiles = pathing_compute_blast_tiles(allocator, grid, impact, aoe_radius);
 
-    slice_t blast_preview_align;
-    slice_position_t blast_preview_tiles;
-    ptrdiff_t shift = pathing_ranges_push_tiles(allocator, scratch, temp_align, temp_tiles, &blast_preview_align, &blast_preview_tiles);
+    slice_t blast_align;
+    slice_position_t blast_tiles;
+    ptrdiff_t shift = pathing_ranges_push_tiles(allocator, scratch, temp_align, temp_tiles, &blast_align, &blast_tiles);
 
-    pathing_ranges_set_blast_preview(scratch, ranges, blast_preview_align, blast_preview_tiles, impact);
+    pathing_ranges_set_blast_tiles(scratch, ranges, blast_align, blast_tiles);
 
     return shift;
 }
 
-PUBLIC void pathing_ranges_clear_blast_preview(linear_allocator_t *scratch, pathing_ranges_t *ranges) {
-    LINEAR_ALLOCATOR_POP(scratch, ranges->blast_preview_tiles);
-    linear_allocator_pop(scratch, ranges->blast_preview_align);
+PUBLIC void pathing_ranges_clear_blast_tiles(linear_allocator_t *scratch, pathing_ranges_t *ranges) {
+    LINEAR_ALLOCATOR_POP(scratch, ranges->blast_tiles);
+    linear_allocator_pop(scratch, ranges->blast_align);
 
-    ranges->blast_preview_align = linear_allocator_push(scratch, 0);
-    ranges->blast_preview_tiles = LINEAR_ALLOCATOR_PUSH(scratch, ranges->blast_preview_tiles, 0);
-    ranges->blast_preview_valid = false;
+    ranges->blast_align = linear_allocator_push(scratch, 0);
+    ranges->blast_tiles = LINEAR_ALLOCATOR_PUSH(scratch, ranges->blast_tiles, 0);
 
     pathing_ranges_assert_layout(*ranges);
 }

@@ -109,7 +109,7 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
         // returns above, ATTACK is the only remaining possibility.
         assert_debug(mode == GAME_MODE_ATTACK);
 
-        int skill_range = SLICE_AT(active->skills, game->selected_skill).range;
+        skill_t skill = SLICE_AT(active->skills, game->selected_skill);
 
         slice_t temp_align = linear_allocator_push_alignment(allocator, _Alignof(position_t));
         slice_position_t temp_tiles;
@@ -123,7 +123,7 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
                 if (position_equals(position, active->position)) {
                     continue;
                 }
-                if (pathing_in_range(game->grid, game->entities, active->position, position, skill_range)) {
+                if (pathing_in_range(game->grid, game->entities, active->position, position, skill.range)) {
                     slice_position_t entry = LINEAR_ALLOCATOR_PUSH(allocator, temp_tiles, 1);
                     SLICE_DEREF(entry) = position;
                     temp_tiles.end = entry.end;
@@ -134,6 +134,18 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
         ptrdiff_t shift = pathing_ranges_push_attack_range(allocator, &game->scratch, &game->pathing, temp_align, temp_tiles);
         // Reset to zero for usage sanity
         temp_align = (slice_t){0,0}; temp_tiles.slice = (slice_t){0,0};
+
+        // pathing_ranges_push_attack_range leaves blast_tiles as a fresh
+        // empty marker -- restage it here for the current hover so entering
+        // ATTACK mode (via either game_on_attack_toggle_pressed or
+        // game_on_skill_button_pressed) never leaves blast_tiles stale
+        // relative to a hover that was already valid before the mode/skill
+        // change. Without this, a click on that still-hovered tile would
+        // reach game_cast_attack_area with no blast staged for it.
+        if (game->hover_valid && skill_is_aoe(skill)
+                && skill_can_target_area(game->grid, game->entities, active, skill, game->hover)) {
+            shift += pathing_ranges_push_blast_tiles(allocator, &game->scratch, &game->pathing, game->grid, game->hover, skill.aoe_radius);
+        }
 
         return shift;
     }
@@ -179,35 +191,22 @@ PRIVATE ptrdiff_t game_advance_turn(game_state_t *game, linear_allocator_t *allo
 // game_check_game_over asserts game->game_over == GAME_OVER_NONE on entry).
 // active->team can never appear in out_hit (action_try_attack_area excludes
 // same-team damage), so the active entity is never among the casualties
-// reconciled here. Only called once the AoE precondition (player-controlled
-// active entity, GAME_MODE_ATTACK, skill.aoe_radius > 0) already holds.
+// reconciled here. Only called by game_on_entity_pressed/game_on_tile_pressed,
+// which stage game->pathing.blast_tiles for `impact` immediately before
+// calling this -- checked below (non-empty; pathing_compute_blast_tiles
+// always includes at least the center tile), not recomputed.
 PRIVATE ptrdiff_t game_cast_attack_area(game_state_t *game, linear_allocator_t *allocator, entity_t *active, skill_t skill, position_t impact) {
-    // Reuse the staged blast preview if it was computed for this exact
-    // impact tile (a hover isn't guaranteed to precede this click at the
-    // same tile, so this is checked, not assumed). Otherwise compute it
-    // fresh here, below hit_align (pushed next), so action_try_attack_area's
-    // hit list always lands at the top of the allocator either way.
-    bool cached_blast_valid = game->pathing.blast_preview_valid
-        && position_equals(game->pathing.blast_preview_impact, impact);
-    slice_t blast_align = { 0 };
-    slice_position_t blast_tiles = game->pathing.blast_preview_tiles;
-    if (!cached_blast_valid) {
-        blast_align = linear_allocator_push_alignment(allocator, _Alignof(position_t));
-        blast_tiles = pathing_compute_blast_tiles(allocator, game->grid, impact, skill.aoe_radius);
-    }
+    assert_debug(SLICE_TYPESIZE(game->pathing.blast_tiles) > 0);
+    slice_position_t blast_tiles = game->pathing.blast_tiles;
 
     // action_try_attack_area requires allocator's cursor pre-aligned to
     // _Alignof(entity_ptr_t) (it does not self-align -- see its doc
-    // comment); paired with the pops below so this fully unwinds either way.
+    // comment); paired with the pop below so this fully unwinds either way.
     slice_t hit_align = linear_allocator_push_alignment(allocator, _Alignof(entity_ptr_t));
 
     slice_entity_ptr_t out_hit;
     if (!action_try_attack_area(allocator, game->entities, active, skill, impact, game->pathing.attack_range_tiles, blast_tiles, &out_hit)) {
         linear_allocator_pop(allocator, hit_align);
-        if (!cached_blast_valid) {
-            linear_allocator_pop(allocator, blast_tiles.slice);
-            linear_allocator_pop(allocator, blast_align);
-        }
         return 0;
     }
 
@@ -228,10 +227,6 @@ PRIVATE ptrdiff_t game_cast_attack_area(game_state_t *game, linear_allocator_t *
     linear_allocator_pop(allocator, dead.slice);
     linear_allocator_pop(allocator, out_hit.slice);
     linear_allocator_pop(allocator, hit_align);
-    if (!cached_blast_valid) {
-        linear_allocator_pop(allocator, blast_tiles.slice);
-        linear_allocator_pop(allocator, blast_align);
-    }
 
     return game_set_mode(game, allocator, GAME_MODE_MOVEMENT);
 }
@@ -257,7 +252,19 @@ PRIVATE ptrdiff_t game_on_entity_pressed(game_state_t *game, linear_allocator_t 
 
     skill_t skill = SLICE_AT(active->skills, game->selected_skill);
     if (skill_is_aoe(skill)) {
-        return game_cast_attack_area(game, allocator, active, skill, entity->position);
+        // Gate on the same skill_can_target_area check that gates
+        // blast_tiles computation (hover/skill-select). A MOUSE_CLICK's
+        // impact tile isn't guaranteed to be the last MOUSE_MOVE's hover
+        // tile (see test_aoe_cast_at_different_tile_than_hover_resolves_correctly),
+        // so blast_tiles is staged fresh for entity->position here rather
+        // than assumed to already match it -- game_cast_attack_area's
+        // assert_debug relies on that.
+        if (!skill_can_target_area(game->grid, game->entities, active, skill, entity->position)) {
+            return 0;
+        }
+        pathing_ranges_clear_blast_tiles(&game->scratch, &game->pathing);
+        ptrdiff_t shift = pathing_ranges_push_blast_tiles(allocator, &game->scratch, &game->pathing, game->grid, entity->position, skill.aoe_radius);
+        return shift + game_cast_attack_area(game, allocator, active, skill, entity->position);
     }
 
     if (action_try_attack(active, skill, entity, game->pathing.attack_range_tiles)) {
@@ -293,7 +300,13 @@ PRIVATE ptrdiff_t game_on_tile_pressed(game_state_t *game, linear_allocator_t *a
         // above and just no-op on a tile press in attack mode.
         skill_t skill = SLICE_AT(active->skills, game->selected_skill);
         if (skill_is_aoe(skill)) {
-            return game_cast_attack_area(game, allocator, active, skill, target);
+            // See the matching gate in game_on_entity_pressed.
+            if (!skill_can_target_area(game->grid, game->entities, active, skill, target)) {
+                return 0;
+            }
+            pathing_ranges_clear_blast_tiles(&game->scratch, &game->pathing);
+            ptrdiff_t shift = pathing_ranges_push_blast_tiles(allocator, &game->scratch, &game->pathing, game->grid, target, skill.aoe_radius);
+            return shift + game_cast_attack_area(game, allocator, active, skill, target);
         }
         return 0;
     }
@@ -346,18 +359,10 @@ PRIVATE ptrdiff_t game_on_skill_button_pressed(game_state_t *game, linear_alloca
     assert_debug(index < entity_skill_count(active));
 
     game->selected_skill = index;
-    ptrdiff_t shift = game_set_mode(game, allocator, game->mode);
-
-    // Refresh the preview at the current hover tile for the newly selected
-    // skill, without requiring the mouse to move -- game_set_mode itself
-    // only clears blast_preview_tiles, it doesn't recompute it.
-    skill_t skill = SLICE_AT(active->skills, index);
-    pathing_ranges_clear_blast_preview(&game->scratch, &game->pathing);
-    if (game->mode == GAME_MODE_ATTACK && game->hover_valid && skill_is_aoe(skill)
-            && skill_can_target_area(game->grid, game->entities, active, skill, game->hover)) {
-        shift += pathing_ranges_push_blast_preview(allocator, &game->scratch, &game->pathing, game->grid, game->hover, skill.aoe_radius);
-    }
-    return shift;
+    // game_set_mode's ATTACK branch itself restages blast_tiles at the
+    // current hover for whatever skill is now selected, so there's nothing
+    // left to do here beyond re-entering the (possibly unchanged) mode.
+    return game_set_mode(game, allocator, game->mode);
 }
 
 PRIVATE ptrdiff_t game_on_end_turn_pressed(game_state_t *game, linear_allocator_t *allocator) {
@@ -428,14 +433,14 @@ PUBLIC ptrdiff_t game_on_input_event(game_state_t *game, linear_allocator_t *all
         // ENTITY_TEAM_PLAYER before ever calling it with ATTACK. Asserted
         // rather than re-checked here since MOUSE_MOVE (unlike those two)
         // fires regardless of whose turn it is.
-        pathing_ranges_clear_blast_preview(&game->scratch, &game->pathing);
+        pathing_ranges_clear_blast_tiles(&game->scratch, &game->pathing);
         if (game->mode == GAME_MODE_ATTACK) {
             entity_t *active = turn_active_entity(game->turn);
             skill_t skill = SLICE_AT(active->skills, game->selected_skill);
             assert_debug(active->team == ENTITY_TEAM_PLAYER);
             if (game->hover_valid && skill_is_aoe(skill)
                     && skill_can_target_area(game->grid, game->entities, active, skill, game->hover)) {
-                return pathing_ranges_push_blast_preview(allocator, &game->scratch, &game->pathing, game->grid, game->hover, skill.aoe_radius);
+                return pathing_ranges_push_blast_tiles(allocator, &game->scratch, &game->pathing, game->grid, game->hover, skill.aoe_radius);
             }
         }
         return 0;
