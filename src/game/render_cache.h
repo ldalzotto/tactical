@@ -31,7 +31,7 @@ typedef struct {
                                           // only while mode is GAME_MODE_ATTACK, nullified otherwise
     slice_t blast_preview_align;       // same marker pattern, but for blast_preview_tiles; always
                                         // the topmost scratch region
-    slice_position_t blast_preview_tiles; // cover-shadowed blast footprint under the current hover,
+    slice_position_t blast_preview_tiles; // blast footprint under the current hover,
                                            // while an AoE skill is selected in attack mode; recomputed
                                            // on every hover move (see game_update_blast_preview)
 } render_cache_t;

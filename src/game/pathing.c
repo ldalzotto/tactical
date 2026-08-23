@@ -141,7 +141,7 @@ PUBLIC int pathing_distance_at(pathing_state_t state, grid_t grid, position_t po
     return SLICE_AT(state.dist, position.y * grid.width + position.x);
 }
 
-PUBLIC slice_position_t pathing_compute_blast_tiles(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, position_t center, int radius) {
+PUBLIC slice_position_t pathing_compute_blast_tiles(linear_allocator_t *allocator, grid_t grid, position_t center, int radius) {
     slice_position_t tiles;
     tiles = LINEAR_ALLOCATOR_PUSH(allocator, tiles, 0);
 
@@ -150,10 +150,6 @@ PUBLIC slice_position_t pathing_compute_blast_tiles(linear_allocator_t *allocato
             position_t position = { tx, ty };
 
             if (pathing_manhattan_distance(center, position) > radius) {
-                continue;
-            }
-
-            if (!position_equals(position, center) && !pathing_line_of_sight_clear(grid, entities, center, position)) {
                 continue;
             }
 

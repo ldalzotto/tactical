@@ -67,7 +67,7 @@ PUBLIC bool action_try_attack_area(linear_allocator_t *allocator, grid_t grid, s
     // that aligned cursor; sizeof(position_t) is a multiple of
     // _Alignof(entity_ptr_t), so blast_tiles.end stays just as aligned, and
     // hit can be grown one entity_ptr_t at a time right above it.
-    slice_position_t blast_tiles = pathing_compute_blast_tiles(allocator, grid, entities, impact, skill.aoe_radius);
+    slice_position_t blast_tiles = pathing_compute_blast_tiles(allocator, grid, impact, skill.aoe_radius);
 
     slice_entity_ptr_t hit;
     hit = LINEAR_ALLOCATOR_PUSH(allocator, hit, 0);

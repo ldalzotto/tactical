@@ -267,7 +267,7 @@ PRIVATE ptrdiff_t game_update_blast_preview(game_state_t *game, linear_allocator
     render_cache_clear_blast_preview(&game->scratch, &game->render);
 
     slice_t temp_align = linear_allocator_push_alignment(allocator, _Alignof(position_t));
-    slice_position_t temp_tiles = pathing_compute_blast_tiles(allocator, game->grid, game->entities, game->hover, skill.aoe_radius);
+    slice_position_t temp_tiles = pathing_compute_blast_tiles(allocator, game->grid, game->hover, skill.aoe_radius);
 
     slice_t blast_preview_align;
     slice_position_t blast_preview_tiles;
