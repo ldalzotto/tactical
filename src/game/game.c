@@ -127,15 +127,11 @@ PRIVATE ptrdiff_t game_scratch_push(linear_allocator_t *allocator, linear_alloca
     return shift;
 }
 
-// Grows `scratch` in place if needed to fit `temp`'s dist array and copies
-// it in as `out`. Unlike game_scratch_push, does *not* pop `temp` off
-// `allocator`: a second region still sits above it there and isn't ready to
-// unwind yet, so `temp` can't be popped until the caller persists and pops
-// that region itself (see game_scratch_push). `temp` is rebased in place if
-// growth relocates memory. Returns the shift applied (0 if it already fit);
-// callers must propagate it to anything else held above `scratch`, including
-// that second region via slice_shift.
-PRIVATE ptrdiff_t game_scratch_stage_pathing(linear_allocator_t *allocator, linear_allocator_t *scratch,
+// Grows `scratch` in place if needed to fit `temp`'s dist array, copies it
+// in as `out`, then pops `temp` off `allocator`. `temp` is rebased in place
+// if growth relocates memory. Returns the shift applied (0 if it already
+// fit); callers must propagate it to anything else held above `scratch`.
+PRIVATE ptrdiff_t game_scratch_push_pathing(linear_allocator_t *allocator, linear_allocator_t *scratch,
         pathing_state_t *temp,
         slice_t *out_align, pathing_state_t *out) {
     size_t needed = (size_t)SLICE_BYTESIZE(temp->dist);
@@ -162,6 +158,9 @@ PRIVATE ptrdiff_t game_scratch_stage_pathing(linear_allocator_t *allocator, line
     out->dist = LINEAR_ALLOCATOR_PUSH(scratch, out->dist, SLICE_TYPESIZE(temp->dist));
     linear_allocator_copy(scratch, temp->dist.slice, out->dist.slice);
 
+    linear_allocator_pop(allocator, temp->dist.slice);
+    linear_allocator_pop(allocator, temp->align);
+
     return shift;
 }
 
@@ -179,7 +178,7 @@ PRIVATE ptrdiff_t game_scratch_stage_pathing(linear_allocator_t *allocator, line
 //
 // Both branches stage their tile data on `allocator` first (unbounded),
 // then grow game->scratch to fit and copy it in (see
-// game_scratch_stage_pathing / game_scratch_push). Growing can relocate
+// game_scratch_push_pathing / game_scratch_push). Growing can relocate
 // memory above game->scratch, so the byte shift applied (0 if none) is
 // returned for callers to propagate and rebase against.
 PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocator, game_mode_t mode) {
@@ -202,10 +201,7 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
 
         slice_t walking_distances_align;
         pathing_state_t walking_distances;
-        ptrdiff_t shift = game_scratch_stage_pathing(allocator, &game->scratch, &pathing, &walking_distances_align, &walking_distances);
-
-        linear_allocator_pop(allocator, pathing.dist.slice);
-        linear_allocator_pop(allocator, pathing.align);
+        ptrdiff_t shift = game_scratch_push_pathing(allocator, &game->scratch, &pathing, &walking_distances_align, &walking_distances);
 
         pathing_ranges_set_walking_distances(&game->scratch, &game->pathing, walking_distances_align, walking_distances);
 
