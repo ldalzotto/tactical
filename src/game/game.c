@@ -313,7 +313,7 @@ PRIVATE ptrdiff_t game_stage_blast_preview(linear_allocator_t *allocator, linear
     // Reset to zero for usage sanity
     temp_align = (slice_t){0,0}; temp_tiles.slice = (slice_t){0,0};
 
-    pathing_cache_set_blast_preview(scratch, pathing, blast_preview_align, blast_preview_tiles);
+    pathing_cache_set_blast_preview(scratch, pathing, blast_preview_align, blast_preview_tiles, impact);
 
     return shift;
 }
@@ -366,8 +366,16 @@ PRIVATE ptrdiff_t game_cast_attack_area(game_state_t *game, linear_allocator_t *
     // comment); paired with the pop below so this fully unwinds either way.
     slice_t hit_align = linear_allocator_push_alignment(allocator, _Alignof(entity_ptr_t));
 
+    // Reuse the staged blast preview (F2-04) when it was computed for this
+    // exact impact tile -- a hover event isn't guaranteed to have preceded
+    // this click at all, let alone at the same tile, so the tag is checked
+    // rather than trusted.
+    bool cached_blast_valid = game->pathing.blast_preview_valid
+        && position_equals(game->pathing.blast_preview_impact, impact);
+    slice_position_t cached_blast_tiles = game->pathing.blast_preview_tiles;
+
     slice_entity_ptr_t out_hit;
-    if (!action_try_attack_area(allocator, game->grid, game->entities, active, skill, impact, &out_hit)) {
+    if (!action_try_attack_area(allocator, game->grid, game->entities, active, skill, impact, cached_blast_tiles, cached_blast_valid, &out_hit)) {
         linear_allocator_pop(allocator, hit_align);
         return 0;
     }

@@ -48,6 +48,14 @@ typedef struct {
     slice_position_t blast_preview_tiles; // blast footprint under the current hover,
                                            // while an AoE skill is selected in attack mode; recomputed
                                            // on every hover move (see game_update_blast_preview)
+    position_t blast_preview_impact;   // tile blast_preview_tiles was computed for; meaningful
+                                        // only when blast_preview_valid -- lets action_try_attack_area
+                                        // (F2-04) validate the preview against the actual cast impact
+                                        // before reusing it, since (unlike walking_distances/
+                                        // reachable_tiles) hover and cast are separate input events
+                                        // with no structural guarantee the click matches the hover
+    bool blast_preview_valid;          // true once blast_preview_tiles holds a real footprint for
+                                        // blast_preview_impact; false whenever it's the empty marker
 } pathing_cache_t;
 
 // Pops all four caches to nothing, then pushes fresh empty markers for
@@ -73,21 +81,22 @@ PUBLIC void pathing_cache_set_reachable(linear_allocator_t *scratch, pathing_cac
 PUBLIC void pathing_cache_set_attack_range(linear_allocator_t *scratch, pathing_cache_t *cache, slice_t attack_range_align, slice_position_t attack_range_tiles);
 
 // Adopts `blast_preview_align`/`blast_preview_tiles` (built the same way)
-// as the new blast_preview_tiles region. Unlike the two setters above,
-// this does *not* require reachable_tiles/attack_range_tiles to be empty --
-// blast_preview_tiles is independently toggled and always the topmost
-// scratch region, so it's always safe to call. The caller must have
-// already cleared the previous blast_preview_tiles region first (see
-// pathing_cache_clear_blast_preview) before staging new data on top of
-// scratch, since this recomputes on every hover move rather than only
-// right after a pathing_cache_reset.
-PUBLIC void pathing_cache_set_blast_preview(linear_allocator_t *scratch, pathing_cache_t *cache, slice_t blast_preview_align, slice_position_t blast_preview_tiles);
+// as the new blast_preview_tiles region, computed for `impact`, and sets
+// blast_preview_valid. Unlike the two setters above, this does *not*
+// require reachable_tiles/attack_range_tiles to be empty -- blast_preview_tiles
+// is independently toggled and always the topmost scratch region, so it's
+// always safe to call. The caller must have already cleared the previous
+// blast_preview_tiles region first (see pathing_cache_clear_blast_preview)
+// before staging new data on top of scratch, since this recomputes on
+// every hover move rather than only right after a pathing_cache_reset.
+PUBLIC void pathing_cache_set_blast_preview(linear_allocator_t *scratch, pathing_cache_t *cache, slice_t blast_preview_align, slice_position_t blast_preview_tiles, position_t impact);
 
 // Pops the current blast_preview_tiles region and re-pushes a fresh empty
-// marker in its place -- cheaper than a full pathing_cache_reset when only
-// the preview needs clearing (e.g. hover leaving the grid, or moving to a
-// tile with no valid blast), and the mandatory first step before staging a
-// new non-empty preview via pathing_cache_set_blast_preview.
+// marker in its place, and clears blast_preview_valid -- cheaper than a
+// full pathing_cache_reset when only the preview needs clearing (e.g.
+// hover leaving the grid, or moving to a tile with no valid blast), and
+// the mandatory first step before staging a new non-empty preview via
+// pathing_cache_set_blast_preview.
 PUBLIC void pathing_cache_clear_blast_preview(linear_allocator_t *scratch, pathing_cache_t *cache);
 
 #ifdef APP_UNITY_BUILD

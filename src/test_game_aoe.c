@@ -994,6 +994,177 @@ PRIVATE void test_aoe_hover_with_non_aoe_skill_selected_stages_no_preview(linear
     game_deinit(allocator, game);
 }
 
+// F2-04: hovering an impact tile stages game.pathing.blast_preview_tiles as
+// usual, then casting at that exact same tile reuses it (action_try_attack_area
+// never calls pathing_compute_blast_tiles in this path -- see action.c) --
+// the resulting hit set matches what a fresh compute would independently
+// produce for this impact, same layout as
+// test_aoe_blast_hits_all_enemies_in_radius_and_spares_beyond.
+PRIVATE void test_aoe_cast_reuses_hovered_blast_preview(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 8, 3);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 1, 3);
+    entity_t* e_in_a = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 1, 3);
+    entity_t* e_in_b = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){5, 1}, 10, 1, 3);
+    entity_t* e_out = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){6, 1}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *e_in_a_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_in_a->skills = (slice_skill_t){ .begin = e_in_a_skills_begin, .end = skills.end };
+    skill_t *e_in_b_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_in_b->skills = (slice_skill_t){ .begin = e_in_b_skills_begin, .end = skills.end };
+    skill_t *e_out_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_out->skills = (slice_skill_t){ .begin = e_out_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, e_in_a);
+    turn_order_add(allocator, &order, e_in_b);
+    turn_order_add(allocator, &order, e_out);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    test_move_tile(&game, allocator, (position_t){3, 1});
+
+    assert_test(game.pathing.blast_preview_valid);
+    assert_test(position_equals(game.pathing.blast_preview_impact, (position_t){3, 1}));
+    assert_test(test_tile_list_contains(game.pathing.blast_preview_tiles, (position_t){3, 0}));
+    assert_test(test_tile_list_contains(game.pathing.blast_preview_tiles, (position_t){5, 1}));
+
+    // Cast at the exact tile just hovered -- reuses the staged preview.
+    test_click_tile(&game, allocator, (position_t){3, 1});
+
+    assert_test(e_in_a->hp == 10 - SKILL_FIREBALL.damage);
+    assert_test(e_in_b->hp == 10 - SKILL_FIREBALL.damage);
+    assert_test(e_out->hp == 10);
+    assert_test(p->ap == 1 - SKILL_FIREBALL.ap_cost);
+
+    game_deinit(allocator, game);
+}
+
+// F2-04's fallback path: casting with no prior hover at the impact tile at
+// all (blast_preview_valid starts false and nothing sets it before the
+// click) still produces the correct hit set via a fresh
+// pathing_compute_blast_tiles call, same expected result as
+// test_aoe_cast_reuses_hovered_blast_preview.
+PRIVATE void test_aoe_cast_without_prior_hover_falls_back_to_fresh_compute(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 8, 3);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 1, 3);
+    entity_t* e_in_a = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 1, 3);
+    entity_t* e_in_b = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){5, 1}, 10, 1, 3);
+    entity_t* e_out = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){6, 1}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *e_in_a_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_in_a->skills = (slice_skill_t){ .begin = e_in_a_skills_begin, .end = skills.end };
+    skill_t *e_in_b_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_in_b->skills = (slice_skill_t){ .begin = e_in_b_skills_begin, .end = skills.end };
+    skill_t *e_out_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_out->skills = (slice_skill_t){ .begin = e_out_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, e_in_a);
+    turn_order_add(allocator, &order, e_in_b);
+    turn_order_add(allocator, &order, e_out);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    assert_test(!game.pathing.blast_preview_valid);
+
+    // Cast directly, with no MOUSE_MOVE ever staging a preview at (3,1) or
+    // anywhere else.
+    test_click_tile(&game, allocator, (position_t){3, 1});
+
+    assert_test(e_in_a->hp == 10 - SKILL_FIREBALL.damage);
+    assert_test(e_in_b->hp == 10 - SKILL_FIREBALL.damage);
+    assert_test(e_out->hp == 10);
+    assert_test(p->ap == 1 - SKILL_FIREBALL.ap_cost);
+
+    game_deinit(allocator, game);
+}
+
+// F2-04's other fallback trigger: a *stale* preview (blast_preview_valid
+// true, but staged for a different impact tile than the one clicked) is
+// rejected just like no preview at all -- casting at (3,1) after hovering
+// (2,1) still produces the correct hit set via a fresh compute, not the
+// mismatched cached footprint.
+PRIVATE void test_aoe_cast_at_different_tile_than_hover_falls_back_to_fresh_compute(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 8, 3);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 1, 3);
+    entity_t* e_in_a = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 1, 3);
+    entity_t* e_in_b = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){5, 1}, 10, 1, 3);
+    entity_t* e_out = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){6, 1}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *e_in_a_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_in_a->skills = (slice_skill_t){ .begin = e_in_a_skills_begin, .end = skills.end };
+    skill_t *e_in_b_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_in_b->skills = (slice_skill_t){ .begin = e_in_b_skills_begin, .end = skills.end };
+    skill_t *e_out_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_out->skills = (slice_skill_t){ .begin = e_out_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, e_in_a);
+    turn_order_add(allocator, &order, e_in_b);
+    turn_order_add(allocator, &order, e_out);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    // Hover a different, still-valid impact tile than the one cast below.
+    test_move_tile(&game, allocator, (position_t){2, 1});
+    assert_test(game.pathing.blast_preview_valid);
+    assert_test(!position_equals(game.pathing.blast_preview_impact, (position_t){3, 1}));
+
+    test_click_tile(&game, allocator, (position_t){3, 1});
+
+    assert_test(e_in_a->hp == 10 - SKILL_FIREBALL.damage);
+    assert_test(e_in_b->hp == 10 - SKILL_FIREBALL.damage);
+    assert_test(e_out->hp == 10);
+    assert_test(p->ap == 1 - SKILL_FIREBALL.ap_cost);
+
+    game_deinit(allocator, game);
+}
+
 const test_case_t g_game_aoe_tests[] = {
     { TEST_NAME("aoe_blast_hits_all_enemies_in_radius_and_spares_beyond"), test_aoe_blast_hits_all_enemies_in_radius_and_spares_beyond },
     { TEST_NAME("aoe_blast_ignores_obstacles"), test_aoe_blast_ignores_obstacles },
@@ -1017,6 +1188,9 @@ const test_case_t g_game_aoe_tests[] = {
     { TEST_NAME("aoe_reselecting_skill_button_leaves_preview_empty_for_out_of_range_hover"), test_aoe_reselecting_skill_button_leaves_preview_empty_for_out_of_range_hover },
     { TEST_NAME("aoe_skill_button_in_movement_mode_does_not_stage_preview"), test_aoe_skill_button_in_movement_mode_does_not_stage_preview },
     { TEST_NAME("aoe_hover_with_non_aoe_skill_selected_stages_no_preview"), test_aoe_hover_with_non_aoe_skill_selected_stages_no_preview },
+    { TEST_NAME("aoe_cast_reuses_hovered_blast_preview"), test_aoe_cast_reuses_hovered_blast_preview },
+    { TEST_NAME("aoe_cast_without_prior_hover_falls_back_to_fresh_compute"), test_aoe_cast_without_prior_hover_falls_back_to_fresh_compute },
+    { TEST_NAME("aoe_cast_at_different_tile_than_hover_falls_back_to_fresh_compute"), test_aoe_cast_at_different_tile_than_hover_falls_back_to_fresh_compute },
 };
 
 const uint32_t g_game_aoe_tests_count = sizeof(g_game_aoe_tests) / sizeof(g_game_aoe_tests[0]);
