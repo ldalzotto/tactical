@@ -47,13 +47,6 @@ PUBLIC pathing_state_t pathing_compute_walking_distances(linear_allocator_t *all
 // Point query, O(max_range) -- no allocator, no grid-wide scan.
 PUBLIC bool pathing_in_range(grid_t grid, slice_entity_t entities, position_t from, position_t to, int max_range);
 
-// True if the straight ray from `from` to `to` (`to` != `from`) is
-// unobstructed: every intermediate tile -- both endpoints excluded, so
-// neither `from`'s nor `to`'s own tile can block sight to itself -- does
-// not block sight and is unoccupied. Ignores distance entirely; pair with
-// a range check (see pathing_in_range) if that matters to the caller.
-PUBLIC bool pathing_line_of_sight_clear(grid_t grid, slice_entity_t entities, position_t from, position_t to);
-
 PUBLIC int pathing_distance_at(pathing_state_t state, grid_t grid, position_t position); // -1 if unreached OR out of bounds -- this is a defensive query (arbitrary coords from clicks later), do NOT make it panic like grid_tile_at does
 
 // The blast footprint of an AoE impact: every tile within Manhattan

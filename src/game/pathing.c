@@ -111,7 +111,7 @@ PRIVATE int pathing_manhattan_distance(position_t a, position_t b) {
 // unobstructed: every intermediate tile -- both endpoints excluded, so
 // neither `from`'s nor `to`'s own tile can block sight to itself -- does
 // not block sight and is unoccupied.
-PUBLIC bool pathing_line_of_sight_clear(grid_t grid, slice_entity_t entities, position_t from, position_t to) {
+PRIVATE bool pathing_line_of_sight_clear(grid_t grid, slice_entity_t entities, position_t from, position_t to) {
     geometry_line_iter_t it = geometry_line_iter_start(from, to);
 
     position_t tile;
