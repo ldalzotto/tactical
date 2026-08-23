@@ -142,16 +142,12 @@ PRIVATE ptrdiff_t game_scratch_push(linear_allocator_t *allocator, linear_alloca
 
 // Grows `scratch` in place if needed to fit `temp`'s dist array and copies
 // it in as `out`. Unlike game_scratch_push, does *not* pop `temp` off
-// `allocator` -- `temp` sits below a second region on `allocator`,
-// `temp_align`/`temp_tiles`, that the caller isn't ready to unwind yet
-// (e.g. a tile list built by scanning `temp`, staged above it and not yet
-// itself persisted), so `temp` isn't the topmost thing there and can't be
-// popped directly; both regions are only rebased in place when growth
-// relocates memory. Once the caller has separately persisted and popped
-// `temp_align`/`temp_tiles` (see game_scratch_push), `temp` becomes the
-// topmost thing on `allocator` and can be popped normally. Returns the
-// shift applied (0 if it already fit); callers must propagate it to
-// anything else they hold above `scratch`.
+// `allocator`: a second region (`temp_align`/`temp_tiles`, scanned out of
+// `temp`) still sits above it there and isn't ready to unwind yet, so
+// `temp` can't be popped until the caller persists and pops that region
+// itself (see game_scratch_push). Both regions are rebased in place if
+// growth relocates memory. Returns the shift applied (0 if it already fit);
+// callers must propagate it to anything else held above `scratch`.
 PRIVATE ptrdiff_t game_scratch_stage_pathing(linear_allocator_t *allocator, linear_allocator_t *scratch,
         pathing_state_t *temp,
         slice_t *temp_align, slice_position_t *temp_tiles,
@@ -175,10 +171,8 @@ PRIVATE ptrdiff_t game_scratch_stage_pathing(linear_allocator_t *allocator, line
         shift = extra;
     }
 
-    // Push data to the game scratch. The outer alignment marker absorbs the
-    // real padding, so the pathing_state_t's own internal align marker is
-    // pushed zero-length right after it (see pathing_ranges.h's doc comment
-    // on the two nested markers).
+    // Outer marker absorbs the real alignment padding, so pathing_state_t's
+    // own internal align marker is pushed zero-length right after it.
     *out_align = linear_allocator_push_alignment(scratch, _Alignof(int32_t));
     out->align = linear_allocator_push(scratch, 0);
     out->dist = LINEAR_ALLOCATOR_PUSH(scratch, out->dist, SLICE_TYPESIZE(temp->dist));
@@ -213,12 +207,11 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
     entity_t *active = turn_active_entity(game->turn);
 
     if (mode == GAME_MODE_MOVEMENT) {
-        // Computed even when active->mp <= 0 (yielding reachable_tiles
-        // empty and walking_distances holding only the mover's own tile at
-        // distance 0) rather than short-circuited, so
-        // game->pathing.walking_distances is always a validly-sized dist
-        // grid for action_try_move (F2-03) to query -- never the
-        // zero-length marker pathing_ranges_reset leaves it at.
+        // Always computed, even when active->mp <= 0 (reachable_tiles ends
+        // up empty, walking_distances holds just the mover's own tile at
+        // distance 0) so game->pathing.walking_distances is always a valid
+        // dist grid for action_try_move to query, never the empty marker
+        // pathing_ranges_reset leaves it at.
         pathing_state_t pathing = pathing_compute_walking_distances(allocator, game->grid, game->entities, active->position, active->mp);
 
         slice_t temp_align = linear_allocator_push_alignment(allocator, _Alignof(position_t));
@@ -235,10 +228,9 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
             }
         }
 
-        // Copy the BFS dist grid into game->scratch first (it must sit lower
-        // in the stack than reachable_tiles) without yet popping it off
-        // `allocator` -- temp_tiles still sits above it there. `pathing` is
-        // rebased in place by this call if growth relocates it.
+        // Copy the BFS dist grid into game->scratch first, since it must sit
+        // below reachable_tiles there; `pathing` is rebased in place if
+        // growth relocates it.
         slice_t walking_distances_align;
         pathing_state_t walking_distances;
         ptrdiff_t shift = game_scratch_stage_pathing(allocator, &game->scratch, &pathing, &temp_align, &temp_tiles, &walking_distances_align, &walking_distances);
@@ -249,10 +241,8 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
         // Reset to zero for usage sanity
         temp_align = (slice_t){0,0}; temp_tiles.slice = (slice_t){0,0};
 
-        // temp_tiles was just popped by game_scratch_push above, so
-        // `pathing`'s original allocator-resident copy is now the sole
-        // remaining -- and topmost -- thing staged there; pop it now that
-        // game->pathing.walking_distances holds the persisted copy.
+        // temp_tiles is popped, so pathing's allocator-resident copy is now
+        // topmost and safe to pop too.
         linear_allocator_pop(allocator, pathing.dist.slice);
         linear_allocator_pop(allocator, pathing.align);
 
@@ -361,13 +351,11 @@ PRIVATE ptrdiff_t game_advance_turn(game_state_t *game, linear_allocator_t *allo
 // reconciled here. Only called once the AoE precondition (player-controlled
 // active entity, GAME_MODE_ATTACK, skill.aoe_radius > 0) already holds.
 PRIVATE ptrdiff_t game_cast_attack_area(game_state_t *game, linear_allocator_t *allocator, entity_t *active, skill_t skill, position_t impact) {
-    // Reuse the staged blast preview (F2-04) when it was computed for this
-    // exact impact tile -- a hover event isn't guaranteed to have preceded
-    // this click at all, let alone at the same tile, so the tag is checked
-    // rather than trusted. Otherwise compute it fresh here, staged on
-    // `allocator` below hit_align (pushed next) so action_try_attack_area's
-    // hit list always lands directly at hit_align's aligned cursor, the top
-    // of the allocator, regardless of which path was taken.
+    // Reuse the staged blast preview if it was computed for this exact
+    // impact tile (a hover isn't guaranteed to precede this click at the
+    // same tile, so this is checked, not assumed). Otherwise compute it
+    // fresh here, below hit_align (pushed next), so action_try_attack_area's
+    // hit list always lands at the top of the allocator either way.
     bool cached_blast_valid = game->pathing.blast_preview_valid
         && position_equals(game->pathing.blast_preview_impact, impact);
     slice_t blast_align = { 0 };

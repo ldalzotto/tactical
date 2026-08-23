@@ -194,12 +194,10 @@ PRIVATE void test_game_tile_pressed_noops_on_unreachable_tile(linear_allocator_t
     game_deinit(allocator, game);
 }
 
-// Builds a fresh 4x4-grid, single-player scenario -- entity at (0,0), hp
-// 10, ap 2, mp 2, one skill -- for
-// test_game_reachable_tiles_match_what_action_try_move_accepts below, which
-// needs a new game instance per target tile (each click consumes mp and
-// moves the entity, so reusing one instance across targets would mean
-// later targets aren't reachable from the original position/mp anymore).
+// Fresh 4x4-grid, single-player scenario for
+// test_game_reachable_tiles_match_what_action_try_move_accepts, which needs
+// a new instance per target tile since each click consumes mp and moves
+// the entity.
 PRIVATE game_state_t test_e2e_movement_scenario(linear_allocator_t *allocator, entity_t **out_p) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 4);
@@ -221,12 +219,9 @@ PRIVATE game_state_t test_e2e_movement_scenario(linear_allocator_t *allocator, e
     return game;
 }
 
-// F2-05: end-to-end proof that game.pathing.reachable_tiles (what the
-// overlay shows) and action_try_move (what execution accepts) agree,
-// reading the literal same cached walking_distances -- for every tile the
-// overlay marks reachable, actually clicking it through the full input
-// path succeeds and deducts exactly the mp the cache reports for that
-// tile, never a different, independently-computed value.
+// End-to-end: reachable_tiles (what the overlay shows) and action_try_move
+// (what execution accepts) agree -- every tile the overlay marks reachable
+// can actually be clicked, and deducts exactly the mp the cache reports.
 PRIVATE void test_game_reachable_tiles_match_what_action_try_move_accepts(linear_allocator_t *allocator) {
     entity_t *p;
     game_state_t game = test_e2e_movement_scenario(allocator, &p);

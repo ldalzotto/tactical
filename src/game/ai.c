@@ -98,11 +98,8 @@ PRIVATE void ai_step_toward(linear_allocator_t *allocator, grid_t grid, slice_en
     // is always true here.
     assert_debug(found);
 
-    // action_try_move (F2-03) takes its distance grid from the caller
-    // instead of computing it -- unlike game.c's player-move path, there's
-    // no long-lived cache to reuse here (a different entity, a different
-    // turn), so this mirrors what action_try_move used to do internally:
-    // a fresh BFS rooted at the mover, capped at its own mp.
+    // action_try_move takes its distance grid from the caller now, so
+    // build it here: a fresh BFS rooted at the mover, capped at its own mp.
     pathing_state_t move_distances = pathing_compute_walking_distances(allocator, grid, entities, enemy->position, enemy->mp);
     action_try_move(move_distances, grid, enemy, best_position);
     pathing_deinit(allocator, move_distances);
@@ -170,12 +167,9 @@ PUBLIC entity_t* ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, 
         return 0;
     }
 
-    // ai_best_in_range_skill already confirmed target is in attack_skill's
-    // range via skill_can_target -- action_try_attack (F2) no longer
-    // computes that itself, so hand it a single-tile range set for the
-    // position already known to qualify, the same way action_try_move
-    // builds its own BFS here instead of reusing a long-lived cache (see
-    // ai_step_toward).
+    // ai_best_in_range_skill already confirmed target is in range via
+    // skill_can_target; action_try_attack no longer checks range itself, so
+    // hand it a single-tile range set for the position already known to qualify.
     position_t attack_range_tile[1] = { target->position };
     slice_position_t attack_range_tiles = {
         .begin = attack_range_tile,

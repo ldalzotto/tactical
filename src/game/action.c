@@ -66,14 +66,10 @@ PUBLIC bool action_try_attack_area(linear_allocator_t *allocator, slice_entity_t
 
     attacker->ap -= skill.ap_cost;
 
-    // Caller must have `allocator`'s cursor aligned to _Alignof(entity_ptr_t)
-    // before calling, with `blast_tiles` already staged below that cursor
-    // (this function does not self-align, and never touches blast_tiles'
-    // placement -- see game_cast_attack_area, which computes it beneath
-    // hit_align whether reused from cache or freshly computed) -- matching
-    // this codebase's push-align-then-push convention for every other typed
-    // list (see entity_list_align et al.). hit is pushed directly at that
-    // aligned cursor and grown one entity_ptr_t at a time.
+    // Caller must have `allocator`'s cursor pre-aligned to
+    // _Alignof(entity_ptr_t) with `blast_tiles` already staged below it --
+    // this function does not self-align (see entity_list_align et al. for
+    // the push-align-then-push convention).
     slice_entity_ptr_t hit;
     hit = LINEAR_ALLOCATOR_PUSH(allocator, hit, 0);
 

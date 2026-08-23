@@ -2,11 +2,10 @@
 
 #include "../lib/assert.h"
 
-// reachable_tiles must always sit after walking_distances, attack_range_tiles
-// must always sit after reachable_tiles, and blast_preview_tiles must always
-// sit after attack_range_tiles, in scratch. Every mutator below re-checks
-// this before returning, so a stray reorder trips an assert instead of
-// silently corrupting another region.
+// Enforces the region stacking order in scratch (walking_distances <
+// reachable_tiles < attack_range_tiles < blast_preview_tiles). Every mutator
+// below calls this before returning, so a reorder bug trips an assert
+// instead of silently corrupting another region.
 PRIVATE void pathing_ranges_assert_layout(pathing_ranges_t ranges) {
     assert_debug(ranges.reachable_align.begin >= ranges.walking_distances.dist.slice.end);
     assert_debug((void*)ranges.reachable_tiles.begin >= ranges.walking_distances.dist.slice.end);
