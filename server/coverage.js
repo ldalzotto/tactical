@@ -72,6 +72,7 @@ async function main() {
     });
     if (total > 0) {
         console.log(`\n=== Uncovered code (${total} gaps) ===\n`);
+        console.log(`Only update tests to fix the gaps. If you can't find a solution, stop and ask the user.\n`)
         process.stdout.write(diagnostics.join('\n') + '\n');
         process.exitCode = 1;
         return;
