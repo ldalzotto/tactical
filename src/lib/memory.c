@@ -78,20 +78,6 @@ PUBLIC void linear_allocator_copy(linear_allocator_t *allocator, slice_t from, s
     __builtin_memcpy(to.begin, from.begin, (size_t)bytesize(to.begin, to.end));
 }
 
-// linear_allocator_pop_move: compacts by moving `from` (top of the live
-// region) down onto `to`, then pops. Use to discard scratch space between
-// a result and the cursor once the result's final size is known.
-PUBLIC slice_t linear_allocator_pop_move(linear_allocator_t *allocator, slice_t from, void *to) {
-    assert_debug(from.end == allocator->cursor);
-    size_t size = (size_t)bytesize(from.begin, from.end);
-    void *to_end = byteoffset(to, (ptrdiff_t)size);
-    assert_debug(to_end <= from.begin);
-    __builtin_memmove(to, from.begin, size);
-    allocator->cursor = to_end;
-    slice_t result = { to, to_end };
-    return result;
-}
-
 PUBLIC void *slice_at(slice_t s, size_t index, size_t alignment) {
     assert_debug((alignment & (alignment - 1)) == 0);
     void *result = byteoffset(s.begin, (ptrdiff_t)index);
