@@ -111,7 +111,7 @@ PRIVATE int pathing_manhattan_distance(position_t a, position_t b) {
 // unobstructed: every intermediate tile -- both endpoints excluded, so
 // neither `from`'s nor `to`'s own tile can block sight to itself -- does
 // not block sight and is unoccupied.
-PUBLIC bool pathing_line_of_sight_clear(grid_t grid, slice_entity_t entities, position_t from, position_t to) {
+PRIVATE bool pathing_line_of_sight_clear(grid_t grid, slice_entity_t entities, position_t from, position_t to) {
     geometry_line_iter_t it = geometry_line_iter_start(from, to);
 
     position_t tile;
@@ -139,4 +139,25 @@ PUBLIC bool pathing_in_range(grid_t grid, slice_entity_t entities, position_t fr
 PUBLIC int pathing_distance_at(pathing_state_t state, grid_t grid, position_t position) {
     assert_debug(grid_in_bounds(grid, position));
     return SLICE_AT(state.dist, position.y * grid.width + position.x);
+}
+
+PUBLIC slice_position_t pathing_compute_blast_tiles(linear_allocator_t *allocator, grid_t grid, position_t center, int radius) {
+    slice_position_t tiles;
+    tiles = LINEAR_ALLOCATOR_PUSH(allocator, tiles, 0);
+
+    for (int ty = 0; ty < grid.height; ty++) {
+        for (int tx = 0; tx < grid.width; tx++) {
+            position_t position = { tx, ty };
+
+            if (pathing_manhattan_distance(center, position) > radius) {
+                continue;
+            }
+
+            slice_position_t entry = LINEAR_ALLOCATOR_PUSH(allocator, tiles, 1);
+            SLICE_DEREF(entry) = position;
+            tiles.end = entry.end;
+        }
+    }
+
+    return tiles;
 }

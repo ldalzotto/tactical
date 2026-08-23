@@ -15,13 +15,8 @@ PUBLIC void turn_order_deinit(linear_allocator_t *allocator, slice_entity_ptr_t 
 PUBLIC void turn_order_add(linear_allocator_t *allocator, slice_entity_ptr_t *order, entity_t *entity) {
     // Same append-in-place discipline as entity_spawn: only allowed right
     // after the previous add, with nothing else pushed in between.
-    assert_debug(allocator->cursor == order->end);
-
-    slice_entity_ptr_t entry;
-    entry = LINEAR_ALLOCATOR_PUSH(allocator, entry, 1);
+    slice_entity_ptr_t entry = LINEAR_ALLOCATOR_PUSH_GROW(allocator, order, 1);
     SLICE_DEREF(entry) = entity;
-
-    order->end = entry.end;
 }
 
 PRIVATE void turn_reset_points(entity_t *entity) {
@@ -47,23 +42,35 @@ PUBLIC turn_state_t turn_advance(turn_state_t state) {
     return state;
 }
 
-PUBLIC turn_state_t turn_remove_dead_entity(turn_state_t state, entity_t *dead) {
+PUBLIC turn_state_t turn_remove_dead_entities(turn_state_t state, slice_entity_ptr_t dead) {
     assert_debug(SLICE_TYPESIZE(state.order) > 0);
-    assert_debug(!dead->alive);
-    // The active entity can't die today: action_try_attack rejects
-    // same-team targets and is the only caller of entity_damage, so nothing
-    // can damage whoever is currently acting. This is unreachable -- and
-    // untestable through the game API -- until something (e.g. AoE damage)
-    // changes that.
+
+    // The active entity can never die: action_try_attack and
+    // action_try_attack_area both reject same-team damage, and the
+    // currently-active entity is always on the attacker's own team (it's
+    // the one doing the attacking), so it can never appear in `dead` --
+    // including from its own AoE blast.
     entity_t *active = turn_active_entity(state);
-    assert_debug(dead != active);
+    for ( SLICE_FOREACH(dead, dead_s) ) {
+        entity_t *d = SLICE_DEREF(dead_s);
+        assert_debug(!d->alive);
+        assert_debug(d != active);
+    }
 
     slice_entity_ptr_t write = state.order;
     int new_cursor = state.cursor;
     for ( SLICE_FOREACH(state.order, read) ) {
         entity_t *entity = SLICE_DEREF(read);
 
-        if (entity != dead) {
+        bool is_dead = false;
+        for ( SLICE_FOREACH(dead, dead_s) ) {
+            if (SLICE_DEREF(dead_s) == entity) {
+                is_dead = true;
+                break;
+            }
+        }
+
+        if (!is_dead) {
             if (entity == active) {
                 new_cursor = (int)typesize(state.order.begin, write.begin);
             }
@@ -73,8 +80,9 @@ PUBLIC turn_state_t turn_remove_dead_entity(turn_state_t state, entity_t *dead) 
     }
     state.order.end = write.begin;
 
-    // Every entity left in the order must still be alive: callers are
-    // expected to reconcile one death at a time.
+    // The whole casualty batch is reconciled in this single call, so unlike
+    // the old per-casualty calling convention, every entity left in the
+    // order is guaranteed to still be alive once this returns.
     for ( SLICE_FOREACH(state.order, remaining) ) {
         assert_debug(SLICE_DEREF(remaining)->alive);
     }

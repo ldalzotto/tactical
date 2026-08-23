@@ -8,6 +8,7 @@
 #include "test_layout.h"
 #include "test_game_movement.h"
 #include "test_game_combat.h"
+#include "test_game_aoe.h"
 #include "test_game_ai.h"
 #include "test_game_selection.h"
 #include "test_scenario.h"
@@ -40,6 +41,9 @@ PRIVATE const test_case_t *test_lookup(uint32_t index) {
 
     if (index < g_game_combat_tests_count) { return &g_game_combat_tests[index]; }
     index -= g_game_combat_tests_count;
+
+    if (index < g_game_aoe_tests_count) { return &g_game_aoe_tests[index]; }
+    index -= g_game_aoe_tests_count;
 
     if (index < g_game_ai_tests_count) { return &g_game_ai_tests[index]; }
     index -= g_game_ai_tests_count;
@@ -83,6 +87,7 @@ uint32_t test_discovery_count(void) {
         + g_layout_tests_count
         + g_game_movement_tests_count
         + g_game_combat_tests_count
+        + g_game_aoe_tests_count
         + g_game_ai_tests_count
         + g_game_selection_tests_count
         + g_scenario_tests_count

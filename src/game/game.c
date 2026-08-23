@@ -5,6 +5,7 @@
 #include "ai.h"
 #include "pathing.h"
 #include "render_cache.h"
+#include "skill.h"
 
 PRIVATE void game_check_game_over(game_state_t *game) {
     assert_debug(game->game_over == GAME_OVER_NONE);
@@ -34,6 +35,8 @@ PUBLIC game_state_t game_init(linear_allocator_t *allocator, slice_t grid_align,
     slice_position_t reachable_tiles = LINEAR_ALLOCATOR_PUSH(&scratch, reachable_tiles, 0);
     slice_t attack_range_align = linear_allocator_push(&scratch, 0);
     slice_position_t attack_range_tiles = LINEAR_ALLOCATOR_PUSH(&scratch, attack_range_tiles, 0);
+    slice_t blast_preview_align = linear_allocator_push(&scratch, 0);
+    slice_position_t blast_preview_tiles = LINEAR_ALLOCATOR_PUSH(&scratch, blast_preview_tiles, 0);
 
     game_state_t game = {
         .grid_align = grid_align,
@@ -56,12 +59,16 @@ PUBLIC game_state_t game_init(linear_allocator_t *allocator, slice_t grid_align,
             .reachable_tiles = reachable_tiles,
             .attack_range_align = attack_range_align,
             .attack_range_tiles = attack_range_tiles,
+            .blast_preview_align = blast_preview_align,
+            .blast_preview_tiles = blast_preview_tiles,
         },
     };
     return game;
 }
 
 PUBLIC void game_deinit(linear_allocator_t *allocator, game_state_t state) {
+    LINEAR_ALLOCATOR_POP(&state.scratch, state.render.blast_preview_tiles);
+    linear_allocator_pop(&state.scratch, state.render.blast_preview_align);
     LINEAR_ALLOCATOR_POP(&state.scratch, state.render.attack_range_tiles);
     linear_allocator_pop(&state.scratch, state.render.attack_range_align);
     LINEAR_ALLOCATOR_POP(&state.scratch, state.render.reachable_tiles);
@@ -213,10 +220,30 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
         // Reset to zero for usage sanity
         temp_align = (slice_t){0,0}; temp_tiles.slice = (slice_t){0,0};
 
-        render_cache_set_attack_range(&game->render, attack_range_align, attack_range_tiles);
+        render_cache_set_attack_range(&game->scratch, &game->render, attack_range_align, attack_range_tiles);
 
         return shift;
     }
+}
+
+// Computes the blast footprint centered on `impact` and stages it into
+// `scratch` as the new blast_preview_tiles (see game_scratch_push and
+// render_cache_set_blast_preview). Takes only the primitives it needs
+// rather than game_state_t -- callers decide eligibility (mode, hover
+// validity, selected skill) themselves before calling this.
+PRIVATE ptrdiff_t game_stage_blast_preview(linear_allocator_t *allocator, linear_allocator_t *scratch, render_cache_t *render, grid_t grid, position_t impact, int aoe_radius) {
+    slice_t temp_align = linear_allocator_push_alignment(allocator, _Alignof(position_t));
+    slice_position_t temp_tiles = pathing_compute_blast_tiles(allocator, grid, impact, aoe_radius);
+
+    slice_t blast_preview_align;
+    slice_position_t blast_preview_tiles;
+    ptrdiff_t shift = game_scratch_push(allocator, scratch, 0, temp_align, temp_tiles, &blast_preview_align, &blast_preview_tiles);
+    // Reset to zero for usage sanity
+    temp_align = (slice_t){0,0}; temp_tiles.slice = (slice_t){0,0};
+
+    render_cache_set_blast_preview(scratch, render, blast_preview_align, blast_preview_tiles);
+
+    return shift;
 }
 
 // Advances the cursor past the entity that just finished acting, then lets
@@ -233,7 +260,15 @@ PRIVATE ptrdiff_t game_advance_turn(game_state_t *game, linear_allocator_t *allo
         if (attacked != 0) {
             // If the entity just died, we remove dead entities
             if (!attacked->alive) {
-                game->turn = turn_remove_dead_entity(game->turn, attacked);
+                slice_t dead_align = linear_allocator_push_alignment(allocator, _Alignof(entity_ptr_t));
+                slice_entity_ptr_t dead;
+                dead = LINEAR_ALLOCATOR_PUSH(allocator, dead, 1);
+                SLICE_DEREF(dead) = attacked;
+
+                game->turn = turn_remove_dead_entities(game->turn, dead);
+
+                linear_allocator_pop(allocator, dead.slice);
+                linear_allocator_pop(allocator, dead_align);
             }
             game_check_game_over(game);
         }
@@ -243,6 +278,47 @@ PRIVATE ptrdiff_t game_advance_turn(game_state_t *game, linear_allocator_t *allo
     }
 
     return shift;
+}
+
+// Casts an AoE skill centered on `impact` via action_try_attack_area, then
+// reconciles turn order for every casualty (removing each dead entity from
+// game->turn) and checks game over exactly once (not per-casualty --
+// game_check_game_over asserts game->game_over == GAME_OVER_NONE on entry).
+// active->team can never appear in out_hit (action_try_attack_area excludes
+// same-team damage), so the active entity is never among the casualties
+// reconciled here. Only called once the AoE precondition (player-controlled
+// active entity, GAME_MODE_ATTACK, skill.aoe_radius > 0) already holds.
+PRIVATE ptrdiff_t game_cast_attack_area(game_state_t *game, linear_allocator_t *allocator, entity_t *active, skill_t skill, position_t impact) {
+    // action_try_attack_area requires allocator's cursor pre-aligned to
+    // _Alignof(entity_ptr_t) (it does not self-align -- see its doc
+    // comment); paired with the pop below so this fully unwinds either way.
+    slice_t hit_align = linear_allocator_push_alignment(allocator, _Alignof(entity_ptr_t));
+
+    slice_entity_ptr_t out_hit;
+    if (!action_try_attack_area(allocator, game->grid, game->entities, active, skill, impact, &out_hit)) {
+        linear_allocator_pop(allocator, hit_align);
+        return 0;
+    }
+
+    // dead sits directly above out_hit, both entity_ptr_t lists, so it's
+    // already aligned -- no extra alignment push needed here.
+    slice_entity_ptr_t dead;
+    dead = LINEAR_ALLOCATOR_PUSH(allocator, dead, 0);
+    for (SLICE_FOREACH(out_hit, hit_s)) {
+        entity_t *hit = SLICE_DEREF(hit_s);
+        if (!hit->alive) {
+            slice_entity_ptr_t entry = LINEAR_ALLOCATOR_PUSH_GROW(allocator, &dead, 1);
+            SLICE_DEREF(entry) = hit;
+        }
+    }
+    game->turn = turn_remove_dead_entities(game->turn, dead);
+    game_check_game_over(game);
+
+    linear_allocator_pop(allocator, dead.slice);
+    linear_allocator_pop(allocator, out_hit.slice);
+    linear_allocator_pop(allocator, hit_align);
+
+    return game_set_mode(game, allocator, GAME_MODE_MOVEMENT);
 }
 
 PRIVATE ptrdiff_t game_on_entity_pressed(game_state_t *game, linear_allocator_t *allocator, entity_t* entity) {
@@ -264,10 +340,23 @@ PRIVATE ptrdiff_t game_on_entity_pressed(game_state_t *game, linear_allocator_t 
         return 0;
     }
 
-    if (action_try_attack(game->grid, game->entities, active, SLICE_AT(active->skills, game->selected_skill), entity)) {
+    skill_t skill = SLICE_AT(active->skills, game->selected_skill);
+    if (skill_is_aoe(skill)) {
+        return game_cast_attack_area(game, allocator, active, skill, entity->position);
+    }
+
+    if (action_try_attack(game->grid, game->entities, active, skill, entity)) {
         // If the entity just died, we remove dead entities
         if (!entity->alive) {
-            game->turn = turn_remove_dead_entity(game->turn, entity);
+            slice_t dead_align = linear_allocator_push_alignment(allocator, _Alignof(entity_ptr_t));
+            slice_entity_ptr_t dead;
+            dead = LINEAR_ALLOCATOR_PUSH(allocator, dead, 1);
+            SLICE_DEREF(dead) = entity;
+
+            game->turn = turn_remove_dead_entities(game->turn, dead);
+
+            linear_allocator_pop(allocator, dead.slice);
+            linear_allocator_pop(allocator, dead_align);
         }
         game_check_game_over(game);
         return game_set_mode(game, allocator, GAME_MODE_MOVEMENT);
@@ -282,14 +371,27 @@ PRIVATE ptrdiff_t game_on_tile_pressed(game_state_t *game, linear_allocator_t *a
     if (active->team != ENTITY_TEAM_PLAYER) {
         return 0;
     }
+
+    if (game->mode == GAME_MODE_ATTACK) {
+        // AoE skills are cast by clicking any in-range tile (empty or
+        // occupied); non-AoE skills keep the entity-only-click behavior
+        // above and just no-op on a tile press in attack mode.
+        skill_t skill = SLICE_AT(active->skills, game->selected_skill);
+        if (skill_is_aoe(skill)) {
+            return game_cast_attack_area(game, allocator, active, skill, target);
+        }
+        return 0;
+    }
+
     if (game->mode != GAME_MODE_MOVEMENT) {
         return 0;
     }
 
     // The caller (game_on_input_event) already routed occupied tiles to
     // game_on_entity_pressed; reaching here with an entity on `target` would
-    // be a dispatch bug, so assert the invariant instead of silently
-    // no-oping on a tile the player can't actually select.
+    // be a dispatch bug in the movement path (the AoE path above legally
+    // allows an occupied impact tile), so assert the invariant instead of
+    // silently no-oping on a tile the player can't actually select.
     assert_debug(entity_find_at(game->entities, target) == 0);
 
     if (action_try_move(allocator, game->grid, game->entities, active, target)) {
@@ -329,7 +431,18 @@ PRIVATE ptrdiff_t game_on_skill_button_pressed(game_state_t *game, linear_alloca
     assert_debug(index < entity_skill_count(active));
 
     game->selected_skill = index;
-    return game_set_mode(game, allocator, game->mode);
+    ptrdiff_t shift = game_set_mode(game, allocator, game->mode);
+
+    // Refresh the preview at the current hover tile for the newly selected
+    // skill, without requiring the mouse to move -- game_set_mode itself
+    // only clears blast_preview_tiles, it doesn't recompute it.
+    skill_t skill = SLICE_AT(active->skills, index);
+    render_cache_clear_blast_preview(&game->scratch, &game->render);
+    if (game->mode == GAME_MODE_ATTACK && game->hover_valid && skill_is_aoe(skill)
+            && skill_area_in_range(game->grid, game->entities, active, skill, game->hover)) {
+        shift += game_stage_blast_preview(allocator, &game->scratch, &game->render, game->grid, game->hover, skill.aoe_radius);
+    }
+    return shift;
 }
 
 PRIVATE ptrdiff_t game_on_end_turn_pressed(game_state_t *game, linear_allocator_t *allocator) {
@@ -393,6 +506,23 @@ PUBLIC ptrdiff_t game_on_input_event(game_state_t *game, linear_allocator_t *all
             game->hover = (position_t){ tx, ty };
         }
 
+        // mode can only be GAME_MODE_ATTACK when the active entity is
+        // player-controlled: game_on_attack_toggle_pressed and
+        // game_on_skill_button_pressed (game_set_mode's only two callers that
+        // can leave mode at ATTACK) both gate on active->team ==
+        // ENTITY_TEAM_PLAYER before ever calling it with ATTACK. Asserted
+        // rather than re-checked here since MOUSE_MOVE (unlike those two)
+        // fires regardless of whose turn it is.
+        render_cache_clear_blast_preview(&game->scratch, &game->render);
+        if (game->mode == GAME_MODE_ATTACK) {
+            entity_t *active = turn_active_entity(game->turn);
+            skill_t skill = SLICE_AT(active->skills, game->selected_skill);
+            assert_debug(active->team == ENTITY_TEAM_PLAYER);
+            if (game->hover_valid && skill_is_aoe(skill)
+                    && skill_area_in_range(game->grid, game->entities, active, skill, game->hover)) {
+                return game_stage_blast_preview(allocator, &game->scratch, &game->render, game->grid, game->hover, skill.aoe_radius);
+            }
+        }
         return 0;
     }
 }
