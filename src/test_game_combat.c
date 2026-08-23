@@ -312,8 +312,8 @@ PRIVATE void test_game_ranged_attack_blocked_by_enemy_in_path(linear_allocator_t
     // (distance 2, within SKILL_RANGED.range=3), but it occludes everything
     // behind it, so e never appears in attack_range_tiles and an attack on
     // e is illegal.
-    assert_test(test_tile_list_contains(game.render.attack_range_tiles, blocker->position));
-    assert_test(!test_tile_list_contains(game.render.attack_range_tiles, e->position));
+    assert_test(test_tile_list_contains(game.pathing.attack_range_tiles, blocker->position));
+    assert_test(!test_tile_list_contains(game.pathing.attack_range_tiles, e->position));
     test_click_tile(&game, allocator, e->position);
 
     assert_test(e->hp == 10);
@@ -359,7 +359,7 @@ PRIVATE void test_game_ranged_attack_still_blocked_by_ally_in_path(linear_alloca
 
     // e is within range (3), but ally occupies the only tile on the
     // straight-line path: still unreachable, since allies aren't passable.
-    assert_test(!test_tile_list_contains(game.render.attack_range_tiles, e->position));
+    assert_test(!test_tile_list_contains(game.pathing.attack_range_tiles, e->position));
     test_click_tile(&game, allocator, e->position);
 
     assert_test(e->hp == 10);
@@ -401,14 +401,14 @@ PRIVATE void test_game_attack_range_tiles_include_occupied_but_not_beyond(linear
 
     // enemy_at_range_2's own tile (distance 2, within SKILL_RANGED.range=3):
     // reachable-for-targeting even though it's occupied.
-    assert_test(test_tile_list_contains(game.render.attack_range_tiles, enemy_at_range_2->position));
+    assert_test(test_tile_list_contains(game.pathing.attack_range_tiles, enemy_at_range_2->position));
     // (3, 0): occluded by enemy_at_range_2, the only tile on the
     // straight-line path (height-1 grid, no way around) -- never enters
     // attack_range_tiles, in range or not.
-    assert_test(!test_tile_list_contains(game.render.attack_range_tiles, (position_t){3, 0}));
+    assert_test(!test_tile_list_contains(game.pathing.attack_range_tiles, (position_t){3, 0}));
     // (4, 0): also occluded, and would be out of range (distance 4 > 3) even
     // if it weren't.
-    assert_test(!test_tile_list_contains(game.render.attack_range_tiles, (position_t){4, 0}));
+    assert_test(!test_tile_list_contains(game.pathing.attack_range_tiles, (position_t){4, 0}));
 
     game_deinit(allocator, game);
 }
@@ -451,7 +451,7 @@ PRIVATE void test_game_ranged_attack_blocked_by_wall_on_diagonal_line(linear_all
     test_click_tile(&game, allocator, p->position);
     test_click_attack_toggle(&game, allocator);
 
-    assert_test(!test_tile_list_contains(game.render.attack_range_tiles, e->position));
+    assert_test(!test_tile_list_contains(game.pathing.attack_range_tiles, e->position));
     test_click_tile(&game, allocator, e->position);
 
     assert_test(e->hp == 10);
@@ -496,7 +496,7 @@ PRIVATE void test_game_ranged_attack_not_blocked_by_non_walkable_sight_clear_til
     // e is at Manhattan distance 2 (within SKILL_RANGED.range=3), and the
     // straight ray crosses only (1,1), which is non-walkable but not
     // sight-blocking -- e stays a legal target.
-    assert_test(test_tile_list_contains(game.render.attack_range_tiles, e->position));
+    assert_test(test_tile_list_contains(game.pathing.attack_range_tiles, e->position));
     test_click_tile(&game, allocator, e->position);
 
     assert_test(e->hp == 10 - SKILL_RANGED.damage);
@@ -542,8 +542,8 @@ PRIVATE void test_game_attack_range_manhattan_boundary(linear_allocator_t *alloc
     test_click_tile(&game, allocator, p->position);
     test_click_attack_toggle(&game, allocator);
 
-    assert_test(test_tile_list_contains(game.render.attack_range_tiles, in_range->position));
-    assert_test(!test_tile_list_contains(game.render.attack_range_tiles, out_of_range->position));
+    assert_test(test_tile_list_contains(game.pathing.attack_range_tiles, in_range->position));
+    assert_test(!test_tile_list_contains(game.pathing.attack_range_tiles, out_of_range->position));
 
     test_click_tile(&game, allocator, out_of_range->position);
     assert_test(out_of_range->hp == 10);
@@ -579,8 +579,8 @@ PRIVATE void test_game_attack_toggle_after_move_selection_does_not_overflow_scra
     // Selecting first populates render.reachable_tiles (mp=3, a ~24-tile
     // diamond) in game->scratch.
     test_click_tile(&game, allocator, p->position);
-    assert_test(SLICE_TYPESIZE(game.render.reachable_tiles) > 0);
-    assert_test(SLICE_TYPESIZE(game.render.attack_range_tiles) == 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.reachable_tiles) > 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.attack_range_tiles) == 0);
 
     // Toggling attack mode next computes a same-sized attack_range_tiles
     // diamond (skill.range=3). reachable_tiles and attack_range_tiles are
@@ -591,14 +591,14 @@ PRIVATE void test_game_attack_toggle_after_move_selection_does_not_overflow_scra
     assert_test(!expect_panic_end());
 
     assert_test(game.mode == GAME_MODE_ATTACK);
-    assert_test(SLICE_TYPESIZE(game.render.attack_range_tiles) > 0);
-    assert_test(SLICE_TYPESIZE(game.render.reachable_tiles) == 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.attack_range_tiles) > 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.reachable_tiles) == 0);
 
     // Toggling back off restores reachable_tiles and nullifies attack_range_tiles.
     test_click_attack_toggle(&game, allocator);
     assert_test(game.mode == GAME_MODE_MOVEMENT);
-    assert_test(SLICE_TYPESIZE(game.render.reachable_tiles) > 0);
-    assert_test(SLICE_TYPESIZE(game.render.attack_range_tiles) == 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.reachable_tiles) > 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.attack_range_tiles) == 0);
 
     game_deinit(allocator, game);
 }
@@ -633,7 +633,7 @@ PRIVATE void test_game_attack_toggle_with_large_range_skill_grows_scratch(linear
     assert_test(game.mode == GAME_MODE_ATTACK);
     // Old capacity was 256 bytes / sizeof(position_t) == 32 tiles; a
     // range-20 diamond on a 16x10 grid comfortably exceeds that.
-    assert_test(SLICE_TYPESIZE(game.render.attack_range_tiles) > 32);
+    assert_test(SLICE_TYPESIZE(game.pathing.attack_range_tiles) > 32);
 
     game_deinit(allocator, game);
 }
@@ -664,16 +664,16 @@ PRIVATE void test_game_selecting_shows_reachable_tiles_and_toggle_shows_attack_r
     // Pressing the entity selects it: reachable tiles (move range) become
     // visible, attack range tiles stay hidden.
     test_click_tile(&game, allocator, p->position);
-    assert_test(test_tile_list_contains(game.render.reachable_tiles, adjacent_tile));
-    assert_test(!test_tile_list_contains(game.render.reachable_tiles, far_tile));
-    assert_test(SLICE_TYPESIZE(game.render.attack_range_tiles) == 0);
+    assert_test(test_tile_list_contains(game.pathing.reachable_tiles, adjacent_tile));
+    assert_test(!test_tile_list_contains(game.pathing.reachable_tiles, far_tile));
+    assert_test(SLICE_TYPESIZE(game.pathing.attack_range_tiles) == 0);
 
     // Pressing the attack toggle flips visibility: attack range tiles (skill
     // range) become visible, reachable tiles are hidden.
     test_click_attack_toggle(&game, allocator);
-    assert_test(test_tile_list_contains(game.render.attack_range_tiles, adjacent_tile));
-    assert_test(test_tile_list_contains(game.render.attack_range_tiles, far_tile));
-    assert_test(SLICE_TYPESIZE(game.render.reachable_tiles) == 0);
+    assert_test(test_tile_list_contains(game.pathing.attack_range_tiles, adjacent_tile));
+    assert_test(test_tile_list_contains(game.pathing.attack_range_tiles, far_tile));
+    assert_test(SLICE_TYPESIZE(game.pathing.reachable_tiles) == 0);
 
     game_deinit(allocator, game);
 }
@@ -705,15 +705,15 @@ PRIVATE void test_game_skill_button_switches_attack_range_to_selected_skill(line
     // skills[0] (SKILL_MELEE, range 1) is selected by default: only the
     // adjacent tile is in range, not the far one.
     assert_test(game.selected_skill == 0);
-    assert_test(test_tile_list_contains(game.render.attack_range_tiles, (position_t){1, 0}));
-    assert_test(!test_tile_list_contains(game.render.attack_range_tiles, (position_t){3, 0}));
+    assert_test(test_tile_list_contains(game.pathing.attack_range_tiles, (position_t){1, 0}));
+    assert_test(!test_tile_list_contains(game.pathing.attack_range_tiles, (position_t){3, 0}));
 
     test_click_skill_button(&game, allocator, 1);
 
     // skills[1] (SKILL_RANGED, range 3) now selected: range extends.
     assert_test(game.selected_skill == 1);
-    assert_test(test_tile_list_contains(game.render.attack_range_tiles, (position_t){1, 0}));
-    assert_test(test_tile_list_contains(game.render.attack_range_tiles, (position_t){3, 0}));
+    assert_test(test_tile_list_contains(game.pathing.attack_range_tiles, (position_t){1, 0}));
+    assert_test(test_tile_list_contains(game.pathing.attack_range_tiles, (position_t){3, 0}));
 
     game_deinit(allocator, game);
 }
@@ -925,7 +925,7 @@ PRIVATE void test_game_attack_mode_tile_click_does_not_move(linear_allocator_t *
     // (2, 0): within mp (3) move range, but outside SKILL_MELEE's range-1
     // attack overlay -- exactly the tile that used to silently move the
     // entity and drop it out of attack mode.
-    assert_test(!test_tile_list_contains(game.render.attack_range_tiles, (position_t){2, 0}));
+    assert_test(!test_tile_list_contains(game.pathing.attack_range_tiles, (position_t){2, 0}));
     test_click_tile(&game, allocator, (position_t){2, 0});
     assert_test(p->position.x == 0);
     assert_test(p->position.y == 0);
@@ -934,7 +934,7 @@ PRIVATE void test_game_attack_mode_tile_click_does_not_move(linear_allocator_t *
 
     // (1, 0): inside the attack overlay itself, and empty (no entity there).
     // Still not a valid attack target, so it must no-op the same way.
-    assert_test(test_tile_list_contains(game.render.attack_range_tiles, (position_t){1, 0}));
+    assert_test(test_tile_list_contains(game.pathing.attack_range_tiles, (position_t){1, 0}));
     test_click_tile(&game, allocator, (position_t){1, 0});
     assert_test(p->position.x == 0);
     assert_test(p->position.y == 0);

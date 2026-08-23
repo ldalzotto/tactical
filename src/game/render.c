@@ -86,7 +86,7 @@ PRIVATE void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
         }
     }
 
-    for (SLICE_FOREACH(game.render.reachable_tiles, tile_s)) {
+    for (SLICE_FOREACH(game.pathing.reachable_tiles, tile_s)) {
         position_t tile = SLICE_DEREF(tile_s);
         int px, py;
         grid_to_screen(game.viewport, tile.x, tile.y, &px, &py);
@@ -95,7 +95,7 @@ PRIVATE void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
     }
 
     entity_t *attacker = turn_active_entity(game.turn);
-    for (SLICE_FOREACH(game.render.attack_range_tiles, tile_s)) {
+    for (SLICE_FOREACH(game.pathing.attack_range_tiles, tile_s)) {
         position_t tile = SLICE_DEREF(tile_s);
         int px, py;
         grid_to_screen(game.viewport, tile.x, tile.y, &px, &py);
@@ -114,9 +114,9 @@ PRIVATE void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
     }
 
     // Drawn after attack_range_tiles so the blast preview layers on top of
-    // it (render_cache_t's blast_preview_tiles is independent of, and
+    // it (pathing_cache_t's blast_preview_tiles is independent of, and
     // coexists with, attack_range_tiles -- see F1-05).
-    for (SLICE_FOREACH(game.render.blast_preview_tiles, tile_s)) {
+    for (SLICE_FOREACH(game.pathing.blast_preview_tiles, tile_s)) {
         position_t tile = SLICE_DEREF(tile_s);
         int px, py;
         grid_to_screen(game.viewport, tile.x, tile.y, &px, &py);

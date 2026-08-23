@@ -271,7 +271,7 @@ PRIVATE void test_render_blast_preview_tile_is_dithered_over_attack_range(linear
 
     // attack_range_tiles stays visible underneath -- the blast preview
     // layers on top rather than replacing it (F1-05).
-    assert_test(SLICE_TYPESIZE(game.render.attack_range_tiles) > 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.attack_range_tiles) > 0);
 
     game_deinit(allocator, game);
     LINEAR_ALLOCATOR_POP(allocator, fb);
