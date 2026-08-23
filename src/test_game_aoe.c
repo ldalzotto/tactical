@@ -66,9 +66,10 @@ PRIVATE void test_aoe_blast_hits_all_enemies_in_radius_and_spares_beyond(linear_
 }
 
 // A wall directly between the blast center and an enemy within Manhattan
-// radius casts a shadow: the enemy behind it takes no damage, while another
-// enemy at the same radius but with a clear sightline does.
-PRIVATE void test_aoe_cover_shadows_the_blast(linear_allocator_t *allocator) {
+// radius does not shadow it: the blast footprint is pure Manhattan-radius,
+// with no line-of-sight component, so both the enemy behind the wall and
+// another enemy at the same radius with a clear sightline take damage.
+PRIVATE void test_aoe_blast_ignores_obstacles(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 5, 5);
     grid_set_tile(grid, (position_t){2, 3}, TILE_WALL);
@@ -76,7 +77,7 @@ PRIVATE void test_aoe_cover_shadows_the_blast(linear_allocator_t *allocator) {
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
     entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 2}, 10, 1, 3);
-    entity_t* e_shadowed = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){2, 4}, 10, 1, 3);
+    entity_t* e_behind_wall = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){2, 4}, 10, 1, 3);
     entity_t* e_clear = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){4, 2}, 10, 1, 3);
 
     slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
@@ -84,9 +85,9 @@ PRIVATE void test_aoe_cover_shadows_the_blast(linear_allocator_t *allocator) {
     skill_t *p_skills_begin = skills.end;
     skill_list_add(allocator, &skills, SKILL_FIREBALL);
     p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
-    skill_t *e_shadowed_skills_begin = skills.end;
+    skill_t *e_behind_wall_skills_begin = skills.end;
     skill_list_add(allocator, &skills, SKILL_MELEE);
-    e_shadowed->skills = (slice_skill_t){ .begin = e_shadowed_skills_begin, .end = skills.end };
+    e_behind_wall->skills = (slice_skill_t){ .begin = e_behind_wall_skills_begin, .end = skills.end };
     skill_t *e_clear_skills_begin = skills.end;
     skill_list_add(allocator, &skills, SKILL_MELEE);
     e_clear->skills = (slice_skill_t){ .begin = e_clear_skills_begin, .end = skills.end };
@@ -94,7 +95,7 @@ PRIVATE void test_aoe_cover_shadows_the_blast(linear_allocator_t *allocator) {
     slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
     slice_entity_ptr_t order = turn_order_init(allocator);
     turn_order_add(allocator, &order, p);
-    turn_order_add(allocator, &order, e_shadowed);
+    turn_order_add(allocator, &order, e_behind_wall);
     turn_order_add(allocator, &order, e_clear);
 
     game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
@@ -102,10 +103,10 @@ PRIVATE void test_aoe_cover_shadows_the_blast(linear_allocator_t *allocator) {
     test_click_tile(&game, allocator, p->position);
     test_click_attack_toggle(&game, allocator);
     // Impact center (2,2): the wall at (2,3) sits directly between it and
-    // e_shadowed at (2,4), both within aoe_radius (2) of the center.
+    // e_behind_wall at (2,4), both within aoe_radius (2) of the center.
     test_click_tile(&game, allocator, (position_t){2, 2});
 
-    assert_test(e_shadowed->hp == 10);
+    assert_test(e_behind_wall->hp == 10 - SKILL_FIREBALL.damage);
     assert_test(e_clear->hp == 10 - SKILL_FIREBALL.damage);
     assert_test(p->ap == 1 - SKILL_FIREBALL.ap_cost);
 
@@ -545,10 +546,10 @@ PRIVATE void test_aoe_ignores_already_dead_entities_within_radius(linear_allocat
 // test_tile_list_contains against game.render.blast_preview_tiles (F1-05).
 
 // Hovering a valid AoE impact tile populates blast_preview_tiles with
-// exactly the cover-shadowed blast footprint pathing_compute_blast_tiles
-// would return for that tile -- same wall setup as
-// test_aoe_cover_shadows_the_blast, but checked via hover instead of cast.
-PRIVATE void test_aoe_preview_matches_blast_shape_under_hover(linear_allocator_t *allocator) {
+// exactly the Manhattan-radius blast footprint pathing_compute_blast_tiles
+// would return for that tile, obstacles included -- same wall setup as
+// test_aoe_blast_ignores_obstacles, but checked via hover instead of cast.
+PRIVATE void test_aoe_preview_ignores_obstacles(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 5, 5);
     grid_set_tile(grid, (position_t){2, 3}, TILE_WALL);
@@ -570,13 +571,13 @@ PRIVATE void test_aoe_preview_matches_blast_shape_under_hover(linear_allocator_t
 
     test_click_tile(&game, allocator, p->position);
     test_click_attack_toggle(&game, allocator);
-    // Impact center (2,2): the wall at (2,3) shadows (2,4) from it, same as
-    // test_aoe_cover_shadows_the_blast.
+    // Impact center (2,2): the wall at (2,3) sits between it and (2,4) but
+    // no longer shadows anything, same as test_aoe_blast_ignores_obstacles.
     test_move_tile(&game, allocator, (position_t){2, 2});
 
     assert_test(test_tile_list_contains(game.render.blast_preview_tiles, (position_t){2, 2}));
     assert_test(test_tile_list_contains(game.render.blast_preview_tiles, (position_t){4, 2}));
-    assert_test(!test_tile_list_contains(game.render.blast_preview_tiles, (position_t){2, 4}));
+    assert_test(test_tile_list_contains(game.render.blast_preview_tiles, (position_t){2, 4}));
 
     game_deinit(allocator, game);
 }
@@ -832,7 +833,7 @@ PRIVATE void test_aoe_preview_computation_is_read_only(linear_allocator_t *alloc
 
 const test_case_t g_game_aoe_tests[] = {
     { TEST_NAME("aoe_blast_hits_all_enemies_in_radius_and_spares_beyond"), test_aoe_blast_hits_all_enemies_in_radius_and_spares_beyond },
-    { TEST_NAME("aoe_cover_shadows_the_blast"), test_aoe_cover_shadows_the_blast },
+    { TEST_NAME("aoe_blast_ignores_obstacles"), test_aoe_blast_ignores_obstacles },
     { TEST_NAME("aoe_no_friendly_fire_spares_ally_and_attacker"), test_aoe_no_friendly_fire_spares_ally_and_attacker },
     { TEST_NAME("aoe_ap_spent_exactly_once_regardless_of_hit_count"), test_aoe_ap_spent_exactly_once_regardless_of_hit_count },
     { TEST_NAME("aoe_out_of_range_and_los_blocked_impact_fails_cleanly"), test_aoe_out_of_range_and_los_blocked_impact_fails_cleanly },
@@ -841,7 +842,7 @@ const test_case_t g_game_aoe_tests[] = {
     { TEST_NAME("aoe_cast_onto_empty_tile_hits_surrounding_entities"), test_aoe_cast_onto_empty_tile_hits_surrounding_entities },
     { TEST_NAME("aoe_insufficient_ap_fails_cleanly"), test_aoe_insufficient_ap_fails_cleanly },
     { TEST_NAME("aoe_ignores_already_dead_entities_within_radius"), test_aoe_ignores_already_dead_entities_within_radius },
-    { TEST_NAME("aoe_preview_matches_blast_shape_under_hover"), test_aoe_preview_matches_blast_shape_under_hover },
+    { TEST_NAME("aoe_preview_ignores_obstacles"), test_aoe_preview_ignores_obstacles },
     { TEST_NAME("aoe_preview_updates_as_hover_moves"), test_aoe_preview_updates_as_hover_moves },
     { TEST_NAME("aoe_preview_clears_when_hover_leaves_grid"), test_aoe_preview_clears_when_hover_leaves_grid },
     { TEST_NAME("aoe_preview_clears_on_mode_change"), test_aoe_preview_clears_on_mode_change },
