@@ -50,7 +50,7 @@ PUBLIC bool action_try_attack(entity_t* attacker, skill_t skill, entity_t* defen
     return true;
 }
 
-PUBLIC bool action_try_attack_area(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *attacker, skill_t skill, position_t impact, slice_position_t blast_tiles, slice_entity_ptr_t *out_hit) {
+PUBLIC bool action_try_attack_area(linear_allocator_t *allocator, slice_entity_t entities, entity_t *attacker, skill_t skill, position_t impact, slice_position_t attack_range_tiles, slice_position_t blast_tiles, slice_entity_ptr_t *out_hit) {
     assert_debug(attacker->alive);
     assert_debug(skill.aoe_radius > 0);
 
@@ -58,7 +58,14 @@ PUBLIC bool action_try_attack_area(linear_allocator_t *allocator, grid_t grid, s
         return false;
     }
 
-    if (!skill_area_in_range(grid, entities, attacker, skill, impact)) {
+    bool in_range = false;
+    for (SLICE_FOREACH(attack_range_tiles, tile_s)) {
+        if (position_equals(SLICE_DEREF(tile_s), impact)) {
+            in_range = true;
+            break;
+        }
+    }
+    if (!in_range) {
         return false;
     }
 

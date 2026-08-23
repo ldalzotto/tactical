@@ -39,16 +39,19 @@ PUBLIC bool action_try_attack(entity_t* attacker, skill_t skill, entity_t* defen
 // populated with exactly those damaged entities (staged on allocator;
 // caller pops it when done). No friendly fire: same-team entities
 // (including the attacker itself) are never damaged. False, no mutation,
-// if: attacker.ap < skill.ap_cost, or impact is out of skill.range/LOS
-// from attacker (via pathing_in_range). Only valid for AoE skills
-// (skill.aoe_radius > 0, debug-asserted) -- single-target skills keep
-// using action_try_attack.
+// if: attacker.ap < skill.ap_cost, or impact isn't among
+// `attack_range_tiles`. Only valid for AoE skills (skill.aoe_radius > 0,
+// debug-asserted) -- single-target skills keep using action_try_attack.
 //
-// This function never computes the blast footprint itself -- the caller
-// supplies it as `blast_tiles` (e.g. via pathing_compute_blast_tiles, or
-// reused from a cached preview -- see game_cast_attack_area), and is
-// responsible for it actually matching `impact`; this function trusts it
-// as given.
+// This function never computes the blast footprint or the range check
+// itself -- the caller supplies `blast_tiles` (e.g. via
+// pathing_compute_blast_tiles, or reused from a cached preview -- see
+// game_cast_attack_area) and `attack_range_tiles` (e.g.
+// game->pathing.attack_range_tiles, the same cache action_try_attack
+// trusts -- built once per attack-mode-entry via pathing_in_range, which
+// already applies skill.range and line of sight), and is responsible for
+// `blast_tiles` actually matching `impact`; this function trusts both as
+// given.
 //
 // Caller must have `allocator`'s cursor aligned to _Alignof(entity_ptr_t)
 // before calling, with `blast_tiles` already staged below that cursor (not
@@ -59,7 +62,7 @@ PUBLIC bool action_try_attack(entity_t* attacker, skill_t skill, entity_t* defen
 // caller's own alignment marker fully unwinds everything this call staged
 // (blast_tiles, if the caller pushed it on `allocator` too, unwinds
 // separately with its own pop).
-PUBLIC bool action_try_attack_area(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *attacker, skill_t skill, position_t impact, slice_position_t blast_tiles, slice_entity_ptr_t *out_hit);
+PUBLIC bool action_try_attack_area(linear_allocator_t *allocator, slice_entity_t entities, entity_t *attacker, skill_t skill, position_t impact, slice_position_t attack_range_tiles, slice_position_t blast_tiles, slice_entity_ptr_t *out_hit);
 
 #ifdef APP_UNITY_BUILD
 #include "action.c"
