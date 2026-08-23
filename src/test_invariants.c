@@ -45,17 +45,10 @@ PUBLIC void assert_game_invariants(game_state_t *game) {
         assert_test(SLICE_TYPESIZE(game->pathing.attack_range_tiles) == 0);
     }
 
-    // walking_distances (F2-02) agrees exactly with reachable_tiles: a tile
-    // has a positive walking_distances distance if and only if it's in
-    // reachable_tiles -- proving the persisted BFS grid action_try_move
-    // (F2-03) queries and the tile list render.c draws describe exactly the
-    // same set, never allowed to silently diverge. (The upper bound,
-    // distance <= active->mp for every reached tile, is pathing_bfs's own
-    // max_steps contract -- guaranteed by construction, not independently
-    // re-checked here.) game_set_mode always populates walking_distances
-    // while mode is MOVEMENT, even at mp == 0 (a validly-sized dist grid
-    // with only the mover's own tile reached), so no emptiness guard is
-    // needed here.
+    // walking_distances agrees exactly with reachable_tiles: a tile has a
+    // positive distance iff it's in reachable_tiles. Keeps the BFS grid
+    // action_try_move queries and the tile list render.c draws from
+    // silently diverging.
     if (game->mode == GAME_MODE_MOVEMENT) {
         int in_range_count = 0;
         for (int ty = 0; ty < game->grid.height; ty++) {

@@ -445,8 +445,8 @@ PRIVATE void test_aoe_cast_onto_empty_tile_hits_surrounding_entities(linear_allo
 // Insufficient AP fails an AoE cast the same way it fails a single-target
 // one (action_try_attack_area's ap_cost check, mirroring action_try_attack).
 // Hovers the impact tile first so the cast reuses the staged blast preview
-// (F2-04) rather than computing fresh -- game_cast_attack_area's cached
-// unwind path (no blast_align/blast_tiles pop) on failure.
+// instead of computing fresh, exercising game_cast_attack_area's
+// cached-preview unwind path on failure.
 PRIVATE void test_aoe_insufficient_ap_fails_cleanly(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 6, 1);
@@ -1002,12 +1002,9 @@ PRIVATE void test_aoe_hover_with_non_aoe_skill_selected_stages_no_preview(linear
     game_deinit(allocator, game);
 }
 
-// F2-04: hovering an impact tile stages game.pathing.blast_preview_tiles as
-// usual, then casting at that exact same tile reuses it (game_cast_attack_area
-// skips its pathing_compute_blast_tiles call in this path -- see game.c) --
-// the resulting hit set matches what a fresh compute would independently
-// produce for this impact, same layout as
-// test_aoe_blast_hits_all_enemies_in_radius_and_spares_beyond.
+// Hovering an impact tile stages blast_preview_tiles; casting at that same
+// tile reuses it (game_cast_attack_area skips its pathing_compute_blast_tiles
+// call). Hit set should match a fresh compute for the same impact.
 PRIVATE void test_aoe_cast_reuses_hovered_blast_preview(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 8, 3);
@@ -1062,10 +1059,8 @@ PRIVATE void test_aoe_cast_reuses_hovered_blast_preview(linear_allocator_t *allo
     game_deinit(allocator, game);
 }
 
-// F2-04's fallback path: casting with no prior hover at the impact tile at
-// all (blast_preview_valid starts false and nothing sets it before the
-// click) still produces the correct hit set via a fresh
-// pathing_compute_blast_tiles call, same expected result as
+// Casting with no prior hover (blast_preview_valid stays false) falls back
+// to a fresh pathing_compute_blast_tiles call and hits the same tiles as
 // test_aoe_cast_reuses_hovered_blast_preview.
 PRIVATE void test_aoe_cast_without_prior_hover_falls_back_to_fresh_compute(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
@@ -1117,11 +1112,9 @@ PRIVATE void test_aoe_cast_without_prior_hover_falls_back_to_fresh_compute(linea
     game_deinit(allocator, game);
 }
 
-// F2-04's other fallback trigger: a *stale* preview (blast_preview_valid
-// true, but staged for a different impact tile than the one clicked) is
-// rejected just like no preview at all -- casting at (3,1) after hovering
-// (2,1) still produces the correct hit set via a fresh compute, not the
-// mismatched cached footprint.
+// A stale preview (valid, but staged for a different tile than clicked) is
+// rejected just like no preview: falls back to a fresh compute instead of
+// the mismatched cached footprint.
 PRIVATE void test_aoe_cast_at_different_tile_than_hover_falls_back_to_fresh_compute(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 8, 3);
@@ -1173,13 +1166,10 @@ PRIVATE void test_aoe_cast_at_different_tile_than_hover_falls_back_to_fresh_comp
     game_deinit(allocator, game);
 }
 
-// F2-05: end-to-end proof that game.pathing.blast_preview_tiles (what the
-// overlay shows) and action_try_attack_area's actual hit set (what
-// execution damages) are exactly the same footprint -- captured generically
-// over every opposing-team entity, rather than a hand-picked in/out pair as
-// in test_aoe_cast_reuses_hovered_blast_preview above, so this stands as an
-// independent regression guard even if that test's specific entity
-// placements ever change.
+// End-to-end: blast_preview_tiles (what the overlay shows) and
+// action_try_attack_area's hit set (what execution damages) are the same
+// footprint, checked generically over every opposing-team entity rather
+// than a hand-picked pair.
 PRIVATE void test_aoe_blast_preview_tiles_match_what_execution_hits(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 8, 3);
