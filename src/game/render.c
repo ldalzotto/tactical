@@ -83,15 +83,14 @@ PRIVATE void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
 
             graphics_draw_rectangle(fb, fb_width, px, py, ts, ts, outer);
             graphics_draw_rectangle(fb, fb_width, px + 2, py + 2, ts - 4, ts - 4, inset);
-        }
-    }
 
-    for (SLICE_FOREACH(game.pathing.reachable_tiles, tile_s)) {
-        position_t tile = SLICE_DEREF(tile_s);
-        int px, py;
-        grid_to_screen(game.viewport, tile.x, tile.y, &px, &py);
-        int ts = game.viewport.tile_size;
-        graphics_draw_rectangle(fb, fb_width, px, py, ts, ts, COLOR_REACHABLE_TINT);
+            // Movement overlay: read straight off walking_distances instead
+            // of a separate reachable-tiles list -- distance >= 1 means
+            // reachable this turn (0 is the mover's own tile).
+            if (game.mode == GAME_MODE_MOVEMENT && pathing_distance_at(game.pathing.walking_distances, game.grid, (position_t){tx, ty}) >= 1) {
+                graphics_draw_rectangle(fb, fb_width, px, py, ts, ts, COLOR_REACHABLE_TINT);
+            }
+        }
     }
 
     entity_t *attacker = turn_active_entity(game.turn);

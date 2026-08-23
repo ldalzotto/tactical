@@ -576,15 +576,15 @@ PRIVATE void test_game_attack_toggle_after_move_selection_does_not_overflow_scra
 
     game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
-    // Selecting first populates render.reachable_tiles (mp=3, a ~24-tile
-    // diamond) in game->scratch.
+    // Selecting first populates the walking_distances overlay (mp=3, a
+    // ~24-tile diamond) in game->scratch.
     test_click_tile(&game, allocator, p->position);
-    assert_test(SLICE_TYPESIZE(game.pathing.reachable_tiles) > 0);
+    assert_test(test_reachable_tile_count(&game) > 0);
     assert_test(SLICE_TYPESIZE(game.pathing.attack_range_tiles) == 0);
 
     // Toggling attack mode next computes a same-sized attack_range_tiles
-    // diamond (skill.range=3). reachable_tiles and attack_range_tiles are
-    // mutually exclusive, so reachable_tiles must be nullified first --
+    // diamond (skill.range=3). walking_distances and attack_range_tiles are
+    // mutually exclusive, so walking_distances must be nullified first --
     // scratch never has to fit both diamonds at once.
     expect_panic_begin();
     test_click_attack_toggle(&game, allocator);
@@ -592,12 +592,13 @@ PRIVATE void test_game_attack_toggle_after_move_selection_does_not_overflow_scra
 
     assert_test(game.mode == GAME_MODE_ATTACK);
     assert_test(SLICE_TYPESIZE(game.pathing.attack_range_tiles) > 0);
-    assert_test(SLICE_TYPESIZE(game.pathing.reachable_tiles) == 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.walking_distances.dist) == 0);
 
-    // Toggling back off restores reachable_tiles and nullifies attack_range_tiles.
+    // Toggling back off restores the walking_distances overlay and nullifies
+    // attack_range_tiles.
     test_click_attack_toggle(&game, allocator);
     assert_test(game.mode == GAME_MODE_MOVEMENT);
-    assert_test(SLICE_TYPESIZE(game.pathing.reachable_tiles) > 0);
+    assert_test(test_reachable_tile_count(&game) > 0);
     assert_test(SLICE_TYPESIZE(game.pathing.attack_range_tiles) == 0);
 
     game_deinit(allocator, game);
@@ -664,8 +665,8 @@ PRIVATE void test_game_selecting_shows_reachable_tiles_and_toggle_shows_attack_r
     // Pressing the entity selects it: reachable tiles (move range) become
     // visible, attack range tiles stay hidden.
     test_click_tile(&game, allocator, p->position);
-    assert_test(test_tile_list_contains(game.pathing.reachable_tiles, adjacent_tile));
-    assert_test(!test_tile_list_contains(game.pathing.reachable_tiles, far_tile));
+    assert_test(test_position_reachable(&game, adjacent_tile));
+    assert_test(!test_position_reachable(&game, far_tile));
     assert_test(SLICE_TYPESIZE(game.pathing.attack_range_tiles) == 0);
 
     // Pressing the attack toggle flips visibility: attack range tiles (skill
@@ -673,7 +674,7 @@ PRIVATE void test_game_selecting_shows_reachable_tiles_and_toggle_shows_attack_r
     test_click_attack_toggle(&game, allocator);
     assert_test(test_tile_list_contains(game.pathing.attack_range_tiles, adjacent_tile));
     assert_test(test_tile_list_contains(game.pathing.attack_range_tiles, far_tile));
-    assert_test(SLICE_TYPESIZE(game.pathing.reachable_tiles) == 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.walking_distances.dist) == 0);
 
     game_deinit(allocator, game);
 }

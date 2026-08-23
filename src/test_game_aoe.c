@@ -791,7 +791,7 @@ PRIVATE void test_aoe_preview_coexists_with_attack_range(linear_allocator_t *all
 
 // Hovering (and the preview computation it triggers) never mutates
 // entity/turn state -- purely visual, same guarantee game_set_mode already
-// gives reachable_tiles/attack_range_tiles.
+// gives walking_distances/attack_range_tiles.
 PRIVATE void test_aoe_preview_computation_is_read_only(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 8, 3);

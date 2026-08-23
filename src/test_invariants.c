@@ -37,35 +37,12 @@ PUBLIC void assert_game_invariants(game_state_t *game) {
         }
     }
 
-    // reachable_tiles/attack_range_tiles stay mutually exclusive with mode:
+    // walking_distances/attack_range_tiles stay mutually exclusive with mode:
     // whichever one isn't the active overlay for game->mode must be empty
     if (game->mode == GAME_MODE_ATTACK) {
-        assert_test(SLICE_TYPESIZE(game->pathing.reachable_tiles) == 0);
+        assert_test(SLICE_TYPESIZE(game->pathing.walking_distances.dist) == 0);
     } else {
         assert_test(SLICE_TYPESIZE(game->pathing.attack_range_tiles) == 0);
-    }
-
-    // walking_distances agrees exactly with reachable_tiles: a tile has a
-    // positive distance iff it's in reachable_tiles. Keeps the BFS grid
-    // action_try_move queries and the tile list render.c draws from
-    // silently diverging.
-    if (game->mode == GAME_MODE_MOVEMENT) {
-        int in_range_count = 0;
-        for (int ty = 0; ty < game->grid.height; ty++) {
-            for (int tx = 0; tx < game->grid.width; tx++) {
-                position_t position = { tx, ty };
-                int distance = pathing_distance_at(game->pathing.walking_distances, game->grid, position);
-                if (distance >= 1) {
-                    in_range_count++;
-                }
-            }
-        }
-        assert_test(in_range_count == SLICE_TYPESIZE(game->pathing.reachable_tiles));
-
-        for (SLICE_FOREACH(game->pathing.reachable_tiles, tile_s)) {
-            position_t tile = SLICE_DEREF(tile_s);
-            assert_test(pathing_distance_at(game->pathing.walking_distances, game->grid, tile) >= 1);
-        }
     }
 
     // game_over, when set, is consistent with alive counts. GAME_OVER_NONE
