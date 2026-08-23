@@ -441,7 +441,7 @@ PRIVATE ptrdiff_t game_on_entity_pressed(game_state_t *game, linear_allocator_t 
         return game_cast_attack_area(game, allocator, active, skill, entity->position);
     }
 
-    if (action_try_attack(game->grid, game->entities, active, skill, entity)) {
+    if (action_try_attack(active, skill, entity, game->pathing.attack_range_tiles)) {
         // If the entity just died, we remove dead entities
         if (!entity->alive) {
             slice_t dead_align = linear_allocator_push_alignment(allocator, _Alignof(entity_ptr_t));

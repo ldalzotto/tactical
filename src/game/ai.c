@@ -170,5 +170,17 @@ PUBLIC entity_t* ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, 
         return 0;
     }
 
-    return action_try_attack(grid, entities, enemy, *attack_skill, target) ? target : 0;
+    // ai_best_in_range_skill already confirmed target is in attack_skill's
+    // range via skill_target_in_range -- action_try_attack (F2) no longer
+    // computes that itself, so hand it a single-tile range set for the
+    // position already known to qualify, the same way action_try_move
+    // builds its own BFS here instead of reusing a long-lived cache (see
+    // ai_step_toward).
+    position_t attack_range_tile[1] = { target->position };
+    slice_position_t attack_range_tiles = {
+        .begin = attack_range_tile,
+        .end = typeoffset(attack_range_tile, 1),
+    };
+
+    return action_try_attack(enemy, *attack_skill, target, attack_range_tiles) ? target : 0;
 }
