@@ -91,10 +91,8 @@ PUBLIC bool action_try_attack_area(linear_allocator_t *allocator, grid_t grid, s
 
         entity_damage(entity, skill.damage);
 
-        slice_entity_ptr_t entry;
-        entry = LINEAR_ALLOCATOR_PUSH(allocator, entry, 1);
+        slice_entity_ptr_t entry = LINEAR_ALLOCATOR_PUSH_GROW(allocator, &hit, 1);
         SLICE_DEREF(entry) = entity;
-        hit.end = entry.end;
     }
 
     // hit now sits above blast_tiles, which is no longer needed. Move hit

@@ -34,6 +34,18 @@ PUBLIC slice_t linear_allocator_push_alignment(linear_allocator_t *allocator, si
     return linear_allocator_push(allocator, padding);
 }
 
+// Appends `grow` bytes right above `*slice`, extending it in place, and
+// returns just the newly-pushed portion (like linear_allocator_push).
+// `*slice` must be the top of the live region (its end must equal the
+// cursor) -- use this for the "push one, deref the new slot" pattern of
+// building a list directly on the allocator.
+PUBLIC slice_t linear_allocator_push_grow(linear_allocator_t *allocator, slice_t *slice, size_t grow) {
+    assert_debug(slice->end == allocator->cursor);
+    slice_t pushed = linear_allocator_push(allocator, grow);
+    slice->end = pushed.end;
+    return pushed;
+}
+
 PUBLIC void linear_allocator_pop(linear_allocator_t *allocator, slice_t marker) {
     assert_debug(marker.begin >= allocator->data.begin && marker.end == allocator->cursor);
     allocator->cursor = marker.begin;
