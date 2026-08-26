@@ -176,6 +176,10 @@ PRIVATE ptrdiff_t game_cast_attack_area(game_state_t *game, linear_allocator_t *
     slice_entity_ptr_t out_hit;
     if (!action_try_attack_area(allocator, game->entities, active, skill, impact, game->pathing.attack_range_tiles, blast_tiles, &out_hit)) {
         linear_allocator_pop(allocator, hit_align);
+        // Impact may be out of range or the attacker may lack ap; either
+        // way the blast_tiles staged for it by game_try_cast_attack_area no
+        // longer represents a valid or resolved cast, so don't leave it stale.
+        pathing_ranges_clear_blast_tiles(&game->scratch, &game->pathing);
         return 0;
     }
 
@@ -200,14 +204,12 @@ PRIVATE ptrdiff_t game_cast_attack_area(game_state_t *game, linear_allocator_t *
     return game_set_mode(game, allocator, GAME_MODE_MOVEMENT);
 }
 
-// Gates `impact` against game->pathing.attack_range_tiles, stages
-// blast_tiles fresh for it (a click's impact tile isn't guaranteed to match
-// the last hover tile), then casts. Shared by game_on_entity_pressed and
-// game_on_tile_pressed.
+// Stages blast_tiles fresh for `impact` (a click's impact tile isn't
+// guaranteed to match the last hover tile), then casts; action_try_attack_area
+// rejects `impact` if it's out of game->pathing.attack_range_tiles, and
+// game_cast_attack_area clears the now-stale blast_tiles on that failure.
+// Shared by game_on_entity_pressed and game_on_tile_pressed.
 PRIVATE ptrdiff_t game_try_cast_attack_area(game_state_t *game, linear_allocator_t *allocator, entity_t *active, skill_t skill, position_t impact) {
-    if (!position_in_tiles(game->pathing.attack_range_tiles, impact)) {
-        return 0;
-    }
     pathing_ranges_clear_blast_tiles(&game->scratch, &game->pathing);
     ptrdiff_t shift = pathing_ranges_push_blast_tiles(allocator, &game->scratch, &game->pathing, game->grid, impact, skill.aoe_radius);
     return shift + game_cast_attack_area(game, allocator, active, skill, impact);
