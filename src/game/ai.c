@@ -149,11 +149,14 @@ PRIVATE skill_t* ai_best_in_range_skill(grid_t grid, slice_entity_t entities, en
 // it (one tile at a time) until ai_preferred_skill is in range or mp runs
 // out, then attack with ai_best_in_range_skill (may be weaker than
 // preferred if preferred never came into range).
-// Returns the attacked entity, or 0 if no target/no attack landed.
-PUBLIC entity_t* ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *enemy) {
+// Fills *out_dead with entities killed by the attack; see ai.h.
+PUBLIC void ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *enemy, slice_entity_ptr_t *out_dead) {
+    slice_entity_ptr_t dead = LINEAR_ALLOCATOR_PUSH(allocator, dead, 0);
+
     entity_t* target = ai_find_nearest_player(allocator, grid, entities, enemy);
     if (target == 0) {
-        return 0;
+        *out_dead = dead;
+        return;
     }
 
     skill_t *preferred = ai_preferred_skill(enemy);
@@ -164,7 +167,8 @@ PUBLIC entity_t* ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, 
 
     skill_t *attack_skill = ai_best_in_range_skill(grid, entities, enemy, target);
     if (attack_skill == 0) {
-        return 0;
+        *out_dead = dead;
+        return;
     }
 
     // action_try_attack takes range as a tile set now; hand it a single-tile
@@ -175,5 +179,13 @@ PUBLIC entity_t* ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, 
         .end = typeoffset(attack_range_tile, 1),
     };
 
-    return action_try_attack(enemy, *attack_skill, target, attack_range_tiles) ? target : 0;
+    // dead is still the top of `allocator` here (ai_find_nearest_player and
+    // ai_step_toward fully unwind whatever they push), so growing it in
+    // place is safe.
+    if (action_try_attack(enemy, *attack_skill, target, attack_range_tiles) && !target->alive) {
+        slice_entity_ptr_t entry = LINEAR_ALLOCATOR_PUSH_GROW(allocator, &dead, 1);
+        SLICE_DEREF(entry) = target;
+    }
+
+    *out_dead = dead;
 }

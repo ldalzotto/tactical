@@ -4,11 +4,20 @@
 
 #include "entity.h"
 #include "grid.h"
+#include "turn.h"
 
-// Returns the entity that was attacked this turn, or 0 if no attack landed.
-// Chooses among the enemy's skills (see ai.c's ai_preferred_skill_index /
-// ai_best_in_range_skill_index) rather than assuming a single fixed skill.
-PUBLIC entity_t* ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *enemy);
+// Runs one enemy's turn (move toward the nearest reachable player, attack
+// with the best available skill -- see ai.c's ai_preferred_skill /
+// ai_best_in_range_skill). Fills *out_dead with every entity killed by this
+// turn's attack: empty if no attack landed, exactly one for a single-target
+// skill, possibly more for an AoE skill's blast.
+//
+// Caller must have `allocator`'s cursor aligned to _Alignof(entity_ptr_t)
+// before calling (this function does not self-align -- same convention as
+// action_try_attack_area). *out_dead is staged at that cursor; popping
+// out_dead->slice then the caller's alignment marker unwinds everything this
+// call staged.
+PUBLIC void ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *enemy, slice_entity_ptr_t *out_dead);
 
 #ifdef APP_UNITY_BUILD
 #include "ai.c"
