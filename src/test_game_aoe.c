@@ -444,6 +444,9 @@ PRIVATE void test_aoe_cast_onto_empty_tile_hits_surrounding_entities(linear_allo
 
 // Insufficient AP fails an AoE cast the same way it fails a single-target
 // one (action_try_attack_area's ap_cost check, mirroring action_try_attack).
+// Hovers the impact tile first so the cast reuses the staged blast preview
+// instead of computing fresh, exercising game_cast_attack_area's
+// cached-preview unwind path on failure.
 PRIVATE void test_aoe_insufficient_ap_fails_cleanly(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 6, 1);
@@ -471,6 +474,10 @@ PRIVATE void test_aoe_insufficient_ap_fails_cleanly(linear_allocator_t *allocato
 
     test_click_tile(&game, allocator, p->position);
     test_click_attack_toggle(&game, allocator);
+    test_move_tile(&game, allocator, (position_t){2, 0});
+
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) > 0);
+
     test_click_tile(&game, allocator, (position_t){2, 0});
 
     assert_test(p->ap == 0);
@@ -543,9 +550,9 @@ PRIVATE void test_aoe_ignores_already_dead_entities_within_radius(linear_allocat
 // F1-08: live blast preview tests, extending this same suite (shared
 // SKILL_FIREBALL/attack-mode-selection setup boilerplate with F1-07 above).
 // Driven via test_move_tile/test_move_to_pixel (MOUSE_MOVE) and
-// test_tile_list_contains against game.render.blast_preview_tiles (F1-05).
+// test_tile_list_contains against game.pathing.blast_tiles (F1-05).
 
-// Hovering a valid AoE impact tile populates blast_preview_tiles with
+// Hovering a valid AoE impact tile populates blast_tiles with
 // exactly the Manhattan-radius blast footprint pathing_compute_blast_tiles
 // would return for that tile, obstacles included -- same wall setup as
 // test_aoe_blast_ignores_obstacles, but checked via hover instead of cast.
@@ -575,9 +582,9 @@ PRIVATE void test_aoe_preview_ignores_obstacles(linear_allocator_t *allocator) {
     // no longer shadows anything, same as test_aoe_blast_ignores_obstacles.
     test_move_tile(&game, allocator, (position_t){2, 2});
 
-    assert_test(test_tile_list_contains(game.render.blast_preview_tiles, (position_t){2, 2}));
-    assert_test(test_tile_list_contains(game.render.blast_preview_tiles, (position_t){4, 2}));
-    assert_test(test_tile_list_contains(game.render.blast_preview_tiles, (position_t){2, 4}));
+    assert_test(test_tile_list_contains(game.pathing.blast_tiles, (position_t){2, 2}));
+    assert_test(test_tile_list_contains(game.pathing.blast_tiles, (position_t){4, 2}));
+    assert_test(test_tile_list_contains(game.pathing.blast_tiles, (position_t){2, 4}));
 
     game_deinit(allocator, game);
 }
@@ -606,14 +613,14 @@ PRIVATE void test_aoe_preview_updates_as_hover_moves(linear_allocator_t *allocat
     test_click_attack_toggle(&game, allocator);
 
     test_move_tile(&game, allocator, (position_t){3, 1});
-    assert_test(test_tile_list_contains(game.render.blast_preview_tiles, (position_t){5, 1}));
+    assert_test(test_tile_list_contains(game.pathing.blast_tiles, (position_t){5, 1}));
 
     test_move_tile(&game, allocator, (position_t){2, 1});
     // (5,1) was in range of the (3,1) center (distance 2) but is outside
     // aoe_radius (2) of the new (2,1) center (distance 3): a stale union
     // would still contain it.
-    assert_test(!test_tile_list_contains(game.render.blast_preview_tiles, (position_t){5, 1}));
-    assert_test(test_tile_list_contains(game.render.blast_preview_tiles, (position_t){2, 1}));
+    assert_test(!test_tile_list_contains(game.pathing.blast_tiles, (position_t){5, 1}));
+    assert_test(test_tile_list_contains(game.pathing.blast_tiles, (position_t){2, 1}));
 
     game_deinit(allocator, game);
 }
@@ -640,19 +647,19 @@ PRIVATE void test_aoe_preview_clears_when_hover_leaves_grid(linear_allocator_t *
     test_click_tile(&game, allocator, p->position);
     test_click_attack_toggle(&game, allocator);
     test_move_tile(&game, allocator, (position_t){3, 1});
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) > 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) > 0);
 
     // Well outside the viewport in every direction -- screen_to_grid fails,
     // hover_valid becomes false.
     test_move_to_pixel(&game, allocator, -100, -100);
     assert_test(!game.hover_valid);
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) == 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) == 0);
 
     game_deinit(allocator, game);
 }
 
 // Toggling out of GAME_MODE_ATTACK empties the preview, matching
-// render_cache_reset's existing clear-on-mode-change behavior.
+// pathing_ranges_reset's existing clear-on-mode-change behavior.
 PRIVATE void test_aoe_preview_clears_on_mode_change(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 8, 3);
@@ -674,11 +681,11 @@ PRIVATE void test_aoe_preview_clears_on_mode_change(linear_allocator_t *allocato
     test_click_tile(&game, allocator, p->position);
     test_click_attack_toggle(&game, allocator);
     test_move_tile(&game, allocator, (position_t){3, 1});
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) > 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) > 0);
 
     test_click_attack_toggle(&game, allocator);
     assert_test(game.mode == GAME_MODE_MOVEMENT);
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) == 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) == 0);
 
     game_deinit(allocator, game);
 }
@@ -709,11 +716,11 @@ PRIVATE void test_aoe_preview_clears_on_skill_switch_to_non_aoe(linear_allocator
     test_click_tile(&game, allocator, p->position);
     test_click_attack_toggle(&game, allocator);
     test_move_tile(&game, allocator, (position_t){3, 1});
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) > 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) > 0);
 
     test_click_skill_button(&game, allocator, 1);
     assert_test(game.selected_skill == 1);
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) == 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) == 0);
 
     game_deinit(allocator, game);
 }
@@ -744,7 +751,7 @@ PRIVATE void test_aoe_preview_clears_for_out_of_range_hover(linear_allocator_t *
     test_move_tile(&game, allocator, (position_t){6, 0});
 
     assert_test(game.hover_valid);
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) == 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) == 0);
 
     game_deinit(allocator, game);
 }
@@ -773,17 +780,17 @@ PRIVATE void test_aoe_preview_coexists_with_attack_range(linear_allocator_t *all
     test_click_attack_toggle(&game, allocator);
     test_move_tile(&game, allocator, (position_t){3, 1});
 
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) > 0);
-    assert_test(SLICE_TYPESIZE(game.render.attack_range_tiles) > 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) > 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.attack_range_tiles) > 0);
     // The hovered impact tile itself is a legal attack-range target too.
-    assert_test(test_tile_list_contains(game.render.attack_range_tiles, (position_t){3, 1}));
+    assert_test(test_tile_list_contains(game.pathing.attack_range_tiles, (position_t){3, 1}));
 
     game_deinit(allocator, game);
 }
 
 // Hovering (and the preview computation it triggers) never mutates
 // entity/turn state -- purely visual, same guarantee game_set_mode already
-// gives reachable_tiles/attack_range_tiles.
+// gives walking_distances/attack_range_tiles.
 PRIVATE void test_aoe_preview_computation_is_read_only(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 8, 3);
@@ -817,7 +824,7 @@ PRIVATE void test_aoe_preview_computation_is_read_only(linear_allocator_t *alloc
     int e_ap_before = e->ap, e_hp_before = e->hp, e_mp_before = e->mp;
 
     test_move_tile(&game, allocator, (position_t){3, 1});
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) > 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) > 0);
 
     assert_test(position_equals(p->position, p_position_before));
     assert_test(p->ap == p_ap_before);
@@ -861,21 +868,21 @@ PRIVATE void test_aoe_reselecting_skill_button_stages_preview_for_in_range_hover
     test_click_tile(&game, allocator, p->position);
     test_click_attack_toggle(&game, allocator);
     test_move_tile(&game, allocator, (position_t){3, 1});
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) > 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) > 0);
 
     // Re-clicking skill button 0 re-selects SKILL_FIREBALL (already active)
     // while hover is still valid and in range: game_on_skill_button_pressed
     // must restage the preview itself, not just rely on the prior hover.
     test_click_skill_button(&game, allocator, 0);
 
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) > 0);
-    assert_test(test_tile_list_contains(game.render.blast_preview_tiles, (position_t){3, 1}));
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) > 0);
+    assert_test(test_tile_list_contains(game.pathing.blast_tiles, (position_t){3, 1}));
 
     game_deinit(allocator, game);
 }
 
 // Same skill-button re-selection path, but the hovered tile is out of the
-// skill's range: game_on_skill_button_pressed's skill_area_in_range check
+// skill's range: game_on_skill_button_pressed's skill_can_target_area check
 // must fail closed, leaving the preview empty.
 PRIVATE void test_aoe_reselecting_skill_button_leaves_preview_empty_for_out_of_range_hover(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
@@ -901,14 +908,14 @@ PRIVATE void test_aoe_reselecting_skill_button_leaves_preview_empty_for_out_of_r
     test_click_tile(&game, allocator, p->position);
     test_click_attack_toggle(&game, allocator);
     // Distance 6, beyond SKILL_FIREBALL.range (4): hover_valid is true (the
-    // tile is on the grid) but skill_area_in_range must reject it.
+    // tile is on the grid) but skill_can_target_area must reject it.
     test_move_tile(&game, allocator, (position_t){6, 0});
     assert_test(game.hover_valid);
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) == 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) == 0);
 
     test_click_skill_button(&game, allocator, 0);
 
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) == 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) == 0);
 
     game_deinit(allocator, game);
 }
@@ -916,7 +923,7 @@ PRIVATE void test_aoe_reselecting_skill_button_leaves_preview_empty_for_out_of_r
 // Clicking a skill button while still in GAME_MODE_MOVEMENT (attack mode
 // never toggled on) must not stage a preview, regardless of hover state --
 // game_on_skill_button_pressed's mode check has to gate this independently
-// of skill_is_aoe/skill_area_in_range.
+// of skill_is_aoe/skill_can_target_area.
 PRIVATE void test_aoe_skill_button_in_movement_mode_does_not_stage_preview(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 8, 3);
@@ -949,7 +956,7 @@ PRIVATE void test_aoe_skill_button_in_movement_mode_does_not_stage_preview(linea
     test_click_skill_button(&game, allocator, 0);
 
     assert_test(game.mode == GAME_MODE_MOVEMENT);
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) == 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) == 0);
 
     game_deinit(allocator, game);
 }
@@ -989,7 +996,309 @@ PRIVATE void test_aoe_hover_with_non_aoe_skill_selected_stages_no_preview(linear
     test_move_tile(&game, allocator, (position_t){3, 1});
 
     assert_test(game.hover_valid);
-    assert_test(SLICE_TYPESIZE(game.render.blast_preview_tiles) == 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) == 0);
+
+    game_deinit(allocator, game);
+}
+
+// Casting at the currently-hovered impact tile resolves correctly --
+// game_on_entity_pressed/game_on_tile_pressed restage blast_tiles for the
+// clicked tile unconditionally (see
+// test_aoe_cast_at_different_tile_than_hover_resolves_correctly for the case
+// where that tile differs from the current hover), so game_cast_attack_area
+// itself never computes blast footprints, only reads what its caller just
+// staged.
+PRIVATE void test_aoe_cast_at_hovered_tile_resolves_correctly(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 8, 3);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 1, 3);
+    entity_t* e_in_a = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 1, 3);
+    entity_t* e_in_b = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){5, 1}, 10, 1, 3);
+    entity_t* e_out = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){6, 1}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *e_in_a_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_in_a->skills = (slice_skill_t){ .begin = e_in_a_skills_begin, .end = skills.end };
+    skill_t *e_in_b_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_in_b->skills = (slice_skill_t){ .begin = e_in_b_skills_begin, .end = skills.end };
+    skill_t *e_out_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_out->skills = (slice_skill_t){ .begin = e_out_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, e_in_a);
+    turn_order_add(allocator, &order, e_in_b);
+    turn_order_add(allocator, &order, e_out);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    test_move_tile(&game, allocator, (position_t){3, 1});
+
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) > 0);
+    assert_test(test_tile_list_contains(game.pathing.blast_tiles, (position_t){3, 0}));
+    assert_test(test_tile_list_contains(game.pathing.blast_tiles, (position_t){5, 1}));
+
+    // Cast at the exact tile just hovered -- reuses the staged preview.
+    test_click_tile(&game, allocator, (position_t){3, 1});
+
+    assert_test(e_in_a->hp == 10 - SKILL_FIREBALL.damage);
+    assert_test(e_in_b->hp == 10 - SKILL_FIREBALL.damage);
+    assert_test(e_out->hp == 10);
+    assert_test(p->ap == 1 - SKILL_FIREBALL.ap_cost);
+
+    game_deinit(allocator, game);
+}
+
+// Entering ATTACK mode with no valid hover yet (mouse never moved onto the
+// grid) must leave blast_tiles empty, not stage it against garbage/stale
+// hover data -- the counterpart to
+// test_aoe_cast_at_hovered_tile_resolves_correctly's in-range case, covering
+// game_set_mode's `!game->hover_valid` branch.
+PRIVATE void test_aoe_entering_attack_mode_without_hover_stages_no_blast(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 8, 3);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    p->skills = skills;
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    // Move off the grid entirely -- hover_valid is false when attack mode
+    // is toggled on below.
+    test_move_to_pixel(&game, allocator, -100, -100);
+    assert_test(!game.hover_valid);
+
+    test_click_attack_toggle(&game, allocator);
+
+    assert_test(game.mode == GAME_MODE_ATTACK);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) == 0);
+
+    game_deinit(allocator, game);
+}
+
+// Casting with no blast_tiles staged at all (empty -- see
+// test_aoe_entering_attack_mode_without_hover_stages_no_blast for how that
+// state is reached) still resolves correctly: game_on_tile_pressed stages
+// blast_tiles for its impact unconditionally, regardless of whatever state
+// it was in before the click.
+PRIVATE void test_aoe_cast_with_no_staged_blast_computes_fresh(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 8, 3);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 1, 3);
+    entity_t* e_in_a = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 1, 3);
+    entity_t* e_in_b = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){5, 1}, 10, 1, 3);
+    entity_t* e_out = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){6, 1}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *e_in_a_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_in_a->skills = (slice_skill_t){ .begin = e_in_a_skills_begin, .end = skills.end };
+    skill_t *e_in_b_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_in_b->skills = (slice_skill_t){ .begin = e_in_b_skills_begin, .end = skills.end };
+    skill_t *e_out_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_out->skills = (slice_skill_t){ .begin = e_out_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, e_in_a);
+    turn_order_add(allocator, &order, e_in_b);
+    turn_order_add(allocator, &order, e_out);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    // Move off the grid, then toggle attack -- blast_tiles stays empty (see
+    // test_aoe_entering_attack_mode_without_hover_stages_no_blast).
+    test_move_to_pixel(&game, allocator, -100, -100);
+    test_click_attack_toggle(&game, allocator);
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) == 0);
+
+    // Raw MOUSE_CLICK at an in-range tile -- no MOUSE_MOVE ever staged
+    // blast_tiles for it, or anywhere else.
+    int px, py;
+    grid_to_screen(game.viewport, 3, 1, &px, &py);
+    input_event_t click = { .type = INPUT_EVENT_MOUSE_CLICK, .x = px + 1, .y = py + 1 };
+    game_on_input_event(&game, allocator, click);
+
+    assert_test(e_in_a->hp == 10 - SKILL_FIREBALL.damage);
+    assert_test(e_in_b->hp == 10 - SKILL_FIREBALL.damage);
+    assert_test(e_out->hp == 10);
+    assert_test(p->ap == 1 - SKILL_FIREBALL.ap_cost);
+
+    game_deinit(allocator, game);
+}
+
+// A MOUSE_CLICK's impact tile isn't guaranteed to be the last MOUSE_MOVE's
+// hover tile -- test_click_tile's helper always hovers its own target
+// first, so it can't produce this by itself; this test bypasses it with a
+// raw click to hover a *different* valid impact tile than the one it
+// clicks. game_on_tile_pressed restages blast_tiles fresh for its own
+// impact regardless of what was last hovered, so the cast still resolves
+// correctly against the clicked tile, not the stale hovered one.
+PRIVATE void test_aoe_cast_at_different_tile_than_hover_resolves_correctly(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 8, 3);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 1, 3);
+    entity_t* e_in_a = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 1, 3);
+    entity_t* e_in_b = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){5, 1}, 10, 1, 3);
+    entity_t* e_out = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){6, 1}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *e_in_a_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_in_a->skills = (slice_skill_t){ .begin = e_in_a_skills_begin, .end = skills.end };
+    skill_t *e_in_b_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_in_b->skills = (slice_skill_t){ .begin = e_in_b_skills_begin, .end = skills.end };
+    skill_t *e_out_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_out->skills = (slice_skill_t){ .begin = e_out_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, e_in_a);
+    turn_order_add(allocator, &order, e_in_b);
+    turn_order_add(allocator, &order, e_out);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    // Hover a different, still-valid impact tile than the one clicked below
+    // (centered on (2,1), a fireball wouldn't reach e_in_b at (5,1) -- if the
+    // click below wrongly reused this stale footprint instead of restaging
+    // for its own impact, the damage assertions after it would catch that).
+    test_move_tile(&game, allocator, (position_t){2, 1});
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) > 0);
+
+    // Raw MOUSE_CLICK at (3,1) -- also in range, but not the tile blast_tiles
+    // was staged for.
+    int px, py;
+    grid_to_screen(game.viewport, 3, 1, &px, &py);
+    input_event_t click = { .type = INPUT_EVENT_MOUSE_CLICK, .x = px + 1, .y = py + 1 };
+    game_on_input_event(&game, allocator, click);
+
+    assert_test(e_in_a->hp == 10 - SKILL_FIREBALL.damage);
+    assert_test(e_in_b->hp == 10 - SKILL_FIREBALL.damage);
+    assert_test(e_out->hp == 10);
+    assert_test(p->ap == 1 - SKILL_FIREBALL.ap_cost);
+
+    game_deinit(allocator, game);
+}
+
+// End-to-end: blast_tiles (also what the overlay draws) and
+// action_try_attack_area's hit set (what execution damages) are the same
+// footprint, checked generically over every opposing-team entity rather
+// than a hand-picked pair.
+PRIVATE void test_aoe_blast_tiles_match_what_execution_hits(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 8, 3);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 1, 3);
+    entity_t* e_in_a = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 1, 3);
+    entity_t* e_in_b = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){5, 1}, 10, 1, 3);
+    entity_t* e_out = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){6, 1}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *e_in_a_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_in_a->skills = (slice_skill_t){ .begin = e_in_a_skills_begin, .end = skills.end };
+    skill_t *e_in_b_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_in_b->skills = (slice_skill_t){ .begin = e_in_b_skills_begin, .end = skills.end };
+    skill_t *e_out_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e_out->skills = (slice_skill_t){ .begin = e_out_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, e_in_a);
+    turn_order_add(allocator, &order, e_in_b);
+    turn_order_add(allocator, &order, e_out);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    test_move_tile(&game, allocator, (position_t){3, 1});
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) > 0);
+
+    // Capture the previewed footprint before casting mutates game state.
+    position_t footprint[64];
+    int footprint_count = 0;
+    for (SLICE_FOREACH(game.pathing.blast_tiles, tile_s)) {
+        assert_test(footprint_count < 64);
+        footprint[footprint_count] = SLICE_DEREF(tile_s);
+        footprint_count++;
+    }
+    assert_test(footprint_count > 0);
+
+    test_click_tile(&game, allocator, (position_t){3, 1});
+
+    for (SLICE_FOREACH(game.entities, entity_s)) {
+        entity_t *entity = &SLICE_DEREF(entity_s);
+        if (entity->team != ENTITY_TEAM_ENEMY) {
+            continue;
+        }
+
+        bool in_footprint = false;
+        for (int i = 0; i < footprint_count; i++) {
+            if (position_equals(footprint[i], entity->position)) {
+                in_footprint = true;
+                break;
+            }
+        }
+
+        if (in_footprint) {
+            assert_test(entity->hp == 10 - SKILL_FIREBALL.damage);
+        } else {
+            assert_test(entity->hp == 10);
+        }
+    }
 
     game_deinit(allocator, game);
 }
@@ -1017,6 +1326,11 @@ const test_case_t g_game_aoe_tests[] = {
     { TEST_NAME("aoe_reselecting_skill_button_leaves_preview_empty_for_out_of_range_hover"), test_aoe_reselecting_skill_button_leaves_preview_empty_for_out_of_range_hover },
     { TEST_NAME("aoe_skill_button_in_movement_mode_does_not_stage_preview"), test_aoe_skill_button_in_movement_mode_does_not_stage_preview },
     { TEST_NAME("aoe_hover_with_non_aoe_skill_selected_stages_no_preview"), test_aoe_hover_with_non_aoe_skill_selected_stages_no_preview },
+    { TEST_NAME("aoe_cast_at_hovered_tile_resolves_correctly"), test_aoe_cast_at_hovered_tile_resolves_correctly },
+    { TEST_NAME("aoe_entering_attack_mode_without_hover_stages_no_blast"), test_aoe_entering_attack_mode_without_hover_stages_no_blast },
+    { TEST_NAME("aoe_cast_with_no_staged_blast_computes_fresh"), test_aoe_cast_with_no_staged_blast_computes_fresh },
+    { TEST_NAME("aoe_cast_at_different_tile_than_hover_resolves_correctly"), test_aoe_cast_at_different_tile_than_hover_resolves_correctly },
+    { TEST_NAME("aoe_blast_tiles_match_what_execution_hits"), test_aoe_blast_tiles_match_what_execution_hits },
 };
 
 const uint32_t g_game_aoe_tests_count = sizeof(g_game_aoe_tests) / sizeof(g_game_aoe_tests[0]);

@@ -97,7 +97,12 @@ PRIVATE void ai_step_toward(linear_allocator_t *allocator, grid_t grid, slice_en
     // is reachable from that player (the BFS path is reversible), so `found`
     // is always true here.
     assert_debug(found);
-    action_try_move(allocator, grid, entities, enemy, best_position);
+
+    // action_try_move takes its distance grid from the caller now, so
+    // build it here: a fresh BFS rooted at the mover, capped at its own mp.
+    pathing_state_t move_distances = pathing_compute_walking_distances(allocator, grid, entities, enemy->position, enemy->mp);
+    action_try_move(move_distances, grid, enemy, best_position);
+    pathing_deinit(allocator, move_distances);
 }
 
 // True if a beats b as the "preferred" skill: higher damage, tie-broken by
@@ -130,7 +135,7 @@ PRIVATE skill_t* ai_best_in_range_skill(grid_t grid, slice_entity_t entities, en
     skill_t *best = 0;
     for (SLICE_FOREACH(enemy->skills, skill_s)) {
         skill_t *skill = &SLICE_DEREF(skill_s);
-        if (!skill_target_in_range(grid, entities, enemy, *skill, target)) {
+        if (!skill_can_target(grid, entities, enemy, *skill, target)) {
             continue;
         }
         if (best == 0 || ai_skill_beats(*skill, *best)) {
@@ -153,7 +158,7 @@ PUBLIC entity_t* ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, 
 
     skill_t *preferred = ai_preferred_skill(enemy);
 
-    while (enemy->mp > 0 && !skill_target_in_range(grid, entities, enemy, *preferred, target)) {
+    while (enemy->mp > 0 && !skill_can_target(grid, entities, enemy, *preferred, target)) {
         ai_step_toward(allocator, grid, entities, enemy, target);
     }
 
@@ -162,5 +167,13 @@ PUBLIC entity_t* ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, 
         return 0;
     }
 
-    return action_try_attack(grid, entities, enemy, *attack_skill, target) ? target : 0;
+    // action_try_attack takes range as a tile set now; hand it a single-tile
+    // set for the position ai_best_in_range_skill already confirmed in range.
+    position_t attack_range_tile[1] = { target->position };
+    slice_position_t attack_range_tiles = {
+        .begin = attack_range_tile,
+        .end = typeoffset(attack_range_tile, 1),
+    };
+
+    return action_try_attack(enemy, *attack_skill, target, attack_range_tiles) ? target : 0;
 }

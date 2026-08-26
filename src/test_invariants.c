@@ -37,12 +37,12 @@ PUBLIC void assert_game_invariants(game_state_t *game) {
         }
     }
 
-    // reachable_tiles/attack_range_tiles stay mutually exclusive with mode:
+    // walking_distances/attack_range_tiles stay mutually exclusive with mode:
     // whichever one isn't the active overlay for game->mode must be empty
     if (game->mode == GAME_MODE_ATTACK) {
-        assert_test(SLICE_TYPESIZE(game->render.reachable_tiles) == 0);
+        assert_test(SLICE_TYPESIZE(game->pathing.walking_distances.dist) == 0);
     } else {
-        assert_test(SLICE_TYPESIZE(game->render.attack_range_tiles) == 0);
+        assert_test(SLICE_TYPESIZE(game->pathing.attack_range_tiles) == 0);
     }
 
     // game_over, when set, is consistent with alive counts. GAME_OVER_NONE

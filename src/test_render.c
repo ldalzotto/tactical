@@ -230,13 +230,13 @@ PRIVATE void test_render_attack_range_tile_occupied_by_enemy_is_dithered_not_sol
 }
 
 // F1-06: hovering a valid AoE impact tile in attack mode draws the blast
-// preview overlay (dithered, like attack_range_tiles), layered on top of
-// the still-visible attack-range overlay -- not a replacement for it. Not
+// overlay (dithered, like attack_range_tiles), layered on top of the
+// still-visible attack-range overlay -- not a replacement for it. Not
 // required by F1-08 (which explicitly scopes pixel-level assertions out),
 // but this file already establishes that convention for
 // attack_range_tiles above, so it's the natural place to also cover
-// render_tiles' new blast_preview_tiles loop.
-PRIVATE void test_render_blast_preview_tile_is_dithered_over_attack_range(linear_allocator_t *allocator) {
+// render_tiles' blast_tiles loop.
+PRIVATE void test_render_blast_tile_is_dithered_over_attack_range(linear_allocator_t *allocator) {
     slice_t fb_align = linear_allocator_push_alignment(allocator, _Alignof(rgba_t));
     slice_rgba_t fb;
     fb = LINEAR_ALLOCATOR_PUSH(allocator, fb, (size_t)(GAME_TEST_FB_WIDTH * GAME_TEST_FB_HEIGHT));
@@ -269,9 +269,9 @@ PRIVATE void test_render_blast_preview_tile_is_dithered_over_attack_range(linear
     rgba_t blast_tint = { 220, 40, 40, 255 };
     assert_test(test_tile_contains_color(fb, GAME_TEST_FB_WIDTH, game.viewport, (position_t){3, 0}, blast_tint));
 
-    // attack_range_tiles stays visible underneath -- the blast preview
+    // attack_range_tiles stays visible underneath -- the blast overlay
     // layers on top rather than replacing it (F1-05).
-    assert_test(SLICE_TYPESIZE(game.render.attack_range_tiles) > 0);
+    assert_test(SLICE_TYPESIZE(game.pathing.attack_range_tiles) > 0);
 
     game_deinit(allocator, game);
     LINEAR_ALLOCATOR_POP(allocator, fb);
@@ -736,7 +736,7 @@ const test_case_t g_render_tests[] = {
     { TEST_NAME("render_dithered_rectangle_checkerboards_over_background"), test_render_dithered_rectangle_checkerboards_over_background },
     { TEST_NAME("render_attack_range_tile_occupied_by_enemy_is_dithered_not_solid"), test_render_attack_range_tile_occupied_by_enemy_is_dithered_not_solid },
     { TEST_NAME("render_attack_range_tile_occupied_by_ally_is_solid_not_dithered"), test_render_attack_range_tile_occupied_by_ally_is_solid_not_dithered },
-    { TEST_NAME("render_blast_preview_tile_is_dithered_over_attack_range"), test_render_blast_preview_tile_is_dithered_over_attack_range },
+    { TEST_NAME("render_blast_tile_is_dithered_over_attack_range"), test_render_blast_tile_is_dithered_over_attack_range },
     { TEST_NAME("render_obstacle_tile_uses_obstacle_colors"), test_render_obstacle_tile_uses_obstacle_colors },
     { TEST_NAME("render_chasm_tile_uses_chasm_colors"), test_render_chasm_tile_uses_chasm_colors },
     { TEST_NAME("render_hover_draws_outline"), test_render_hover_draws_outline },

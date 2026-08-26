@@ -83,19 +83,18 @@ PRIVATE void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
 
             graphics_draw_rectangle(fb, fb_width, px, py, ts, ts, outer);
             graphics_draw_rectangle(fb, fb_width, px + 2, py + 2, ts - 4, ts - 4, inset);
+
+            // Movement overlay: read straight off walking_distances instead
+            // of a separate reachable-tiles list -- distance >= 1 means
+            // reachable this turn (0 is the mover's own tile).
+            if (game.mode == GAME_MODE_MOVEMENT && pathing_distance_at(game.pathing.walking_distances, game.grid, (position_t){tx, ty}) >= 1) {
+                graphics_draw_rectangle(fb, fb_width, px, py, ts, ts, COLOR_REACHABLE_TINT);
+            }
         }
     }
 
-    for (SLICE_FOREACH(game.render.reachable_tiles, tile_s)) {
-        position_t tile = SLICE_DEREF(tile_s);
-        int px, py;
-        grid_to_screen(game.viewport, tile.x, tile.y, &px, &py);
-        int ts = game.viewport.tile_size;
-        graphics_draw_rectangle(fb, fb_width, px, py, ts, ts, COLOR_REACHABLE_TINT);
-    }
-
     entity_t *attacker = turn_active_entity(game.turn);
-    for (SLICE_FOREACH(game.render.attack_range_tiles, tile_s)) {
+    for (SLICE_FOREACH(game.pathing.attack_range_tiles, tile_s)) {
         position_t tile = SLICE_DEREF(tile_s);
         int px, py;
         grid_to_screen(game.viewport, tile.x, tile.y, &px, &py);
@@ -113,10 +112,11 @@ PRIVATE void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
         }
     }
 
-    // Drawn after attack_range_tiles so the blast preview layers on top of
-    // it (render_cache_t's blast_preview_tiles is independent of, and
-    // coexists with, attack_range_tiles -- see F1-05).
-    for (SLICE_FOREACH(game.render.blast_preview_tiles, tile_s)) {
+    // Drawn after attack_range_tiles so the blast overlay layers on top of
+    // it (blast_tiles coexists with attack_range_tiles -- see F1-05). This
+    // is the same data game_cast_attack_area resolves the cast against, not
+    // a rendering-only preview.
+    for (SLICE_FOREACH(game.pathing.blast_tiles, tile_s)) {
         position_t tile = SLICE_DEREF(tile_s);
         int px, py;
         grid_to_screen(game.viewport, tile.x, tile.y, &px, &py);
