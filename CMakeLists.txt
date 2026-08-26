@@ -64,9 +64,9 @@ else()
         src/game/input.c
         src/game/layout.c
         src/game/pathing.c
+        src/game/pathing_ranges.c
         src/game/position.c
         src/game/render.c
-        src/game/pathing_ranges.c
         src/game/scenario.c
         src/game/skill.c
         src/game/turn.c
