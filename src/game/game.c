@@ -68,6 +68,19 @@ PUBLIC void game_deinit(linear_allocator_t *allocator, game_state_t state) {
     linear_allocator_pop(allocator, state.grid_align);
 }
 
+// Restages blast_tiles for game->hover if it's a valid AoE impact for
+// `skill` -- hover_valid, skill_is_aoe, and within
+// game->pathing.attack_range_tiles. No-op otherwise (blast_tiles is left
+// at whatever the caller last set it to). Returns the byte shift from
+// staging, 0 if skipped.
+PRIVATE ptrdiff_t game_restage_hover_blast_preview(game_state_t *game, linear_allocator_t *allocator, skill_t skill) {
+    if (!game->hover_valid || !skill_is_aoe(skill)
+            || !position_in_tiles(game->pathing.attack_range_tiles, game->hover)) {
+        return 0;
+    }
+    return pathing_ranges_push_blast_tiles(allocator, &game->scratch, &game->pathing, game->grid, game->hover, skill.aoe_radius);
+}
+
 // Switches to `mode`. walking_distances and attack_range_tiles are mutually
 // exclusive, so each branch nullifies the one it isn't populating: NONE
 // nullifies both; MOVEMENT recomputes walking_distances for the turn's
@@ -115,10 +128,7 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
         // Restage blast_tiles for the current hover -- pushing attack_range
         // above left it as a fresh empty marker, and entering ATTACK mode
         // shouldn't leave it stale for a hover that was already valid.
-        if (game->hover_valid && skill_is_aoe(skill)
-                && position_in_tiles(game->pathing.attack_range_tiles, game->hover)) {
-            shift += pathing_ranges_push_blast_tiles(allocator, &game->scratch, &game->pathing, game->grid, game->hover, skill.aoe_radius);
-        }
+        shift += game_restage_hover_blast_preview(game, allocator, skill);
 
         return shift;
     }
@@ -396,10 +406,7 @@ PUBLIC ptrdiff_t game_on_input_event(game_state_t *game, linear_allocator_t *all
             entity_t *active = turn_active_entity(game->turn);
             skill_t skill = SLICE_AT(active->skills, game->selected_skill);
             assert_debug(active->team == ENTITY_TEAM_PLAYER);
-            if (game->hover_valid && skill_is_aoe(skill)
-                    && position_in_tiles(game->pathing.attack_range_tiles, game->hover)) {
-                return pathing_ranges_push_blast_tiles(allocator, &game->scratch, &game->pathing, game->grid, game->hover, skill.aoe_radius);
-            }
+            return game_restage_hover_blast_preview(game, allocator, skill);
         }
         return 0;
     }
