@@ -128,12 +128,23 @@ PRIVATE bool pathing_line_of_sight_clear(grid_t grid, slice_entity_t entities, p
     return true;
 }
 
-PUBLIC bool pathing_in_range(grid_t grid, slice_entity_t entities, position_t from, position_t to, int max_range) {
+PUBLIC bool pathing_can_target(grid_t grid, slice_entity_t entities, position_t from, position_t to, int max_range) {
     if (pathing_manhattan_distance(from, to) > max_range) {
         return false;
     }
 
-    return pathing_line_of_sight_clear(grid, entities, from, to);
+    if (!pathing_line_of_sight_clear(grid, entities, from, to)) {
+        return false;
+    }
+
+    // Empty sight-blocking ground: nothing there to target, even though
+    // pathing_line_of_sight_clear doesn't check `to` itself (that exemption
+    // exists for entities standing on sight-blocking tiles, not empty ones).
+    if (grid_blocks_sight(grid, to) && entity_find_at(entities, to) == 0) {
+        return false;
+    }
+
+    return true;
 }
 
 PUBLIC int pathing_distance_at(pathing_state_t state, grid_t grid, position_t position) {
@@ -150,6 +161,31 @@ PUBLIC slice_position_t pathing_compute_blast_tiles(linear_allocator_t *allocato
             position_t position = { tx, ty };
 
             if (pathing_manhattan_distance(center, position) > radius) {
+                continue;
+            }
+
+            slice_position_t entry = LINEAR_ALLOCATOR_PUSH(allocator, tiles, 1);
+            SLICE_DEREF(entry) = position;
+            tiles.end = entry.end;
+        }
+    }
+
+    return tiles;
+}
+
+PUBLIC slice_position_t pathing_compute_attack_range(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, position_t from, int max_range) {
+    slice_position_t tiles;
+    tiles = LINEAR_ALLOCATOR_PUSH(allocator, tiles, 0);
+
+    for (int ty = 0; ty < grid.height; ty++) {
+        for (int tx = 0; tx < grid.width; tx++) {
+            position_t position = { tx, ty };
+            // from == to is trivially in range but never a valid target.
+            if (position_equals(position, from)) {
+                continue;
+            }
+
+            if (!pathing_can_target(grid, entities, from, position, max_range)) {
                 continue;
             }
 

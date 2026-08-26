@@ -294,6 +294,43 @@ PRIVATE void test_aoe_out_of_range_and_los_blocked_impact_fails_cleanly(linear_a
     }
 }
 
+// Empty grass (walkable but sight-blocking) in range is not a legal AoE
+// impact: nothing there to see or target, so both a click-to-cast and a
+// hover preview must reject it, same as an out-of-range or LOS-blocked tile.
+PRIVATE void test_aoe_empty_sight_blocking_tile_rejected_for_cast_and_preview(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 5, 1);
+    grid_set_tile(grid, (position_t){2, 0}, TILE_GRASS);
+
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+
+    test_move_tile(&game, allocator, (position_t){2, 0});
+    assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) == 0);
+
+    test_click_tile(&game, allocator, (position_t){2, 0});
+    assert_test(p->ap == 1);
+    assert_test(game.mode == GAME_MODE_ATTACK);
+
+    game_deinit(allocator, game);
+}
+
 // A blast that kills two of three enemies in one cast removes both from
 // game.turn.order, leaves the cursor pointing at the still-active attacker,
 // and leaves every remaining entry alive.
@@ -1309,6 +1346,7 @@ const test_case_t g_game_aoe_tests[] = {
     { TEST_NAME("aoe_no_friendly_fire_spares_ally_and_attacker"), test_aoe_no_friendly_fire_spares_ally_and_attacker },
     { TEST_NAME("aoe_ap_spent_exactly_once_regardless_of_hit_count"), test_aoe_ap_spent_exactly_once_regardless_of_hit_count },
     { TEST_NAME("aoe_out_of_range_and_los_blocked_impact_fails_cleanly"), test_aoe_out_of_range_and_los_blocked_impact_fails_cleanly },
+    { TEST_NAME("aoe_empty_sight_blocking_tile_rejected_for_cast_and_preview"), test_aoe_empty_sight_blocking_tile_rejected_for_cast_and_preview },
     { TEST_NAME("aoe_multi_kill_reconciles_turn_order"), test_aoe_multi_kill_reconciles_turn_order },
     { TEST_NAME("aoe_multi_kill_wipes_enemy_team_triggers_game_over"), test_aoe_multi_kill_wipes_enemy_team_triggers_game_over },
     { TEST_NAME("aoe_cast_onto_empty_tile_hits_surrounding_entities"), test_aoe_cast_onto_empty_tile_hits_surrounding_entities },

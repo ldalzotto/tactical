@@ -7,7 +7,7 @@ const skill_t SKILL_RANGED = { .range = 3, .damage = 3, .ap_cost = 1 };
 const skill_t SKILL_FIREBALL = { .range = 4, .aoe_radius = 2, .damage = 4, .ap_cost = 1 };
 
 PUBLIC bool skill_can_target(grid_t grid, slice_entity_t entities, entity_t* attacker, skill_t skill, entity_t* target) {
-    return pathing_in_range(grid, entities, attacker->position, target->position, skill.range);
+    return pathing_can_target(grid, entities, attacker->position, target->position, skill.range);
 }
 
 PUBLIC bool skill_is_aoe(skill_t skill) {
@@ -15,5 +15,5 @@ PUBLIC bool skill_is_aoe(skill_t skill) {
 }
 
 PUBLIC bool skill_can_target_area(grid_t grid, slice_entity_t entities, entity_t* attacker, skill_t skill, position_t impact) {
-    return pathing_in_range(grid, entities, attacker->position, impact, skill.range);
+    return pathing_can_target(grid, entities, attacker->position, impact, skill.range);
 }

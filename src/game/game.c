@@ -106,24 +106,7 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
         skill_t skill = SLICE_AT(active->skills, game->selected_skill);
 
         slice_t temp_align = linear_allocator_push_alignment(allocator, _Alignof(position_t));
-        slice_position_t temp_tiles;
-        temp_tiles = LINEAR_ALLOCATOR_PUSH(allocator, temp_tiles, 0);
-        for (int ty = 0; ty < game->grid.height; ty++) {
-            for (int tx = 0; tx < game->grid.width; tx++) {
-                position_t position = { tx, ty };
-                // Exclude the mover's own tile -- pathing_in_range treats
-                // from == to as trivially in range, but it's never a valid
-                // attack target tile.
-                if (position_equals(position, active->position)) {
-                    continue;
-                }
-                if (pathing_in_range(game->grid, game->entities, active->position, position, skill.range)) {
-                    slice_position_t entry = LINEAR_ALLOCATOR_PUSH(allocator, temp_tiles, 1);
-                    SLICE_DEREF(entry) = position;
-                    temp_tiles.end = entry.end;
-                }
-            }
-        }
+        slice_position_t temp_tiles = pathing_compute_attack_range(allocator, game->grid, game->entities, active->position, skill.range);
 
         ptrdiff_t shift = pathing_ranges_push_attack_range(allocator, &game->scratch, &game->pathing, temp_align, temp_tiles);
         // Reset to zero for usage sanity
