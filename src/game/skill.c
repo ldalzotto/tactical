@@ -13,7 +13,3 @@ PUBLIC bool skill_can_target(grid_t grid, slice_entity_t entities, entity_t* att
 PUBLIC bool skill_is_aoe(skill_t skill) {
     return skill.aoe_radius > 0;
 }
-
-PUBLIC bool skill_can_target_area(grid_t grid, slice_entity_t entities, entity_t* attacker, skill_t skill, position_t impact) {
-    return pathing_can_target(grid, entities, attacker->position, impact, skill.range);
-}

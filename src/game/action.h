@@ -28,12 +28,8 @@ PUBLIC bool action_try_attack(entity_t* attacker, skill_t skill, entity_t* defen
 // from attacker's takes skill.damage via entity_damage, and *out_hit is
 // populated with exactly those damaged entities (staged on allocator;
 // caller pops it when done). No friendly fire. False, no mutation, if
-// attacker.ap < skill.ap_cost. Only valid for AoE skills (skill.aoe_radius >
-// 0, debug-asserted).
-//
-// `impact` being in `attack_range_tiles` is a debug-asserted precondition,
-// not a runtime check: the only caller (game_try_cast_attack_area) already
-// validates it via skill_can_target_area before calling.
+// attacker.ap < skill.ap_cost or `impact` isn't in `attack_range_tiles`.
+// Only valid for AoE skills (skill.aoe_radius > 0, debug-asserted).
 //
 // Caller supplies `blast_tiles` (pathing_compute_blast_tiles, already
 // staged for `impact`) and `attack_range_tiles`; both are trusted, not

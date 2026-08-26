@@ -68,6 +68,20 @@ PUBLIC void game_deinit(linear_allocator_t *allocator, game_state_t state) {
     linear_allocator_pop(allocator, state.grid_align);
 }
 
+// Computes and stages blast_tiles for `hover` if it's a valid AoE impact
+// for `skill` -- skill_is_aoe and within `ranges->attack_range_tiles`.
+// Caller is responsible for only calling this when hover is valid. No-op
+// otherwise (blast_tiles is left at whatever the caller last set it to).
+// Returns the byte shift from staging, 0 if skipped.
+PRIVATE ptrdiff_t game_compute_blast_tiles(linear_allocator_t *allocator, linear_allocator_t *scratch, pathing_ranges_t *ranges, grid_t grid, position_t hover, skill_t skill) {
+    if (!skill_is_aoe(skill) || !position_in_tiles(ranges->attack_range_tiles, hover)) {
+        return 0;
+    }
+    slice_t temp_align = linear_allocator_push_alignment(allocator, _Alignof(position_t));
+    slice_position_t temp_tiles = pathing_compute_blast_tiles(allocator, grid, hover, skill.aoe_radius);
+    return pathing_ranges_push_blast_tiles(allocator, scratch, ranges, temp_align, temp_tiles);
+}
+
 // Switches to `mode`. walking_distances and attack_range_tiles are mutually
 // exclusive, so each branch nullifies the one it isn't populating: NONE
 // nullifies both; MOVEMENT recomputes walking_distances for the turn's
@@ -115,9 +129,8 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
         // Restage blast_tiles for the current hover -- pushing attack_range
         // above left it as a fresh empty marker, and entering ATTACK mode
         // shouldn't leave it stale for a hover that was already valid.
-        if (game->hover_valid && skill_is_aoe(skill)
-                && skill_can_target_area(game->grid, game->entities, active, skill, game->hover)) {
-            shift += pathing_ranges_push_blast_tiles(allocator, &game->scratch, &game->pathing, game->grid, game->hover, skill.aoe_radius);
+        if (game->hover_valid) {
+            shift += game_compute_blast_tiles(allocator, &game->scratch, &game->pathing, game->grid, game->hover, skill);
         }
 
         return shift;
@@ -176,6 +189,10 @@ PRIVATE ptrdiff_t game_cast_attack_area(game_state_t *game, linear_allocator_t *
     slice_entity_ptr_t out_hit;
     if (!action_try_attack_area(allocator, game->entities, active, skill, impact, game->pathing.attack_range_tiles, blast_tiles, &out_hit)) {
         linear_allocator_pop(allocator, hit_align);
+        // Impact may be out of range or the attacker may lack ap; either
+        // way the blast_tiles staged for it by game_try_cast_attack_area no
+        // longer represents a valid or resolved cast, so don't leave it stale.
+        pathing_ranges_clear_blast_tiles(&game->scratch, &game->pathing);
         return 0;
     }
 
@@ -200,15 +217,16 @@ PRIVATE ptrdiff_t game_cast_attack_area(game_state_t *game, linear_allocator_t *
     return game_set_mode(game, allocator, GAME_MODE_MOVEMENT);
 }
 
-// Gates `impact` via skill_can_target_area, stages blast_tiles fresh for it
-// (a click's impact tile isn't guaranteed to match the last hover tile),
-// then casts. Shared by game_on_entity_pressed and game_on_tile_pressed.
+// Stages blast_tiles fresh for `impact` (a click's impact tile isn't
+// guaranteed to match the last hover tile), then casts; action_try_attack_area
+// rejects `impact` if it's out of game->pathing.attack_range_tiles, and
+// game_cast_attack_area clears the now-stale blast_tiles on that failure.
+// Shared by game_on_entity_pressed and game_on_tile_pressed.
 PRIVATE ptrdiff_t game_try_cast_attack_area(game_state_t *game, linear_allocator_t *allocator, entity_t *active, skill_t skill, position_t impact) {
-    if (!skill_can_target_area(game->grid, game->entities, active, skill, impact)) {
-        return 0;
-    }
     pathing_ranges_clear_blast_tiles(&game->scratch, &game->pathing);
-    ptrdiff_t shift = pathing_ranges_push_blast_tiles(allocator, &game->scratch, &game->pathing, game->grid, impact, skill.aoe_radius);
+    slice_t temp_align = linear_allocator_push_alignment(allocator, _Alignof(position_t));
+    slice_position_t temp_tiles = pathing_compute_blast_tiles(allocator, game->grid, impact, skill.aoe_radius);
+    ptrdiff_t shift = pathing_ranges_push_blast_tiles(allocator, &game->scratch, &game->pathing, temp_align, temp_tiles);
     return shift + game_cast_attack_area(game, allocator, active, skill, impact);
 }
 
@@ -389,14 +407,11 @@ PUBLIC ptrdiff_t game_on_input_event(game_state_t *game, linear_allocator_t *all
         // asserted rather than re-checked since MOUSE_MOVE fires regardless
         // of whose turn it is.
         pathing_ranges_clear_blast_tiles(&game->scratch, &game->pathing);
-        if (game->mode == GAME_MODE_ATTACK) {
+        if (game->mode == GAME_MODE_ATTACK && game->hover_valid) {
             entity_t *active = turn_active_entity(game->turn);
             skill_t skill = SLICE_AT(active->skills, game->selected_skill);
             assert_debug(active->team == ENTITY_TEAM_PLAYER);
-            if (game->hover_valid && skill_is_aoe(skill)
-                    && skill_can_target_area(game->grid, game->entities, active, skill, game->hover)) {
-                return pathing_ranges_push_blast_tiles(allocator, &game->scratch, &game->pathing, game->grid, game->hover, skill.aoe_radius);
-            }
+            return game_compute_blast_tiles(allocator, &game->scratch, &game->pathing, game->grid, game->hover, skill);
         }
         return 0;
     }
