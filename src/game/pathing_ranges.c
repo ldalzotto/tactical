@@ -132,7 +132,7 @@ PRIVATE ptrdiff_t pathing_ranges_push_tiles(linear_allocator_t *allocator, linea
 // in as `out`, then pops `temp` off `allocator`. `temp` is rebased in place
 // if growth relocates memory. Returns the shift applied (0 if it already
 // fit); callers must propagate it to anything else held above `scratch`.
-PRIVATE ptrdiff_t game_scratch_push_pathing(linear_allocator_t *allocator, linear_allocator_t *scratch,
+PRIVATE ptrdiff_t pathing_ranges_push_pathing_state(linear_allocator_t *allocator, linear_allocator_t *scratch,
         pathing_state_t *temp,
         slice_t *out_align, pathing_state_t *out) {
     size_t needed = (size_t)SLICE_BYTESIZE(temp->dist);
@@ -168,7 +168,7 @@ PRIVATE ptrdiff_t game_scratch_push_pathing(linear_allocator_t *allocator, linea
 PUBLIC ptrdiff_t pathing_ranges_push_walking_distances(linear_allocator_t *allocator, linear_allocator_t *scratch, pathing_ranges_t *ranges, pathing_state_t *temp) {
     slice_t walking_distances_align;
     pathing_state_t walking_distances;
-    ptrdiff_t shift = game_scratch_push_pathing(allocator, scratch, temp, &walking_distances_align, &walking_distances);
+    ptrdiff_t shift = pathing_ranges_push_pathing_state(allocator, scratch, temp, &walking_distances_align, &walking_distances);
 
     pathing_ranges_set_walking_distances(scratch, ranges, walking_distances_align, walking_distances);
 
