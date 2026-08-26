@@ -68,17 +68,16 @@ PUBLIC void game_deinit(linear_allocator_t *allocator, game_state_t state) {
     linear_allocator_pop(allocator, state.grid_align);
 }
 
-// Restages blast_tiles for game->hover if it's a valid AoE impact for
-// `skill` -- hover_valid, skill_is_aoe, and within
-// game->pathing.attack_range_tiles. No-op otherwise (blast_tiles is left
-// at whatever the caller last set it to). Returns the byte shift from
-// staging, 0 if skipped.
-PRIVATE ptrdiff_t game_restage_hover_blast_preview(game_state_t *game, linear_allocator_t *allocator, skill_t skill) {
-    if (!game->hover_valid || !skill_is_aoe(skill)
-            || !position_in_tiles(game->pathing.attack_range_tiles, game->hover)) {
+// Stages blast_tiles for `hover` if it's a valid AoE impact for `skill`
+// -- skill_is_aoe and within `ranges->attack_range_tiles`. Caller is
+// responsible for only calling this when hover is valid. No-op otherwise
+// (blast_tiles is left at whatever the caller last set it to). Returns the
+// byte shift from staging, 0 if skipped.
+PRIVATE ptrdiff_t game_stage_hover_blast_preview(linear_allocator_t *allocator, linear_allocator_t *scratch, pathing_ranges_t *ranges, grid_t grid, position_t hover, skill_t skill) {
+    if (!skill_is_aoe(skill) || !position_in_tiles(ranges->attack_range_tiles, hover)) {
         return 0;
     }
-    return pathing_ranges_push_blast_tiles(allocator, &game->scratch, &game->pathing, game->grid, game->hover, skill.aoe_radius);
+    return pathing_ranges_push_blast_tiles(allocator, scratch, ranges, grid, hover, skill.aoe_radius);
 }
 
 // Switches to `mode`. walking_distances and attack_range_tiles are mutually
@@ -128,7 +127,9 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
         // Restage blast_tiles for the current hover -- pushing attack_range
         // above left it as a fresh empty marker, and entering ATTACK mode
         // shouldn't leave it stale for a hover that was already valid.
-        shift += game_restage_hover_blast_preview(game, allocator, skill);
+        if (game->hover_valid) {
+            shift += game_stage_hover_blast_preview(allocator, &game->scratch, &game->pathing, game->grid, game->hover, skill);
+        }
 
         return shift;
     }
@@ -402,11 +403,11 @@ PUBLIC ptrdiff_t game_on_input_event(game_state_t *game, linear_allocator_t *all
         // asserted rather than re-checked since MOUSE_MOVE fires regardless
         // of whose turn it is.
         pathing_ranges_clear_blast_tiles(&game->scratch, &game->pathing);
-        if (game->mode == GAME_MODE_ATTACK) {
+        if (game->mode == GAME_MODE_ATTACK && game->hover_valid) {
             entity_t *active = turn_active_entity(game->turn);
             skill_t skill = SLICE_AT(active->skills, game->selected_skill);
             assert_debug(active->team == ENTITY_TEAM_PLAYER);
-            return game_restage_hover_blast_preview(game, allocator, skill);
+            return game_stage_hover_blast_preview(allocator, &game->scratch, &game->pathing, game->grid, game->hover, skill);
         }
         return 0;
     }
