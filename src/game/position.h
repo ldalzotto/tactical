@@ -14,6 +14,9 @@ SLICE_DEFINE(position_t);
 PUBLIC position_t position_add(position_t a, position_t b);
 PUBLIC bool position_equals(position_t a, position_t b);
 
+// True if `position` equals any tile in `tiles`.
+PUBLIC bool position_in_tiles(slice_position_t tiles, position_t position);
+
 // Orthogonal unit offsets: up, right, down, left.
 static const position_t __POSITION_DIRECTIONS[4] = {
     { 0, -1 }, // up

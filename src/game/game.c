@@ -116,7 +116,7 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
         // above left it as a fresh empty marker, and entering ATTACK mode
         // shouldn't leave it stale for a hover that was already valid.
         if (game->hover_valid && skill_is_aoe(skill)
-                && skill_can_target_area(game->grid, game->entities, active, skill, game->hover)) {
+                && position_in_tiles(game->pathing.attack_range_tiles, game->hover)) {
             shift += pathing_ranges_push_blast_tiles(allocator, &game->scratch, &game->pathing, game->grid, game->hover, skill.aoe_radius);
         }
 
@@ -200,11 +200,12 @@ PRIVATE ptrdiff_t game_cast_attack_area(game_state_t *game, linear_allocator_t *
     return game_set_mode(game, allocator, GAME_MODE_MOVEMENT);
 }
 
-// Gates `impact` via skill_can_target_area, stages blast_tiles fresh for it
-// (a click's impact tile isn't guaranteed to match the last hover tile),
-// then casts. Shared by game_on_entity_pressed and game_on_tile_pressed.
+// Gates `impact` against game->pathing.attack_range_tiles, stages
+// blast_tiles fresh for it (a click's impact tile isn't guaranteed to match
+// the last hover tile), then casts. Shared by game_on_entity_pressed and
+// game_on_tile_pressed.
 PRIVATE ptrdiff_t game_try_cast_attack_area(game_state_t *game, linear_allocator_t *allocator, entity_t *active, skill_t skill, position_t impact) {
-    if (!skill_can_target_area(game->grid, game->entities, active, skill, impact)) {
+    if (!position_in_tiles(game->pathing.attack_range_tiles, impact)) {
         return 0;
     }
     pathing_ranges_clear_blast_tiles(&game->scratch, &game->pathing);
@@ -394,7 +395,7 @@ PUBLIC ptrdiff_t game_on_input_event(game_state_t *game, linear_allocator_t *all
             skill_t skill = SLICE_AT(active->skills, game->selected_skill);
             assert_debug(active->team == ENTITY_TEAM_PLAYER);
             if (game->hover_valid && skill_is_aoe(skill)
-                    && skill_can_target_area(game->grid, game->entities, active, skill, game->hover)) {
+                    && position_in_tiles(game->pathing.attack_range_tiles, game->hover)) {
                 return pathing_ranges_push_blast_tiles(allocator, &game->scratch, &game->pathing, game->grid, game->hover, skill.aoe_radius);
             }
         }

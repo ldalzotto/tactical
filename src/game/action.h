@@ -33,7 +33,7 @@ PUBLIC bool action_try_attack(entity_t* attacker, skill_t skill, entity_t* defen
 //
 // `impact` being in `attack_range_tiles` is a debug-asserted precondition,
 // not a runtime check: the only caller (game_try_cast_attack_area) already
-// validates it via skill_can_target_area before calling.
+// validates it against game->pathing.attack_range_tiles before calling.
 //
 // Caller supplies `blast_tiles` (pathing_compute_blast_tiles, already
 // staged for `impact`) and `attack_range_tiles`; both are trusted, not
