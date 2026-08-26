@@ -505,6 +505,78 @@ PRIVATE void test_game_ranged_attack_not_blocked_by_non_walkable_sight_clear_til
     game_deinit(allocator, game);
 }
 
+// Empty grass (walkable but sight-blocking) must not enter
+// attack_range_tiles even though it's in range -- nothing stands there to
+// see or target.
+PRIVATE void test_game_attack_range_excludes_empty_sight_blocking_tile(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 3, 1);
+    grid_set_tile(grid, (position_t){1, 0}, TILE_GRASS);
+
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_RANGED);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+
+    assert_test(!test_tile_list_contains(game.pathing.attack_range_tiles, (position_t){1, 0}));
+
+    game_deinit(allocator, game);
+}
+
+// An entity standing on grass doesn't occlude itself -- unlike empty grass,
+// it stays targetable.
+PRIVATE void test_game_attack_range_includes_entity_on_sight_blocking_tile(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 3, 1);
+    grid_set_tile(grid, (position_t){1, 0}, TILE_GRASS);
+
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 1, 3);
+    entity_t* e = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){1, 0}, 10, 1, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_RANGED);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *e_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e->skills = (slice_skill_t){ .begin = e_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, e);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+
+    assert_test(test_tile_list_contains(game.pathing.attack_range_tiles, e->position));
+    test_click_tile(&game, allocator, e->position);
+
+    assert_test(e->hp == 10 - SKILL_RANGED.damage);
+    assert_test(p->ap == 1 - SKILL_RANGED.ap_cost);
+
+    game_deinit(allocator, game);
+}
+
 // Range is a Manhattan-distance boundary: exactly max_range is in, one step
 // further is out, on open ground with no occlusion on either ray.
 PRIVATE void test_game_attack_range_manhattan_boundary(linear_allocator_t *allocator) {
@@ -993,6 +1065,8 @@ const test_case_t g_game_combat_tests[] = {
     { TEST_NAME("game_attack_range_tiles_include_occupied_but_not_beyond"), test_game_attack_range_tiles_include_occupied_but_not_beyond },
     { TEST_NAME("game_ranged_attack_blocked_by_wall_on_diagonal_line"), test_game_ranged_attack_blocked_by_wall_on_diagonal_line },
     { TEST_NAME("game_ranged_attack_not_blocked_by_non_walkable_sight_clear_tile"), test_game_ranged_attack_not_blocked_by_non_walkable_sight_clear_tile },
+    { TEST_NAME("game_attack_range_excludes_empty_sight_blocking_tile"), test_game_attack_range_excludes_empty_sight_blocking_tile },
+    { TEST_NAME("game_attack_range_includes_entity_on_sight_blocking_tile"), test_game_attack_range_includes_entity_on_sight_blocking_tile },
     { TEST_NAME("game_attack_range_manhattan_boundary"), test_game_attack_range_manhattan_boundary },
     { TEST_NAME("game_attack_toggle_after_move_selection_does_not_overflow_scratch"), test_game_attack_toggle_after_move_selection_does_not_overflow_scratch },
     { TEST_NAME("game_attack_toggle_with_large_range_skill_grows_scratch"), test_game_attack_toggle_with_large_range_skill_grows_scratch },

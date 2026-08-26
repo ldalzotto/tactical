@@ -161,3 +161,35 @@ PUBLIC slice_position_t pathing_compute_blast_tiles(linear_allocator_t *allocato
 
     return tiles;
 }
+
+PUBLIC slice_position_t pathing_compute_attack_range(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, position_t from, int max_range) {
+    slice_position_t tiles;
+    tiles = LINEAR_ALLOCATOR_PUSH(allocator, tiles, 0);
+
+    for (int ty = 0; ty < grid.height; ty++) {
+        for (int tx = 0; tx < grid.width; tx++) {
+            position_t position = { tx, ty };
+            // from == to is trivially in range but never a valid target.
+            if (position_equals(position, from)) {
+                continue;
+            }
+
+            if (!pathing_in_range(grid, entities, from, position, max_range)) {
+                continue;
+            }
+
+            // Sight-blocking and empty: excluded (nothing visible to
+            // target). An entity there stays targetable -- it doesn't
+            // occlude itself, and pathing_in_range never checks this either.
+            if (grid_blocks_sight(grid, position) && entity_find_at(entities, position) == 0) {
+                continue;
+            }
+
+            slice_position_t entry = LINEAR_ALLOCATOR_PUSH(allocator, tiles, 1);
+            SLICE_DEREF(entry) = position;
+            tiles.end = entry.end;
+        }
+    }
+
+    return tiles;
+}

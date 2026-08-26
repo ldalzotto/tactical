@@ -59,6 +59,17 @@ PUBLIC int pathing_distance_at(pathing_state_t state, grid_t grid, position_t po
 // unlike pathing_state_t).
 PUBLIC slice_position_t pathing_compute_blast_tiles(linear_allocator_t *allocator, grid_t grid, position_t center, int radius);
 
+// Every tile a skill with `max_range` can legally target from `from`:
+// pathing_in_range within max_range, excluding `from`'s own tile, and
+// excluding sight-blocking tiles unless an entity stands on them --
+// pathing_in_range never checks the `to` endpoint for blocked sight (so an
+// entity in tall grass doesn't occlude itself), but that leaves empty
+// sight-blocking ground otherwise selectable; this closes that gap.
+//
+// Staged on `allocator` like pathing_compute_blast_tiles: a plain tile list
+// from a grid-wide scan, caller pops it from `allocator` when done.
+PUBLIC slice_position_t pathing_compute_attack_range(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, position_t from, int max_range);
+
 #ifdef APP_UNITY_BUILD
 #include "pathing.c"
 #endif
