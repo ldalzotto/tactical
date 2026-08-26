@@ -128,7 +128,7 @@ PRIVATE bool pathing_line_of_sight_clear(grid_t grid, slice_entity_t entities, p
     return true;
 }
 
-PUBLIC bool pathing_in_range(grid_t grid, slice_entity_t entities, position_t from, position_t to, int max_range) {
+PUBLIC bool pathing_can_target(grid_t grid, slice_entity_t entities, position_t from, position_t to, int max_range) {
     if (pathing_manhattan_distance(from, to) > max_range) {
         return false;
     }
@@ -185,7 +185,7 @@ PUBLIC slice_position_t pathing_compute_attack_range(linear_allocator_t *allocat
                 continue;
             }
 
-            if (!pathing_in_range(grid, entities, from, position, max_range)) {
+            if (!pathing_can_target(grid, entities, from, position, max_range)) {
                 continue;
             }
 
