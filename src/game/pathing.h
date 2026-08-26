@@ -36,13 +36,15 @@ PUBLIC pathing_state_t pathing_compute_walking_distances(linear_allocator_t *all
 // True if `to` is within Manhattan distance max_range of `from` AND there's
 // a clear line of sight -- a straight ray from `from` to `to`, unobstructed
 // by a sight-blocking tile (grid_set_blocks_sight, independent of
-// walkability) or by any other entity standing on an intermediate tile (the
-// two endpoints are never checked, so neither `from`'s nor `to`'s own tile
-// can block the ray). Unlike pathing_compute_walking_distances, this never
-// routes around obstacles: a target hidden behind a sight-blocking tile or
-// a standing unit is out of range even if a walkable detour exists, and a
-// target beyond a non-walkable-but-sight-clear tile (a chasm, a window) is
-// in range as long as the ray and the Manhattan distance both clear.
+// walkability) or by any other entity standing on an intermediate tile (`to`
+// itself is never checked this way, so an entity standing on sight-blocking
+// ground doesn't occlude itself) -- AND `to` isn't empty sight-blocking
+// ground (blocking sight with no entity on it: nothing there to target).
+// Unlike pathing_compute_walking_distances, this never routes around
+// obstacles: a target hidden behind a sight-blocking tile or a standing
+// unit is out of range even if a walkable detour exists, and a target
+// beyond a non-walkable-but-sight-clear tile (a chasm, a window) is in
+// range as long as the ray and the Manhattan distance both clear.
 //
 // Point query, O(max_range) -- no allocator, no grid-wide scan.
 PUBLIC bool pathing_in_range(grid_t grid, slice_entity_t entities, position_t from, position_t to, int max_range);
@@ -60,11 +62,8 @@ PUBLIC int pathing_distance_at(pathing_state_t state, grid_t grid, position_t po
 PUBLIC slice_position_t pathing_compute_blast_tiles(linear_allocator_t *allocator, grid_t grid, position_t center, int radius);
 
 // Every tile a skill with `max_range` can legally target from `from`:
-// pathing_in_range within max_range, excluding `from`'s own tile, and
-// excluding sight-blocking tiles unless an entity stands on them --
-// pathing_in_range never checks the `to` endpoint for blocked sight (so an
-// entity in tall grass doesn't occlude itself), but that leaves empty
-// sight-blocking ground otherwise selectable; this closes that gap.
+// pathing_in_range within max_range, excluding `from`'s own tile (trivially
+// in range but never a valid attack target).
 //
 // Staged on `allocator` like pathing_compute_blast_tiles: a plain tile list
 // from a grid-wide scan, caller pops it from `allocator` when done.

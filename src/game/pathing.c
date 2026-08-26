@@ -133,7 +133,18 @@ PUBLIC bool pathing_in_range(grid_t grid, slice_entity_t entities, position_t fr
         return false;
     }
 
-    return pathing_line_of_sight_clear(grid, entities, from, to);
+    if (!pathing_line_of_sight_clear(grid, entities, from, to)) {
+        return false;
+    }
+
+    // Empty sight-blocking ground: nothing there to target, even though
+    // pathing_line_of_sight_clear doesn't check `to` itself (that exemption
+    // exists for entities standing on sight-blocking tiles, not empty ones).
+    if (grid_blocks_sight(grid, to) && entity_find_at(entities, to) == 0) {
+        return false;
+    }
+
+    return true;
 }
 
 PUBLIC int pathing_distance_at(pathing_state_t state, grid_t grid, position_t position) {
@@ -175,13 +186,6 @@ PUBLIC slice_position_t pathing_compute_attack_range(linear_allocator_t *allocat
             }
 
             if (!pathing_in_range(grid, entities, from, position, max_range)) {
-                continue;
-            }
-
-            // Sight-blocking and empty: excluded (nothing visible to
-            // target). An entity there stays targetable -- it doesn't
-            // occlude itself, and pathing_in_range never checks this either.
-            if (grid_blocks_sight(grid, position) && entity_find_at(entities, position) == 0) {
                 continue;
             }
 
