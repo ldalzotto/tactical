@@ -58,15 +58,13 @@ PUBLIC ptrdiff_t pathing_ranges_push_walking_distances(linear_allocator_t *alloc
 // blast_tiles on top.
 PUBLIC ptrdiff_t pathing_ranges_push_attack_range(linear_allocator_t *allocator, linear_allocator_t *scratch, pathing_ranges_t *ranges, slice_t temp_align, slice_position_t temp_tiles);
 
-// Computes the blast footprint centered on `impact`
-// (pathing_compute_blast_tiles) and stages it into `scratch` as the new
-// blast_tiles -- this is the data game_cast_attack_area resolves the cast
-// against, not just a rendering preview. Unlike the pushes above, doesn't
-// require walking_distances/attack_range_tiles to be empty, but the
-// previous blast_tiles must be cleared first via
-// pathing_ranges_clear_blast_tiles. Returns the byte shift applied (see
-// pathing_ranges_push_walking_distances).
-PUBLIC ptrdiff_t pathing_ranges_push_blast_tiles(linear_allocator_t *allocator, linear_allocator_t *scratch, pathing_ranges_t *ranges, grid_t grid, position_t impact, int aoe_radius);
+// Same as pathing_ranges_push_attack_range, but for blast_tiles (staged by
+// the caller as `temp_align`/`temp_tiles`, e.g. via pathing_compute_blast_tiles)
+// -- this is the data game_cast_attack_area resolves the cast against, not
+// just a rendering preview. Unlike the pushes above, doesn't require
+// walking_distances/attack_range_tiles to be empty, but the previous
+// blast_tiles must be cleared first via pathing_ranges_clear_blast_tiles.
+PUBLIC ptrdiff_t pathing_ranges_push_blast_tiles(linear_allocator_t *allocator, linear_allocator_t *scratch, pathing_ranges_t *ranges, slice_t temp_align, slice_position_t temp_tiles);
 
 // Pops blast_tiles back to an empty marker. Cheaper than a full reset, and
 // the required first step before staging new blast_tiles via

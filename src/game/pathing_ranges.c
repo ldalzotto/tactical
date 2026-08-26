@@ -182,10 +182,7 @@ PUBLIC ptrdiff_t pathing_ranges_push_attack_range(linear_allocator_t *allocator,
     return shift;
 }
 
-PUBLIC ptrdiff_t pathing_ranges_push_blast_tiles(linear_allocator_t *allocator, linear_allocator_t *scratch, pathing_ranges_t *ranges, grid_t grid, position_t impact, int aoe_radius) {
-    slice_t temp_align = linear_allocator_push_alignment(allocator, _Alignof(position_t));
-    slice_position_t temp_tiles = pathing_compute_blast_tiles(allocator, grid, impact, aoe_radius);
-
+PUBLIC ptrdiff_t pathing_ranges_push_blast_tiles(linear_allocator_t *allocator, linear_allocator_t *scratch, pathing_ranges_t *ranges, slice_t temp_align, slice_position_t temp_tiles) {
     slice_t blast_align;
     slice_position_t blast_tiles;
     ptrdiff_t shift = pathing_ranges_push_tiles(allocator, scratch, temp_align, temp_tiles, &blast_align, &blast_tiles);
