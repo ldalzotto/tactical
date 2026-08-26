@@ -687,6 +687,94 @@ PRIVATE void test_game_ai_aoe_enemy_hits_target_with_blast_on_end_turn(linear_al
     game_deinit(allocator, game);
 }
 
+// AoE counterpart of test_game_ai_attack_noops_when_ap_insufficient_for_skill:
+// the only skill in range costs more AP than the enemy has, so
+// action_try_attack_area rejects the cast and the turn ends without damage.
+PRIVATE void test_game_ai_aoe_attack_noops_when_ap_insufficient_for_skill(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 2, 1);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
+    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){1, 0}, 10, 1, 0);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+
+    skill_t costly_aoe = { .range = 4, .aoe_radius = 2, .damage = 4, .ap_cost = 2 };
+    skill_t *enemy_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, costly_aoe);
+    enemy->skills = (slice_skill_t){ .begin = enemy_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, enemy);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_end_turn(&game, allocator);
+
+    assert_test(turn_active_entity(game.turn) == p);
+    assert_test(enemy->position.x == 1);
+    assert_test(enemy->position.y == 0);
+    assert_test(enemy->ap == 1);
+    assert_test(p->hp == 10);
+    assert_test(p->alive);
+
+    game_deinit(allocator, game);
+}
+
+// A fireball's blast can damage a bystander without killing it: p1 (the
+// chosen target) dies, p2 stands in the same blast but has enough hp to
+// survive -- exercises the "hit but still alive" branch of the AI's
+// dead-splicing loop, which the all-casualties blast test above never hits.
+PRIVATE void test_game_ai_aoe_blast_damages_bystander_without_killing_on_end_turn(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 4, 4);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p1 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){1, 0}, 4, 2, 3);
+    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){0, 0}, 10, 2, 3);
+    // Within SKILL_FIREBALL.aoe_radius (2) of p1's tile, but with enough hp
+    // to survive the blast's damage.
+    entity_t* p2 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 2, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p1_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p1->skills = (slice_skill_t){ .begin = p1_skills_begin, .end = skills.end };
+    skill_t *enemy_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_FIREBALL);
+    enemy->skills = (slice_skill_t){ .begin = enemy_skills_begin, .end = skills.end };
+    skill_t *p2_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p2->skills = (slice_skill_t){ .begin = p2_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p1);
+    turn_order_add(allocator, &order, enemy);
+    turn_order_add(allocator, &order, p2);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_end_turn(&game, allocator);
+
+    assert_test(!p1->alive);
+    assert_test(p2->alive);
+    assert_test(p2->hp == 10 - SKILL_FIREBALL.damage);
+    assert_test(enemy->ap == 2 - SKILL_FIREBALL.ap_cost);
+    assert_test(game.game_over == GAME_OVER_NONE);
+    assert_test(turn_active_entity(game.turn) == p2);
+
+    game_deinit(allocator, game);
+}
+
 // A fireball centered on the nearest target also catches a second player
 // standing within the blast radius (but out of the enemy's attack range on
 // its own), killing both in one cast. A third player outside the blast is
@@ -765,6 +853,8 @@ const test_case_t g_game_ai_tests[] = {
     { TEST_NAME("game_ai_equal_damage_skills_prefer_lower_ap_cost"), test_game_ai_equal_damage_skills_prefer_lower_ap_cost },
     { TEST_NAME("game_ai_attack_noops_when_ap_insufficient_for_skill"), test_game_ai_attack_noops_when_ap_insufficient_for_skill },
     { TEST_NAME("game_ai_aoe_enemy_hits_target_with_blast_on_end_turn"), test_game_ai_aoe_enemy_hits_target_with_blast_on_end_turn },
+    { TEST_NAME("game_ai_aoe_attack_noops_when_ap_insufficient_for_skill"), test_game_ai_aoe_attack_noops_when_ap_insufficient_for_skill },
+    { TEST_NAME("game_ai_aoe_blast_damages_bystander_without_killing_on_end_turn"), test_game_ai_aoe_blast_damages_bystander_without_killing_on_end_turn },
     { TEST_NAME("game_ai_aoe_blast_kills_multiple_players_on_end_turn"), test_game_ai_aoe_blast_kills_multiple_players_on_end_turn },
 };
 
