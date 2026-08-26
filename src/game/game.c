@@ -191,10 +191,10 @@ PRIVATE ptrdiff_t game_advance_turn(game_state_t *game, linear_allocator_t *allo
 // game_check_game_over asserts game->game_over == GAME_OVER_NONE on entry).
 // active->team can never appear in out_hit (action_try_attack_area excludes
 // same-team damage), so the active entity is never among the casualties
-// reconciled here. Only called by game_on_entity_pressed/game_on_tile_pressed,
-// which stage game->pathing.blast_tiles for `impact` immediately before
-// calling this -- checked below (non-empty; pathing_compute_blast_tiles
-// always includes at least the center tile), not recomputed.
+// reconciled here. Only called by game_try_cast_attack_area, which stages
+// game->pathing.blast_tiles for `impact` immediately before calling this --
+// checked below (non-empty; pathing_compute_blast_tiles always includes at
+// least the center tile), not recomputed.
 PRIVATE ptrdiff_t game_cast_attack_area(game_state_t *game, linear_allocator_t *allocator, entity_t *active, skill_t skill, position_t impact) {
     assert_debug(SLICE_TYPESIZE(game->pathing.blast_tiles) > 0);
     slice_position_t blast_tiles = game->pathing.blast_tiles;
@@ -231,6 +231,19 @@ PRIVATE ptrdiff_t game_cast_attack_area(game_state_t *game, linear_allocator_t *
     return game_set_mode(game, allocator, GAME_MODE_MOVEMENT);
 }
 
+// Gates `impact` via skill_can_target_area, stages blast_tiles fresh for it
+// (a click's impact tile isn't guaranteed to match the last hover tile --
+// see test_aoe_cast_at_different_tile_than_hover_resolves_correctly), then
+// casts. Shared by game_on_entity_pressed and game_on_tile_pressed.
+PRIVATE ptrdiff_t game_try_cast_attack_area(game_state_t *game, linear_allocator_t *allocator, entity_t *active, skill_t skill, position_t impact) {
+    if (!skill_can_target_area(game->grid, game->entities, active, skill, impact)) {
+        return 0;
+    }
+    pathing_ranges_clear_blast_tiles(&game->scratch, &game->pathing);
+    ptrdiff_t shift = pathing_ranges_push_blast_tiles(allocator, &game->scratch, &game->pathing, game->grid, impact, skill.aoe_radius);
+    return shift + game_cast_attack_area(game, allocator, active, skill, impact);
+}
+
 PRIVATE ptrdiff_t game_on_entity_pressed(game_state_t *game, linear_allocator_t *allocator, entity_t* entity) {
     assert_debug(game->game_over == GAME_OVER_NONE);
     assert_debug(entity != 0);
@@ -252,19 +265,7 @@ PRIVATE ptrdiff_t game_on_entity_pressed(game_state_t *game, linear_allocator_t 
 
     skill_t skill = SLICE_AT(active->skills, game->selected_skill);
     if (skill_is_aoe(skill)) {
-        // Gate on the same skill_can_target_area check that gates
-        // blast_tiles computation (hover/skill-select). A MOUSE_CLICK's
-        // impact tile isn't guaranteed to be the last MOUSE_MOVE's hover
-        // tile (see test_aoe_cast_at_different_tile_than_hover_resolves_correctly),
-        // so blast_tiles is staged fresh for entity->position here rather
-        // than assumed to already match it -- game_cast_attack_area's
-        // assert_debug relies on that.
-        if (!skill_can_target_area(game->grid, game->entities, active, skill, entity->position)) {
-            return 0;
-        }
-        pathing_ranges_clear_blast_tiles(&game->scratch, &game->pathing);
-        ptrdiff_t shift = pathing_ranges_push_blast_tiles(allocator, &game->scratch, &game->pathing, game->grid, entity->position, skill.aoe_radius);
-        return shift + game_cast_attack_area(game, allocator, active, skill, entity->position);
+        return game_try_cast_attack_area(game, allocator, active, skill, entity->position);
     }
 
     if (action_try_attack(active, skill, entity, game->pathing.attack_range_tiles)) {
@@ -300,13 +301,7 @@ PRIVATE ptrdiff_t game_on_tile_pressed(game_state_t *game, linear_allocator_t *a
         // above and just no-op on a tile press in attack mode.
         skill_t skill = SLICE_AT(active->skills, game->selected_skill);
         if (skill_is_aoe(skill)) {
-            // See the matching gate in game_on_entity_pressed.
-            if (!skill_can_target_area(game->grid, game->entities, active, skill, target)) {
-                return 0;
-            }
-            pathing_ranges_clear_blast_tiles(&game->scratch, &game->pathing);
-            ptrdiff_t shift = pathing_ranges_push_blast_tiles(allocator, &game->scratch, &game->pathing, game->grid, target, skill.aoe_radius);
-            return shift + game_cast_attack_area(game, allocator, active, skill, target);
+            return game_try_cast_attack_area(game, allocator, active, skill, target);
         }
         return 0;
     }
