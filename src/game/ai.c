@@ -167,9 +167,8 @@ PUBLIC entity_t* ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, 
         return 0;
     }
 
-    // ai_best_in_range_skill already confirmed target is in range via
-    // skill_can_target; action_try_attack no longer checks range itself, so
-    // hand it a single-tile range set for the position already known to qualify.
+    // action_try_attack takes range as a tile set now; hand it a single-tile
+    // set for the position ai_best_in_range_skill already confirmed in range.
     position_t attack_range_tile[1] = { target->position };
     slice_position_t attack_range_tiles = {
         .begin = attack_range_tile,

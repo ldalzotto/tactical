@@ -19,9 +19,8 @@ PUBLIC bool action_try_move(pathing_state_t walking_distances, grid_t grid, enti
     if (distance < 0) {
         return false;
     }
-    // walking_distances is BFS'd capped at entity->mp by its caller, so a
-    // reachable tile can never have a distance greater than the mover's
-    // remaining mp.
+    // walking_distances is capped at entity->mp by its caller, so a
+    // reachable tile's distance can never exceed the mover's remaining mp.
     assert_debug(distance <= entity->mp);
 
     entity->mp -= distance;
@@ -55,9 +54,7 @@ PUBLIC bool action_try_attack(entity_t* attacker, skill_t skill, entity_t* defen
 PUBLIC bool action_try_attack_area(linear_allocator_t *allocator, slice_entity_t entities, entity_t *attacker, skill_t skill, position_t impact, slice_position_t attack_range_tiles, slice_position_t blast_tiles, slice_entity_ptr_t *out_hit) {
     assert_debug(attacker->alive);
     assert_debug(skill.aoe_radius > 0);
-    // The only caller (game_cast_attack_area) already validated impact via
-    // skill_can_target_area, the same check attack_range_tiles is built
-    // from -- see action.h's doc comment.
+    // Caller already validated impact via skill_can_target_area (see action.h).
     assert_debug(position_in_tiles(attack_range_tiles, impact));
 
     if (attacker->ap < skill.ap_cost) {
@@ -67,9 +64,8 @@ PUBLIC bool action_try_attack_area(linear_allocator_t *allocator, slice_entity_t
     attacker->ap -= skill.ap_cost;
 
     // Caller must have `allocator`'s cursor pre-aligned to
-    // _Alignof(entity_ptr_t) with `blast_tiles` already staged below it --
-    // this function does not self-align (see entity_list_align et al. for
-    // the push-align-then-push convention).
+    // _Alignof(entity_ptr_t) -- this function does not self-align (see
+    // entity_list_align et al. for the push-align-then-push convention).
     slice_entity_ptr_t hit;
     hit = LINEAR_ALLOCATOR_PUSH(allocator, hit, 0);
 

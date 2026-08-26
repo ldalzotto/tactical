@@ -68,20 +68,15 @@ PUBLIC void game_deinit(linear_allocator_t *allocator, game_state_t state) {
     linear_allocator_pop(allocator, state.grid_align);
 }
 
-// Switches to `mode`. walking_distances and attack_range_tiles are
-// mutually exclusive, so each branch nullifies the one it isn't populating:
-// - NONE: nullifies both -- nothing selected, nothing to show.
-// - MOVEMENT: recomputes walking_distances for the turn's active entity
-//   (still just the mover's own tile at distance 0 if it has no mp left),
-//   nullifies attack_range_tiles. Called eagerly on any
-//   selection/position/mp change, and whenever attack mode turns off.
-// - ATTACK: mirror image -- nullifies walking_distances, computes
-//   attack_range_tiles via line of sight rooted at the active entity's
-//   currently-selected skill range instead of mp.
-// Render just reads the cached data, no per-frame pathing.
+// Switches to `mode`. walking_distances and attack_range_tiles are mutually
+// exclusive, so each branch nullifies the one it isn't populating: NONE
+// nullifies both; MOVEMENT recomputes walking_distances for the turn's
+// active entity and nullifies attack_range_tiles; ATTACK is the mirror
+// image, computing attack_range_tiles via line of sight over the selected
+// skill's range. Render just reads the cached data, no per-frame pathing.
 //
-// Both branches stage their tile data on `allocator` first (unbounded),
-// then grow game->scratch to fit and copy it in (see
+// Both branches stage their tile data on `allocator` first, then grow
+// game->scratch to fit and copy it in (see
 // pathing_ranges_push_walking_distances / pathing_ranges_push_attack_range).
 // Growing can relocate memory above game->scratch, so the byte shift applied
 // (0 if none) is returned for callers to propagate and rebase against.
@@ -96,8 +91,7 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
     entity_t *active = turn_active_entity(game->turn);
 
     if (mode == GAME_MODE_MOVEMENT) {
-        // Always computed, even when active->mp <= 0 (walking_distances then
-        // holds just the mover's own tile at distance 0) so
+        // Always computed, even when active->mp <= 0, so
         // game->pathing.walking_distances is always a valid dist grid for
         // action_try_move and render.c to query, never the empty marker
         // pathing_ranges_reset leaves it at.
@@ -135,13 +129,9 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
         // Reset to zero for usage sanity
         temp_align = (slice_t){0,0}; temp_tiles.slice = (slice_t){0,0};
 
-        // pathing_ranges_push_attack_range leaves blast_tiles as a fresh
-        // empty marker -- restage it here for the current hover so entering
-        // ATTACK mode (via either game_on_attack_toggle_pressed or
-        // game_on_skill_button_pressed) never leaves blast_tiles stale
-        // relative to a hover that was already valid before the mode/skill
-        // change. Without this, a click on that still-hovered tile would
-        // reach game_cast_attack_area with no blast staged for it.
+        // Restage blast_tiles for the current hover -- pushing attack_range
+        // above left it as a fresh empty marker, and entering ATTACK mode
+        // shouldn't leave it stale for a hover that was already valid.
         if (game->hover_valid && skill_is_aoe(skill)
                 && skill_can_target_area(game->grid, game->entities, active, skill, game->hover)) {
             shift += pathing_ranges_push_blast_tiles(allocator, &game->scratch, &game->pathing, game->grid, game->hover, skill.aoe_radius);
@@ -186,15 +176,11 @@ PRIVATE ptrdiff_t game_advance_turn(game_state_t *game, linear_allocator_t *allo
 }
 
 // Casts an AoE skill centered on `impact` via action_try_attack_area, then
-// reconciles turn order for every casualty (removing each dead entity from
-// game->turn) and checks game over exactly once (not per-casualty --
-// game_check_game_over asserts game->game_over == GAME_OVER_NONE on entry).
-// active->team can never appear in out_hit (action_try_attack_area excludes
-// same-team damage), so the active entity is never among the casualties
-// reconciled here. Only called by game_try_cast_attack_area, which stages
-// game->pathing.blast_tiles for `impact` immediately before calling this --
-// checked below (non-empty; pathing_compute_blast_tiles always includes at
-// least the center tile), not recomputed.
+// reconciles turn order for every casualty and checks game over exactly
+// once (not per-casualty -- game_check_game_over asserts
+// game->game_over == GAME_OVER_NONE on entry). Only called by
+// game_try_cast_attack_area, which stages game->pathing.blast_tiles for
+// `impact` immediately before calling this.
 PRIVATE ptrdiff_t game_cast_attack_area(game_state_t *game, linear_allocator_t *allocator, entity_t *active, skill_t skill, position_t impact) {
     assert_debug(SLICE_TYPESIZE(game->pathing.blast_tiles) > 0);
     slice_position_t blast_tiles = game->pathing.blast_tiles;
@@ -232,9 +218,8 @@ PRIVATE ptrdiff_t game_cast_attack_area(game_state_t *game, linear_allocator_t *
 }
 
 // Gates `impact` via skill_can_target_area, stages blast_tiles fresh for it
-// (a click's impact tile isn't guaranteed to match the last hover tile --
-// see test_aoe_cast_at_different_tile_than_hover_resolves_correctly), then
-// casts. Shared by game_on_entity_pressed and game_on_tile_pressed.
+// (a click's impact tile isn't guaranteed to match the last hover tile),
+// then casts. Shared by game_on_entity_pressed and game_on_tile_pressed.
 PRIVATE ptrdiff_t game_try_cast_attack_area(game_state_t *game, linear_allocator_t *allocator, entity_t *active, skill_t skill, position_t impact) {
     if (!skill_can_target_area(game->grid, game->entities, active, skill, impact)) {
         return 0;
@@ -310,11 +295,8 @@ PRIVATE ptrdiff_t game_on_tile_pressed(game_state_t *game, linear_allocator_t *a
         return 0;
     }
 
-    // The caller (game_on_input_event) already routed occupied tiles to
-    // game_on_entity_pressed; reaching here with an entity on `target` would
-    // be a dispatch bug in the movement path (the AoE path above legally
-    // allows an occupied impact tile), so assert the invariant instead of
-    // silently no-oping on a tile the player can't actually select.
+    // game_on_input_event already routed occupied tiles to
+    // game_on_entity_pressed, so an entity on `target` here is a dispatch bug.
     assert_debug(entity_find_at(game->entities, target) == 0);
 
     if (action_try_move(game->pathing.walking_distances, game->grid, active, target)) {
@@ -344,10 +326,8 @@ PRIVATE ptrdiff_t game_on_attack_toggle_pressed(game_state_t *game, linear_alloc
 PRIVATE ptrdiff_t game_on_skill_button_pressed(game_state_t *game, linear_allocator_t *allocator, int index) {
     assert_debug(game->game_over == GAME_OVER_NONE);
     entity_t *active = turn_active_entity(game->turn);
-    // game_on_input_event only calls this once the same conditions hold (see
-    // the hit-test gate there), so these are preconditions, not runtime
-    // no-ops: assert them to catch dispatch bugs without leaving dead
-    // coverage-only branches in the call path.
+    // game_on_input_event only calls this once these conditions already
+    // hold, so they're preconditions here, not runtime no-ops.
     assert_debug(active->team == ENTITY_TEAM_PLAYER);
     assert_debug(game->mode != GAME_MODE_NONE);
     assert_debug(index >= 0);
@@ -421,13 +401,10 @@ PUBLIC ptrdiff_t game_on_input_event(game_state_t *game, linear_allocator_t *all
             game->hover = (position_t){ tx, ty };
         }
 
-        // mode can only be GAME_MODE_ATTACK when the active entity is
-        // player-controlled: game_on_attack_toggle_pressed and
-        // game_on_skill_button_pressed (game_set_mode's only two callers that
-        // can leave mode at ATTACK) both gate on active->team ==
-        // ENTITY_TEAM_PLAYER before ever calling it with ATTACK. Asserted
-        // rather than re-checked here since MOUSE_MOVE (unlike those two)
-        // fires regardless of whose turn it is.
+        // mode can only be ATTACK when the active entity is player-controlled
+        // (the only callers that set ATTACK mode gate on that first);
+        // asserted rather than re-checked since MOUSE_MOVE fires regardless
+        // of whose turn it is.
         pathing_ranges_clear_blast_tiles(&game->scratch, &game->pathing);
         if (game->mode == GAME_MODE_ATTACK) {
             entity_t *active = turn_active_entity(game->turn);

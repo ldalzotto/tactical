@@ -14,8 +14,7 @@ PRIVATE void pathing_ranges_assert_layout(pathing_ranges_t ranges) {
 }
 
 // Adopts a caller-built walking_distances region, then re-pushes empty
-// attack_range_tiles/blast_tiles on top. Requires all three regions
-// empty (see pathing_ranges_reset/pathing_ranges_init).
+// attack_range_tiles/blast_tiles on top. Requires all three regions empty.
 PRIVATE void pathing_ranges_set_walking_distances(linear_allocator_t *scratch, pathing_ranges_t *ranges, slice_t walking_distances_align, pathing_state_t walking_distances) {
     ranges->walking_distances_align = walking_distances_align;
     ranges->walking_distances = walking_distances;
@@ -92,11 +91,9 @@ PUBLIC void pathing_ranges_reset(linear_allocator_t *scratch, pathing_ranges_t *
 
 // Grows `scratch` in place if needed to fit `temp_tiles`, copies
 // `temp_align`/`temp_tiles` into it as `out_align`/`out_tiles`, and pops the
-// caller's staged copy off `allocator`. Growing inserts bytes into
-// `allocator` right above `scratch`'s data, sliding up `temp` (the only
-// thing staged there) -- rebases it. Returns the shift applied (0 if it
-// already fit); callers must propagate it to anything else they hold above
-// `scratch`.
+// caller's staged copy off `allocator`. Rebases `temp` if growth relocates
+// memory. Returns the shift applied (0 if it already fit); callers must
+// propagate it to anything else they hold above `scratch`.
 PRIVATE ptrdiff_t pathing_ranges_push_tiles(linear_allocator_t *allocator, linear_allocator_t *scratch,
         slice_t temp_align, slice_position_t temp_tiles,
         slice_t *out_align, slice_position_t *out_tiles) {
