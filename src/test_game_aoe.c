@@ -121,11 +121,12 @@ PRIVATE void test_aoe_blast_ignores_obstacles(linear_allocator_t *allocator) {
     game_deinit(allocator, game);
 }
 
-// Casting on an ally's tile (entity-click AoE dispatch, per F1-04) puts
-// both the ally and the attacker itself inside the blast radius: neither
-// takes damage, since AoE damage always excludes the attacker's own team.
-// An enemy at the edge of the same radius still takes damage.
-PRIVATE void test_aoe_no_friendly_fire_spares_ally_and_attacker(linear_allocator_t *allocator) {
+// Clicking an ally's tile (entity-click AoE dispatch, per F1-04) is a
+// no-op: the ally's tile is same-team, so it's excluded from
+// attack_range_tiles and action_try_attack_area rejects it as an impact
+// point. No AP is spent and nobody -- ally, attacker, or the enemy outside
+// the click, still in range -- takes damage.
+PRIVATE void test_aoe_ally_tile_click_is_noop(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 6, 5);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
@@ -156,16 +157,17 @@ PRIVATE void test_aoe_no_friendly_fire_spares_ally_and_attacker(linear_allocator
 
     test_click_tile(&game, allocator, p->position);
     test_click_attack_toggle(&game, allocator);
+    assert_test(!test_tile_list_contains(game.pathing.attack_range_tiles, ally->position));
     // ally occupies (3,2): this click routes through game_on_entity_pressed,
     // not game_on_tile_pressed -- the entity-click AoE path.
     test_click_tile(&game, allocator, ally->position);
 
     assert_test(ally->hp == 10);
-    // p's own tile (2,2) is within aoe_radius (2) of the impact (3,2), yet
-    // p itself takes no damage either.
     assert_test(p->hp == 10);
-    assert_test(e->hp == 10 - SKILL_FIREBALL.damage);
-    assert_test(p->ap == 1 - SKILL_FIREBALL.ap_cost);
+    // e (5,2) would have been within aoe_radius (2) of the rejected impact
+    // (3,2) too, but the cast never happened.
+    assert_test(e->hp == 10);
+    assert_test(p->ap == 1);
 
     game_deinit(allocator, game);
 }
@@ -1351,7 +1353,7 @@ PRIVATE void test_aoe_blast_tiles_match_what_execution_hits(linear_allocator_t *
 const test_case_t g_game_aoe_tests[] = {
     { TEST_NAME("aoe_blast_hits_all_enemies_in_radius_and_spares_beyond"), test_aoe_blast_hits_all_enemies_in_radius_and_spares_beyond },
     { TEST_NAME("aoe_blast_ignores_obstacles"), test_aoe_blast_ignores_obstacles },
-    { TEST_NAME("aoe_no_friendly_fire_spares_ally_and_attacker"), test_aoe_no_friendly_fire_spares_ally_and_attacker },
+    { TEST_NAME("aoe_ally_tile_click_is_noop"), test_aoe_ally_tile_click_is_noop },
     { TEST_NAME("aoe_ap_spent_exactly_once_regardless_of_hit_count"), test_aoe_ap_spent_exactly_once_regardless_of_hit_count },
     { TEST_NAME("aoe_out_of_range_and_los_blocked_impact_fails_cleanly"), test_aoe_out_of_range_and_los_blocked_impact_fails_cleanly },
     { TEST_NAME("aoe_empty_sight_blocking_tile_rejected_for_cast_and_preview"), test_aoe_empty_sight_blocking_tile_rejected_for_cast_and_preview },
