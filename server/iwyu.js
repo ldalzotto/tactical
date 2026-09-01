@@ -9,15 +9,15 @@ const COMPILE_COMMANDS = path.join(BUILD_DIR, 'compile_commands.json');
 
 // clang-include-cleaner must come from the same LLVM toolchain as the
 // clang used to compile app.wasm (see CMakeLists.txt) -- otherwise it
-// parses with a mismatched AST. Prefer PATH so a machine that symlinks it
-// there just works, but fall back to the versioned path this repo was
-// verified against.
+// parses with a mismatched AST. Require it on PATH so the toolchain is
+// explicit rather than silently falling back to a hardcoded version.
 function findIncludeCleaner() {
     const onPath = spawnSync('which', ['clang-include-cleaner'], { encoding: 'utf8' });
-    if (onPath.status === 0) {
-        return onPath.stdout.trim();
+    if (onPath.status !== 0) {
+        console.error('clang-include-cleaner not found on PATH');
+        process.exit(1);
     }
-    return '/usr/lib/llvm-22/bin/clang-include-cleaner';
+    return onPath.stdout.trim();
 }
 
 const compileCommands = JSON.parse(fs.readFileSync(COMPILE_COMMANDS, 'utf8'));
