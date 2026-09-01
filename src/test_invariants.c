@@ -1,9 +1,12 @@
 #include "test_invariants.h"
 
+#include "game/game.h"
 #include "lib/assert.h"
 #include "game/entity.h"
 #include "game/grid.h"
 #include "game/position.h"
+#include "lib/linkage.h"
+#include "lib/memory.h"
 
 PUBLIC void assert_game_invariants(game_state_t *game) {
     // everyone still in the turn order is alive. (Not checked the other way

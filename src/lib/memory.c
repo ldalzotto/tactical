@@ -1,8 +1,10 @@
 #include "memory.h"
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include "assert.h"
+#include "lib/linkage.h"
 
 PUBLIC void *byteoffset(void *pointer, ptrdiff_t by) {
     return (char *)pointer + by;

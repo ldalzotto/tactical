@@ -1,11 +1,20 @@
 #include "test_render.h"
+#include "game/grid.h"
+#include "game/layout.h"
+#include "game/position.h"
 #include "lib/assert.h"
 #include "game/entity.h"
 #include "game/game.h"
 #include "game/render.h"
 #include "game/skill.h"
 #include "game/turn.h"
+#include "lib/graphics.h"
+#include "lib/linkage.h"
+#include "lib/memory.h"
+#include "test.h"
 #include "test_game_helpers.h"
+#include <stddef.h>
+#include <stdint.h>
 
 // render.c's turn-indicator color/inset/size are PRIVATE (file-local in every
 // build mode, see linkage.h), so these tests treat the marker as a black box:

@@ -109,6 +109,8 @@ endif()
 
 add_executable(app ${APP_SOURCES})
 
+target_include_directories(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
 if(APP_COVERAGE)
     target_sources(app PRIVATE src/coverage_stub.c)
 endif()

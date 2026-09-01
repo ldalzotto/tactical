@@ -1,4 +1,7 @@
 #include "./runtime.h"
+#include "lib/linkage.h"
+#include "lib/memory.h"
+#include <stdint.h>
 
 extern unsigned char __heap_base;
 

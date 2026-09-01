@@ -1,6 +1,10 @@
 #include "test_runtime.h"
 #include "lib/assert.h"
+#include "lib/linkage.h"
+#include "lib/memory.h"
 #include "lib/runtime.h"
+#include "test.h"
+#include <stdint.h>
 
 PRIVATE void test_pass_example(linear_allocator_t *allocator) {
     (void)allocator;

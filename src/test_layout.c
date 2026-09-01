@@ -1,6 +1,11 @@
 #include "test_layout.h"
+#include "game/ui.h"
 #include "lib/assert.h"
 #include "game/layout.h"
+#include "lib/linkage.h"
+#include "lib/memory.h"
+#include "test.h"
+#include <stdint.h>
 
 PRIVATE void test_layout_compute_defaults(linear_allocator_t *allocator) {
     (void)allocator;

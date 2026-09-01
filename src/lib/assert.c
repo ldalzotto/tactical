@@ -1,4 +1,6 @@
 #include "assert.h"
+#include "lib/linkage.h"
+#include "lib/memory.h"
 
 #ifdef APP_BUILD_TESTS
 static bool g_expect_panic = false;

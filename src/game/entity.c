@@ -1,4 +1,7 @@
 #include "entity.h"
+#include "game/position.h"
+#include "lib/linkage.h"
+#include "lib/memory.h"
 
 PUBLIC slice_entity_t entity_list_init(linear_allocator_t *allocator) {
     slice_entity_t entities;

@@ -1,6 +1,9 @@
 #include "turn.h"
 
 #include "../lib/assert.h"
+#include "game/entity.h"
+#include "lib/linkage.h"
+#include "lib/memory.h"
 
 PUBLIC slice_entity_ptr_t turn_order_init(linear_allocator_t *allocator) {
     slice_entity_ptr_t order;

@@ -1,7 +1,14 @@
 #include "pathing.h"
 
 #include "../lib/assert.h"
+#include "game/entity.h"
+#include "game/grid.h"
+#include "game/position.h"
 #include "geometry.h"
+#include "lib/linkage.h"
+#include "lib/memory.h"
+#include <stddef.h>
+#include <stdint.h>
 
 PUBLIC void pathing_deinit(linear_allocator_t *allocator, pathing_state_t state) {
     LINEAR_ALLOCATOR_POP(allocator, state.dist);

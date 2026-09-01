@@ -1,4 +1,6 @@
 #include "graphics.h"
+#include "lib/linkage.h"
+#include "lib/memory.h"
 
 bool rgba_equals(rgba_t a, rgba_t b) {
     return (a.r == b.r) & (a.g == b.g) & (a.b == b.b) & (a.a == b.a);

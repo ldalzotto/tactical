@@ -1,4 +1,7 @@
 #include "layout.h"
+#include "game/ui.h"
+#include "lib/linkage.h"
+#include "lib/memory.h"
 
 PRIVATE int layout_min(int a, int b) {
     return a < b ? a : b;

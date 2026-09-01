@@ -1,8 +1,16 @@
 #include "test_game_fuzz.h"
 #include "game/entity.h"
+#include "game/game.h"
+#include "game/position.h"
 #include "game/scenario.h"
 #include "game/turn.h"
+#include "lib/linkage.h"
+#include "lib/memory.h"
+#include "lib/runtime.h"
+#include "test.h"
 #include "test_game_helpers.h"
+#include "test_invariants.h"
+#include <stdint.h>
 
 // Two complementary fuzz drivers over scenario_setup_default's default
 // roster, each with a fixed xorshift seed so a failure is reproducible from
