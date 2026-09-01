@@ -646,9 +646,8 @@ PRIVATE void test_game_ai_attack_noops_when_ap_insufficient_for_skill(linear_all
     game_deinit(allocator, game);
 }
 
-// An enemy whose only skill is an AoE (SKILL_FIREBALL) casts it centered on
-// the target's tile via action_try_attack_area, same as a single-target
-// skill would via action_try_attack -- already in range, so no movement.
+// An enemy with only an AoE skill (SKILL_FIREBALL) casts it on the target's
+// tile -- already in range, so no movement.
 PRIVATE void test_game_ai_aoe_enemy_hits_target_with_blast_on_end_turn(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 1);
@@ -687,9 +686,8 @@ PRIVATE void test_game_ai_aoe_enemy_hits_target_with_blast_on_end_turn(linear_al
     game_deinit(allocator, game);
 }
 
-// AoE counterpart of test_game_ai_attack_noops_when_ap_insufficient_for_skill:
-// the only skill in range costs more AP than the enemy has, so
-// action_try_attack_area rejects the cast and the turn ends without damage.
+// AoE version of test_game_ai_attack_noops_when_ap_insufficient_for_skill:
+// the in-range skill costs more AP than the enemy has, so the cast is rejected.
 PRIVATE void test_game_ai_aoe_attack_noops_when_ap_insufficient_for_skill(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 2, 1);
@@ -728,10 +726,8 @@ PRIVATE void test_game_ai_aoe_attack_noops_when_ap_insufficient_for_skill(linear
     game_deinit(allocator, game);
 }
 
-// A fireball's blast can damage a bystander without killing it: p1 (the
-// chosen target) dies, p2 stands in the same blast but has enough hp to
-// survive -- exercises the "hit but still alive" branch of the AI's
-// dead-splicing loop, which the all-casualties blast test above never hits.
+// Blast damages a bystander without killing it: p1 (the target) dies, p2
+// survives -- exercises the "hit but still alive" branch of dead-splicing.
 PRIVATE void test_game_ai_aoe_blast_damages_bystander_without_killing_on_end_turn(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 4);
@@ -739,8 +735,7 @@ PRIVATE void test_game_ai_aoe_blast_damages_bystander_without_killing_on_end_tur
     slice_entity_t entities = entity_list_init(allocator);
     entity_t* p1 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){1, 0}, 4, 2, 3);
     entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){0, 0}, 10, 2, 3);
-    // Within SKILL_FIREBALL.aoe_radius (2) of p1's tile, but with enough hp
-    // to survive the blast's damage.
+    // In blast radius (2) of p1's tile but has enough hp to survive it.
     entity_t* p2 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 2, 3);
 
     slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
@@ -775,26 +770,20 @@ PRIVATE void test_game_ai_aoe_blast_damages_bystander_without_killing_on_end_tur
     game_deinit(allocator, game);
 }
 
-// A fireball centered on the nearest target also catches a second player
-// standing within the blast radius (but out of the enemy's attack range on
-// its own), killing both in one cast. A third player outside the blast is
-// untouched, so turn order removes exactly the two casualties and control
-// wraps to the survivor.
+// A fireball on the nearest target also catches a second player within
+// blast radius, killing both in one cast; a third player outside the blast
+// survives untouched.
 PRIVATE void test_game_ai_aoe_blast_kills_multiple_players_on_end_turn(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 4);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
-    // p1 spawned first so it wins the ai_find_nearest_player tie against p2
-    // (both are adjacent to the enemy's own tile, so both score the same
-    // adjacency distance).
+    // p1 spawned first, so it wins the ai_find_nearest_player tie against p2.
     entity_t* p1 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){1, 0}, 4, 2, 3);
     entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){0, 0}, 10, 2, 3);
-    // Within SKILL_FIREBALL.aoe_radius (2) of p1's tile, but not itself the
-    // chosen impact -- only reachable via the blast.
+    // In blast radius (2) of p1 but not itself the impact tile.
     entity_t* p2 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 4, 2, 3);
-    // Outside the blast radius (Manhattan distance 5 from p1) and farther
-    // from the enemy than p1, so it's neither the target nor caught by it.
+    // Outside the blast radius, so untouched.
     entity_t* p3 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){3, 3}, 10, 2, 3);
 
     slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
