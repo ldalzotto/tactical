@@ -951,7 +951,10 @@ PRIVATE void test_game_ai_retreats_when_badly_wounded_on_end_turn(linear_allocat
     skill_t *p_skills_begin = skills.end;
     // p's melee damage (5) exceeds the enemy's current hp (4): a real
     // threat, which is what triggers the retreat (see ai_should_retreat).
+    // The second, weaker skill (SKILL_RANGED, damage 3) exercises
+    // ai_entity_threat's "a later skill isn't the new max" branch.
     skill_list_add(allocator, &skills, SKILL_MELEE);
+    skill_list_add(allocator, &skills, SKILL_RANGED);
     p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
     skill_t *enemy_skills_begin = skills.end;
     // In range (3) from the start, but its damage (3) can't one-shot p (hp
@@ -982,6 +985,307 @@ PRIVATE void test_game_ai_retreats_when_badly_wounded_on_end_turn(linear_allocat
     game_deinit(allocator, game);
 }
 
+// Retreat direction picking: an enemy backed into a corner where "up" and
+// "right" tie on distance from the target must still find "down" -- checked
+// later, in POSITION_DIRECTIONS order -- once it's strictly farther, and
+// must skip an unwalkable neighbor ("left") instead of treating it as a
+// candidate. Covers ai_step_away's later-tile-wins update and its
+// unwalkable-neighbor skip, plus the ternary's negative-dx path.
+PRIVATE void test_game_ai_retreat_prefers_farther_tile_and_skips_unwalkable_neighbor_on_end_turn(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 4, 4);
+    grid_set_walkable(grid, (position_t){0, 2}, false);
+
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){3, 0}, 10, 2, 3);
+    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){1, 2}, 20, 2, 2);
+    // Below AI_RETREAT_HP_PERCENT, same as the other retreat tests.
+    enemy->hp = 4;
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    // Threatens the enemy (damage 5 >= its 4 hp) from any range -- it never
+    // needs to be in range itself for ai_should_retreat's threat check.
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *enemy_skills_begin = skills.end;
+    // Melee range (1) is never in range of p at this distance, so
+    // ai_should_retreat's in-range/lethal exemption never applies -- simpler
+    // than balancing a non-lethal in-range hit like the other retreat tests.
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    enemy->skills = (slice_skill_t){ .begin = enemy_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, enemy);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_end_turn(&game, allocator);
+
+    // Action 1 from (1,2): up (1,1) and right (2,2) both score manhattan 3
+    // from p (3,0); up is found first and stands unbeaten until down (1,3)
+    // scores 5, strictly farther; left (0,2) is unwalkable and skipped.
+    // Action 2 from (1,3): up (1,2) and right (2,3) tie at manhattan 4;
+    // left (0,3) scores 6 and wins. mp (2) is spent after these two moves,
+    // so a third action retreats no further and never attacks.
+    assert_test(turn_active_entity(game.turn) == p);
+    assert_test(enemy->position.x == 0);
+    assert_test(enemy->position.y == 3);
+    assert_test(enemy->mp == 0);
+    assert_test(enemy->ap == 2);
+    assert_test(enemy->hp == 4);
+    assert_test(p->hp == 10);
+    assert_test(p->alive);
+
+    game_deinit(allocator, game);
+}
+
+// Retreat direction picking, vertical: covers the ternary's negative-dy
+// path (test_game_ai_retreat_prefers_farther_tile_and_skips_unwalkable_neighbor_on_end_turn
+// only ever exercises negative dx, since its target sits in the enemy's
+// bottom row).
+PRIVATE void test_game_ai_retreats_vertically_away_from_target_on_end_turn(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 2, 6);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 4}, 10, 2, 3);
+    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){0, 2}, 20, 2, 2);
+    enemy->hp = 4;
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *enemy_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    enemy->skills = (slice_skill_t){ .begin = enemy_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, enemy);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_end_turn(&game, allocator);
+
+    // "up" wins over "right"/"down" every action (both mp), retreating from
+    // y=2 to y=0 -- each step's neighbor has y < p's y=4, i.e. negative dy.
+    assert_test(turn_active_entity(game.turn) == p);
+    assert_test(enemy->position.x == 0);
+    assert_test(enemy->position.y == 0);
+    assert_test(enemy->mp == 0);
+    assert_test(enemy->ap == 2);
+    assert_test(enemy->hp == 4);
+    assert_test(p->hp == 10);
+    assert_test(p->alive);
+
+    game_deinit(allocator, game);
+}
+
+// A retreating enemy fully boxed in (every neighbor either the adjacent
+// target's own tile or unwalkable) finds nowhere to go: ai_step_away's
+// found stays false, so it no-ops instead of moving.
+PRIVATE void test_game_ai_retreat_noops_when_fully_boxed_in_on_end_turn(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 3, 3);
+    grid_set_walkable(grid, (position_t){2, 1}, false);
+    grid_set_walkable(grid, (position_t){1, 2}, false);
+    grid_set_walkable(grid, (position_t){0, 1}, false);
+
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    // p occupies the enemy's one remaining (non-walled) neighbor.
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){1, 0}, 10, 2, 3);
+    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){1, 1}, 20, 2, 2);
+    enemy->hp = 4;
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *enemy_skills_begin = skills.end;
+    // In range (3) but not lethal (damage 3 < p's 10 hp), so it doesn't
+    // exempt the enemy from retreating -- same shape as the other retreat
+    // tests, just with the retreat itself going nowhere.
+    skill_list_add(allocator, &skills, SKILL_RANGED);
+    enemy->skills = (slice_skill_t){ .begin = enemy_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, enemy);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_end_turn(&game, allocator);
+
+    // No reachable neighbor to retreat to, and the retreat decision (not a
+    // lethal shot) means no attack either: the turn is a full no-op.
+    assert_test(turn_active_entity(game.turn) == p);
+    assert_test(enemy->position.x == 1);
+    assert_test(enemy->position.y == 1);
+    assert_test(enemy->mp == 2);
+    assert_test(enemy->ap == 2);
+    assert_test(enemy->hp == 4);
+    assert_test(p->hp == 10);
+    assert_test(p->alive);
+
+    game_deinit(allocator, game);
+}
+
+// A badly wounded enemy with a lethal shot already lined up takes the kill
+// instead of retreating -- covers ai_should_retreat's in-range-and-lethal
+// exemption actually firing true.
+PRIVATE void test_game_ai_takes_lethal_shot_instead_of_retreating_on_end_turn(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 2, 1);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    // Killable in one melee hit (damage 5 >= hp 3).
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 3, 2, 3);
+    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){1, 0}, 20, 2, 3);
+    // Below AI_RETREAT_HP_PERCENT, and p's melee (damage 5) would threaten
+    // it too -- would retreat if not for the lethal shot already in range.
+    enemy->hp = 4;
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *enemy_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    enemy->skills = (slice_skill_t){ .begin = enemy_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, enemy);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_end_turn(&game, allocator);
+
+    // Kills p instead of retreating; p was the only player, so the game
+    // ends. With p removed from the turn order, the trailing turn_advance
+    // in game_advance_turn wraps the cursor back to enemy (the only entity
+    // left) -- and turn_advance resets whoever becomes active's ap/mp to
+    // max, even when that's the same entity, so ap/mp read back at their
+    // spawn values despite the attack having spent 1 ap.
+    assert_test(!p->alive);
+    assert_test(enemy->position.x == 1);
+    assert_test(enemy->position.y == 0);
+    assert_test(enemy->mp == 3);
+    assert_test(enemy->ap == 2);
+    assert_test(enemy->hp == 4);
+    assert_test(game.game_over == GAME_OVER_LOSE);
+    assert_test(turn_active_entity(game.turn) == enemy);
+
+    game_deinit(allocator, game);
+}
+
+// A multi-action turn where an action moves into range but then can't
+// afford the attack: covers ai_run_ennemy_action's final progress check
+// being satisfied by mp alone (movement happened) while ap didn't change
+// (the attack failed) -- the two are checked separately in the retreat
+// branch already, but this is the only place the attack-path return can
+// see mp change without ap changing in the same action.
+PRIVATE void test_game_ai_multi_action_turn_after_moving_into_range_with_insufficient_ap_on_end_turn(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 3, 1);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
+    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){2, 0}, 10, 1, 2);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+
+    // Costs more ap (2) than the enemy has (1): closing into range never
+    // pays off this turn.
+    skill_t costly = { .range = 1, .damage = 5, .ap_cost = 2 };
+    skill_t *enemy_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, costly);
+    enemy->skills = (slice_skill_t){ .begin = enemy_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, enemy);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_end_turn(&game, allocator);
+
+    // Closes to adjacency (mp 2 -> 1) and tries to attack, but 1 ap can't
+    // cover the 2-ap skill: the attack fails, ap unchanged, no damage.
+    assert_test(turn_active_entity(game.turn) == p);
+    assert_test(enemy->position.x == 1);
+    assert_test(enemy->position.y == 0);
+    assert_test(enemy->mp == 1);
+    assert_test(enemy->ap == 1);
+    assert_test(p->hp == 10);
+    assert_test(p->alive);
+
+    game_deinit(allocator, game);
+}
+
+// An enemy with far more ap than it needs per hit keeps attacking until it
+// exhausts AI_MAX_ACTIONS_PER_TURN's full budget (8 actions here, one per
+// ap) -- covers ai_run_ennemy_turn's loop ending via its own bound instead
+// of an internal break.
+PRIVATE void test_game_ai_multi_action_turn_runs_full_action_budget_on_end_turn(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 2, 1);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    // Enough hp to survive all 8 hits (8 damage) many times over.
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 100, 2, 3);
+    entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){1, 0}, 10, 8, 0);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+
+    skill_t weak = { .range = 1, .damage = 1, .ap_cost = 1 };
+    skill_t *enemy_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, weak);
+    enemy->skills = (slice_skill_t){ .begin = enemy_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, enemy);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_end_turn(&game, allocator);
+
+    // 8 ap at 1 ap/hit lands exactly 8 hits, exhausting ap on the same
+    // action that hits AI_MAX_ACTIONS_PER_TURN's bound.
+    assert_test(turn_active_entity(game.turn) == p);
+    assert_test(enemy->position.x == 1);
+    assert_test(enemy->position.y == 0);
+    assert_test(enemy->ap == 0);
+    assert_test(p->hp == 100 - 8 * weak.damage);
+    assert_test(p->alive);
+
+    game_deinit(allocator, game);
+}
+
 const test_case_t g_game_ai_tests[] = {
     { TEST_NAME("game_ai_adjacent_enemy_attacks_without_moving_on_end_turn"), test_game_ai_adjacent_enemy_attacks_without_moving_on_end_turn },
     { TEST_NAME("game_ai_far_enemy_with_enough_mp_closes_and_attacks_on_end_turn"), test_game_ai_far_enemy_with_enough_mp_closes_and_attacks_on_end_turn },
@@ -1004,6 +1308,12 @@ const test_case_t g_game_ai_tests[] = {
     { TEST_NAME("game_ai_aoe_blast_kills_multiple_players_on_end_turn"), test_game_ai_aoe_blast_kills_multiple_players_on_end_turn },
     { TEST_NAME("game_ai_prioritizes_killable_target_over_nearer_healthy_one_on_end_turn"), test_game_ai_prioritizes_killable_target_over_nearer_healthy_one_on_end_turn },
     { TEST_NAME("game_ai_retreats_when_badly_wounded_on_end_turn"), test_game_ai_retreats_when_badly_wounded_on_end_turn },
+    { TEST_NAME("game_ai_retreat_prefers_farther_tile_and_skips_unwalkable_neighbor_on_end_turn"), test_game_ai_retreat_prefers_farther_tile_and_skips_unwalkable_neighbor_on_end_turn },
+    { TEST_NAME("game_ai_retreats_vertically_away_from_target_on_end_turn"), test_game_ai_retreats_vertically_away_from_target_on_end_turn },
+    { TEST_NAME("game_ai_retreat_noops_when_fully_boxed_in_on_end_turn"), test_game_ai_retreat_noops_when_fully_boxed_in_on_end_turn },
+    { TEST_NAME("game_ai_takes_lethal_shot_instead_of_retreating_on_end_turn"), test_game_ai_takes_lethal_shot_instead_of_retreating_on_end_turn },
+    { TEST_NAME("game_ai_multi_action_turn_after_moving_into_range_with_insufficient_ap_on_end_turn"), test_game_ai_multi_action_turn_after_moving_into_range_with_insufficient_ap_on_end_turn },
+    { TEST_NAME("game_ai_multi_action_turn_runs_full_action_budget_on_end_turn"), test_game_ai_multi_action_turn_runs_full_action_budget_on_end_turn },
 };
 
 const uint32_t g_game_ai_tests_count = sizeof(g_game_ai_tests) / sizeof(g_game_ai_tests[0]);
