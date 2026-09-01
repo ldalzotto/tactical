@@ -3,8 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "build": "node server/build.js",
-    "postbuild": "npm run iwyu",
+    "build": "node server/build.js && npm run iwyu",
     "build:verbose": "node server/build.js --verbose",
     "build:release": "node server/build.js --release",
     "build:release:verbose": "node server/build.js --release --verbose",
