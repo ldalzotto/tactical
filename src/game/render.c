@@ -104,19 +104,19 @@ PRIVATE void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
         }
     }
 
-    entity_t *attacker = turn_active_entity(game.turn);
     for (SLICE_FOREACH(game.pathing.attack_range_tiles, tile_s)) {
         position_t tile = SLICE_DEREF(tile_s);
         int px, py;
         grid_to_screen(game.viewport, tile.x, tile.y, &px, &py);
         int ts = game.viewport.tile_size;
 
-        // Targetable (opposing-team) tiles draw dithered so the highlight
-        // stays visible under the entity's opaque sprite, drawn later in
-        // render_entities. Allies fall back to solid.
-        entity_t *occupant = entity_find_at(game.entities, tile);
-        bool targetable = occupant != 0 && occupant->team != attacker->team;
-        if (targetable) {
+        // Occupied tiles in attack_range_tiles are always opposing-team --
+        // pathing_compute_attack_range excludes same-team tiles entirely --
+        // so draw them dithered, keeping the highlight visible under the
+        // entity's opaque sprite, drawn later in render_entities. Empty
+        // tiles fall back to solid.
+        bool occupied = entity_find_at(game.entities, tile) != 0;
+        if (occupied) {
             graphics_draw_rectangle_dithered(fb, fb_width, px, py, ts, ts, COLOR_ATTACK_RANGE_TINT);
         } else {
             graphics_draw_rectangle(fb, fb_width, px, py, ts, ts, COLOR_ATTACK_RANGE_TINT);

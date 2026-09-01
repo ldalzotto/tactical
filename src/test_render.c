@@ -649,10 +649,11 @@ PRIVATE void test_render_enemy_active_uses_inactive_hud_buttons(linear_allocator
     linear_allocator_pop(allocator, fb_align);
 }
 
-// Mirrors the enemy-occupied attack-range test: an ally in attack range is
-// the targetable == false side of render_tiles' targetable check, so it must
-// be drawn solid rather than dithered.
-PRIVATE void test_render_attack_range_tile_occupied_by_ally_is_solid_not_dithered(linear_allocator_t *allocator) {
+// Mirrors the enemy-occupied attack-range test: an ally is same-team, so
+// pathing_compute_attack_range excludes its tile from attack_range_tiles
+// entirely -- render_tiles' loop never iterates it, so it gets no
+// attack-range tint at all (not even the "not targetable" solid fill).
+PRIVATE void test_render_attack_range_tile_occupied_by_ally_is_not_highlighted(linear_allocator_t *allocator) {
     slice_t fb_align = linear_allocator_push_alignment(allocator, _Alignof(rgba_t));
     slice_rgba_t fb;
     fb = LINEAR_ALLOCATOR_PUSH(allocator, fb, (size_t)(GAME_TEST_FB_WIDTH * GAME_TEST_FB_HEIGHT));
@@ -684,18 +685,20 @@ PRIVATE void test_render_attack_range_tile_occupied_by_ally_is_solid_not_dithere
     test_click_attack_toggle(&game, allocator);
     render_frame(fb, GAME_TEST_FB_WIDTH, game);
 
-    rgba_t tint = { 230, 140, 60, 255 };
+    // COLOR_TILE_WALKABLE (render.c) -- what the ally's tile must show
+    // since it's excluded from attack_range_tiles entirely (same-team
+    // tiles are never valid targets, see pathing_compute_attack_range).
+    rgba_t tile_walkable = { 40, 40, 40, 255 };
 
-    // Same top-left corner probe as the enemy-dither test. The ally's own
-    // tile is in attack range (distance 1) but is same-team, so targetable
-    // is false and the tile must be a solid tint fill, not a checkerboard.
+    // Same top-left corner probe as the enemy-dither test, but here both
+    // pixels must fall through to the plain tile color: no attack-range
+    // tint at all, dithered or solid, over a same-team tile.
     int ally_px, ally_py;
     grid_to_screen(game.viewport, ally->position.x, ally->position.y, &ally_px, &ally_py);
-    assert_test((ally_px + ally_py) % 2 == 0);
     rgba_t corner_on = SLICE_AT(fb, ally_py * GAME_TEST_FB_WIDTH + ally_px);
     rgba_t corner_off = SLICE_AT(fb, ally_py * GAME_TEST_FB_WIDTH + (ally_px + 1));
-    assert_test(rgba_equals(corner_on, tint));
-    assert_test(rgba_equals(corner_off, tint));
+    assert_test(rgba_equals(corner_on, tile_walkable));
+    assert_test(rgba_equals(corner_off, tile_walkable));
 
     game_deinit(allocator, game);
     LINEAR_ALLOCATOR_POP(allocator, fb);
@@ -744,7 +747,7 @@ const test_case_t g_render_tests[] = {
     { TEST_NAME("render_turn_indicator_follows_active_entity_across_turns"), test_render_turn_indicator_follows_active_entity_across_turns },
     { TEST_NAME("render_dithered_rectangle_checkerboards_over_background"), test_render_dithered_rectangle_checkerboards_over_background },
     { TEST_NAME("render_attack_range_tile_occupied_by_enemy_is_dithered_not_solid"), test_render_attack_range_tile_occupied_by_enemy_is_dithered_not_solid },
-    { TEST_NAME("render_attack_range_tile_occupied_by_ally_is_solid_not_dithered"), test_render_attack_range_tile_occupied_by_ally_is_solid_not_dithered },
+    { TEST_NAME("render_attack_range_tile_occupied_by_ally_is_not_highlighted"), test_render_attack_range_tile_occupied_by_ally_is_not_highlighted },
     { TEST_NAME("render_blast_tile_is_dithered_over_attack_range"), test_render_blast_tile_is_dithered_over_attack_range },
     { TEST_NAME("render_obstacle_tile_uses_obstacle_colors"), test_render_obstacle_tile_uses_obstacle_colors },
     { TEST_NAME("render_chasm_tile_uses_chasm_colors"), test_render_chasm_tile_uses_chasm_colors },
