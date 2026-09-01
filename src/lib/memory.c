@@ -57,7 +57,8 @@ PUBLIC void linear_allocator_pop(linear_allocator_t *allocator, slice_t marker) 
 PUBLIC slice_t linear_allocator_insert(linear_allocator_t *allocator, void *at, size_t size) {
     bool at_in_range = at >= allocator->data.begin && at <= allocator->cursor;
     assert_debug(at_in_range);
-#ifdef APP_BUILD_TESTS
+    // Avoids the logic exectued after to fail during tests. The program would panic anyway because of assert_debug(at_in_range);
+#ifdef APP_ASSERTIONS
     if (!at_in_range) {
         slice_t empty = { at, at };
         return empty;
