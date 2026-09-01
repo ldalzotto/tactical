@@ -184,6 +184,13 @@ PUBLIC slice_position_t pathing_compute_attack_range(linear_allocator_t *allocat
     slice_position_t tiles;
     tiles = LINEAR_ALLOCATOR_PUSH(allocator, tiles, 0);
 
+    // Attack range is for targeting the opposing team -- a tile occupied by
+    // one of the attacker's own team is never a valid target or AoE impact
+    // point, even if it's otherwise in range/LOS. `from` is always the
+    // computing entity's own position, so it's always occupied.
+    entity_t *self = entity_find_at(entities, from);
+    assert_debug(self != 0);
+
     for (int ty = 0; ty < grid.height; ty++) {
         for (int tx = 0; tx < grid.width; tx++) {
             position_t position = { tx, ty };
@@ -193,6 +200,11 @@ PUBLIC slice_position_t pathing_compute_attack_range(linear_allocator_t *allocat
             }
 
             if (!pathing_can_target(grid, entities, from, position, max_range)) {
+                continue;
+            }
+
+            entity_t *occupant = entity_find_at(entities, position);
+            if (occupant != 0 && occupant->team == self->team) {
                 continue;
             }
 
