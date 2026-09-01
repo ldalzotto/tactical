@@ -3,9 +3,19 @@
 #include "../lib/assert.h"
 #include "action.h"
 #include "ai.h"
+#include "game/entity.h"
+#include "game/grid.h"
+#include "game/layout.h"
+#include "game/position.h"
+#include "game/turn.h"
+#include "game/ui.h"
+#include "lib/linkage.h"
+#include "lib/memory.h"
+#include "lib/runtime.h"
 #include "pathing.h"
 #include "pathing_ranges.h"
 #include "skill.h"
+#include <stddef.h>
 
 PRIVATE void game_check_game_over(game_state_t *game) {
     assert_debug(game->game_over == GAME_OVER_NONE);

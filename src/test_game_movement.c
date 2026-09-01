@@ -1,10 +1,17 @@
 #include "test_game_movement.h"
+#include "game/game.h"
+#include "game/pathing.h"
+#include "game/position.h"
 #include "lib/assert.h"
 #include "game/entity.h"
 #include "game/skill.h"
 #include "game/grid.h"
 #include "game/turn.h"
+#include "lib/linkage.h"
+#include "lib/memory.h"
+#include "test.h"
 #include "test_game_helpers.h"
+#include <stdint.h>
 
 // The tests below drive game subsystems (grid, entity, pathing, turn,
 // action, ai) only through game_init's public surface -- game_on_input_event

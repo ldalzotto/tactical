@@ -1,8 +1,17 @@
 #include "test_scenario.h"
+#include "game/entity.h"
+#include "game/game.h"
+#include "game/grid.h"
+#include "game/position.h"
+#include "game/turn.h"
 #include "lib/assert.h"
 #include "game/scenario.h"
 #include "game/skill.h"
+#include "lib/linkage.h"
+#include "lib/memory.h"
+#include "test.h"
 #include "test_game_helpers.h"
+#include <stdint.h>
 
 PRIVATE void test_scenario_setup_default_populates_map_and_units(linear_allocator_t *allocator) {
     game_state_t game = scenario_setup_default(allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);

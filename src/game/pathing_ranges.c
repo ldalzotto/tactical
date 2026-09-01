@@ -1,6 +1,12 @@
 #include "pathing_ranges.h"
 
 #include "../lib/assert.h"
+#include "game/pathing.h"
+#include "game/position.h"
+#include "lib/linkage.h"
+#include "lib/memory.h"
+#include <stddef.h>
+#include <stdint.h>
 
 // Enforces the region stacking order in scratch (walking_distances <
 // attack_range_tiles < blast_tiles). Every mutator below calls this

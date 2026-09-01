@@ -1,4 +1,11 @@
 #include "scenario.h"
+#include "game/entity.h"
+#include "game/game.h"
+#include "game/grid.h"
+#include "game/position.h"
+#include "game/turn.h"
+#include "lib/linkage.h"
+#include "lib/memory.h"
 #include "skill.h"
 
 PUBLIC game_state_t scenario_setup_default(linear_allocator_t* allocator, int grid_width, int grid_height, int fb_width, int fb_height, int hud_height) {

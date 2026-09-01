@@ -1,4 +1,6 @@
 #include "position.h"
+#include "lib/linkage.h"
+#include "lib/memory.h"
 
 PUBLIC position_t position_add(position_t a, position_t b) {
     return (position_t){ a.x + b.x, a.y + b.y };

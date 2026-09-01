@@ -1,4 +1,6 @@
 #include "geometry.h"
+#include "game/position.h"
+#include "lib/linkage.h"
 
 PUBLIC geometry_line_iter_t geometry_line_iter_start(position_t from, position_t to) {
     int dx = to.x - from.x;

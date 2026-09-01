@@ -1,6 +1,9 @@
 #include "test_memory.h"
 #include "lib/assert.h"
-#include "lib/runtime.h"
+#include "lib/linkage.h"
+#include "lib/memory.h"
+#include "test.h"
+#include <stdint.h>
 
 PRIVATE void test_byteoffset(linear_allocator_t *allocator) {
     slice_uint32_t values = LINEAR_ALLOCATOR_PUSH(allocator, values, 4);

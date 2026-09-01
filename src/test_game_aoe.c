@@ -1,10 +1,18 @@
 #include "test_game_aoe.h"
+#include "game/game.h"
+#include "game/layout.h"
+#include "game/position.h"
 #include "lib/assert.h"
 #include "game/entity.h"
 #include "game/skill.h"
 #include "game/grid.h"
 #include "game/turn.h"
+#include "lib/linkage.h"
+#include "lib/memory.h"
+#include "lib/runtime.h"
+#include "test.h"
 #include "test_game_helpers.h"
+#include <stdint.h>
 
 // F1-07: functional AoE tests -- click-to-cast, damage application, turn
 // order reconciliation, game over. Driven exclusively through the public

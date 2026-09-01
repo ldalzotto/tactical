@@ -1,6 +1,17 @@
 #include "render.h"
 
 #include "../lib/assert.h"
+#include "game/entity.h"
+#include "game/game.h"
+#include "game/grid.h"
+#include "game/layout.h"
+#include "game/pathing.h"
+#include "game/position.h"
+#include "game/turn.h"
+#include "game/ui.h"
+#include "lib/graphics.h"
+#include "lib/linkage.h"
+#include "lib/memory.h"
 
 // Colors. Some values (the "lighter" gridline fill, entity square/HP-bar
 // insets, HUD background, AP/MP indicator sizing) are implementation

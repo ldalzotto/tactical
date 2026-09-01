@@ -1,6 +1,10 @@
 #include "grid.h"
 
 #include "../lib/assert.h"
+#include "game/position.h"
+#include "lib/linkage.h"
+#include "lib/memory.h"
+#include <stddef.h>
 
 struct tile {
     bool walkable;

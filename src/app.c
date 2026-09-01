@@ -1,6 +1,8 @@
+#include <stddef.h>
 #include <stdint.h>
 
 #include "lib/clock.h"
+#include "lib/linkage.h"
 #include "lib/memory.h"
 #include "lib/runtime.h"
 #include "game/game.h"

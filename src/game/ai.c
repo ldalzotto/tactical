@@ -1,10 +1,17 @@
 #include "ai.h"
 
 #include "action.h"
+#include "game/entity.h"
+#include "game/grid.h"
+#include "game/position.h"
+#include "game/turn.h"
+#include "lib/linkage.h"
+#include "lib/memory.h"
 #include "pathing.h"
 #include "skill.h"
 
 #include "../lib/assert.h"
+#include <stddef.h>
 
 /*
     Distance from the BFS root to a tile adjacent to `position`.

@@ -1,5 +1,8 @@
 #include "skill.h"
 
+#include "game/entity.h"
+#include "game/grid.h"
+#include "lib/linkage.h"
 #include "pathing.h"
 
 const skill_t SKILL_MELEE = { .range = 1, .damage = 5, .ap_cost = 1 };

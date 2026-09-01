@@ -1,10 +1,16 @@
 #include "test_game_ai.h"
+#include "game/game.h"
+#include "game/position.h"
 #include "lib/assert.h"
 #include "game/entity.h"
 #include "game/skill.h"
 #include "game/grid.h"
 #include "game/turn.h"
+#include "lib/linkage.h"
+#include "lib/memory.h"
+#include "test.h"
 #include "test_game_helpers.h"
+#include <stdint.h>
 
 PRIVATE void test_game_ai_adjacent_enemy_attacks_without_moving_on_end_turn(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);

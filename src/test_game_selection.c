@@ -1,11 +1,18 @@
 #include "test_game_selection.h"
+#include "game/game.h"
+#include "game/position.h"
+#include "game/ui.h"
 #include "lib/assert.h"
 #include "game/entity.h"
 #include "game/skill.h"
 #include "game/grid.h"
 #include "game/turn.h"
 #include "game/layout.h"
+#include "lib/linkage.h"
+#include "lib/memory.h"
+#include "test.h"
 #include "test_game_helpers.h"
+#include <stdint.h>
 
 PRIVATE void test_game_entity_pressed_selects_only_the_active_entity(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);

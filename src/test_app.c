@@ -1,8 +1,14 @@
 #include "test_app.h"
+#include "game/game.h"
 #include "lib/assert.h"
+#include "lib/linkage.h"
 #include "lib/memory.h"
 #include "game/layout.h"
 #include "app.h"
+#include "lib/runtime.h"
+#include "test.h"
+#include <stddef.h>
+#include <stdint.h>
 
 // Test-only host import (see web/wasm-shared.js): queues an input event for
 // the next input_poll. The wasm test runner otherwise always polls zero

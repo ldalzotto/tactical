@@ -1,6 +1,10 @@
 #include "test.h"
 #include "lib/assert.h"
+#include "lib/linkage.h"
+#include "lib/memory.h"
 #include "lib/runtime.h"
+#include <stddef.h>
+#include <stdint.h>
 #ifdef APP_BUILD_TEST_SUITES
 #include "test_runtime.h"
 #include "test_app.h"
