@@ -147,22 +147,16 @@ PRIVATE ptrdiff_t game_advance_turn(game_state_t *game, linear_allocator_t *allo
 
     entity_t *active = turn_active_entity(game->turn);
     while (game->game_over == GAME_OVER_NONE && active->team == ENTITY_TEAM_ENEMY) {
-        entity_t *attacked = ai_run_ennemy_turn(allocator, game->grid, game->entities, active);
-        if (attacked != 0) {
-            // If the entity just died, we remove dead entities
-            if (!attacked->alive) {
-                slice_t dead_align = linear_allocator_push_alignment(allocator, _Alignof(entity_ptr_t));
-                slice_entity_ptr_t dead;
-                dead = LINEAR_ALLOCATOR_PUSH(allocator, dead, 1);
-                SLICE_DEREF(dead) = attacked;
+        slice_t dead_align = linear_allocator_push_alignment(allocator, _Alignof(entity_ptr_t));
+        slice_entity_ptr_t dead = ai_run_ennemy_turn(allocator, game->grid, game->entities, active);
 
-                game->turn = turn_remove_dead_entities(game->turn, dead);
-
-                linear_allocator_pop(allocator, dead.slice);
-                linear_allocator_pop(allocator, dead_align);
-            }
+        if (dead.begin != dead.end) {
+            game->turn = turn_remove_dead_entities(game->turn, dead);
             game_check_game_over(game);
         }
+
+        linear_allocator_pop(allocator, dead.slice);
+        linear_allocator_pop(allocator, dead_align);
 
         game->turn = turn_advance(game->turn);
         active = turn_active_entity(game->turn);

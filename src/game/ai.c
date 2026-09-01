@@ -145,15 +145,72 @@ PRIVATE skill_t* ai_best_in_range_skill(grid_t grid, slice_entity_t entities, en
     return best;
 }
 
-// Runs one enemy's turn: find the nearest alive player entity, step toward
-// it (one tile at a time) until ai_preferred_skill is in range or mp runs
-// out, then attack with ai_best_in_range_skill (may be weaker than
-// preferred if preferred never came into range).
-// Returns the attacked entity, or 0 if no target/no attack landed.
-PUBLIC entity_t* ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *enemy) {
+// AoE counterpart of the plain action_try_attack call below: casts `skill`
+// centered on `impact`, returning the resulting casualties as `dead`.
+//
+// `dead` sits under temp allocations on the stack, so it's grown via
+// linear_allocator_insert (shifts the temp regions up) instead of push-and-grow.
+PRIVATE slice_entity_ptr_t ai_try_attack_area(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *enemy, skill_t skill, position_t impact) {
+    slice_entity_ptr_t dead = LINEAR_ALLOCATOR_PUSH(allocator, dead, 0);
+
+    slice_t blast_align = linear_allocator_push_alignment(allocator, _Alignof(position_t));
+    slice_position_t blast_tiles = pathing_compute_blast_tiles(allocator, grid, impact, skill.aoe_radius);
+
+    // `impact` was already range/LOS-validated by ai_best_in_range_skill,
+    // so a single-tile range set satisfies the in-range check.
+    position_t attack_range_tile[1] = { impact };
+    slice_position_t attack_range_tiles = {
+        .begin = attack_range_tile,
+        .end = typeoffset(attack_range_tile, 1),
+    };
+
+    slice_t hit_align = linear_allocator_push_alignment(allocator, _Alignof(entity_ptr_t));
+    slice_entity_ptr_t out_hit;
+    if (action_try_attack_area(allocator, entities, enemy, skill, impact, attack_range_tiles, blast_tiles, &out_hit)) {
+        int dead_count = 0;
+        for (SLICE_FOREACH(out_hit, hit_s)) {
+            if (!SLICE_DEREF(hit_s)->alive) {
+                dead_count++;
+            }
+        }
+
+        if (dead_count > 0) {
+            slice_entity_ptr_t inserted = LINEAR_ALLOCATOR_INSERT(allocator, dead, dead_count);
+            ptrdiff_t extra = SLICE_BYTESIZE(inserted);
+            out_hit.slice = slice_shift(out_hit.slice, extra);
+            hit_align = slice_shift(hit_align, extra);
+            blast_tiles.slice = slice_shift(blast_tiles.slice, extra);
+            blast_align = slice_shift(blast_align, extra);
+
+            slice_entity_ptr_t write = inserted;
+            for (SLICE_FOREACH(out_hit, hit_s)) {
+                entity_t *hit = SLICE_DEREF(hit_s);
+                if (!hit->alive) {
+                    SLICE_DEREF(write) = hit;
+                    write = SLICE_ADVANCE(write, 1);
+                }
+            }
+            dead.end = write.begin;
+        }
+
+        linear_allocator_pop(allocator, out_hit.slice);
+    }
+    linear_allocator_pop(allocator, hit_align);
+    linear_allocator_pop(allocator, blast_tiles.slice);
+    linear_allocator_pop(allocator, blast_align);
+
+    return dead;
+}
+
+// Runs one enemy's turn: close toward the nearest player until the
+// preferred skill is in range or mp runs out, then attack with whatever
+// skill is in range (may be weaker than preferred). See ai.h.
+PUBLIC slice_entity_ptr_t ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *enemy) {
+    slice_entity_ptr_t dead = LINEAR_ALLOCATOR_PUSH(allocator, dead, 0);
+
     entity_t* target = ai_find_nearest_player(allocator, grid, entities, enemy);
     if (target == 0) {
-        return 0;
+        return dead;
     }
 
     skill_t *preferred = ai_preferred_skill(enemy);
@@ -164,16 +221,25 @@ PUBLIC entity_t* ai_run_ennemy_turn(linear_allocator_t *allocator, grid_t grid, 
 
     skill_t *attack_skill = ai_best_in_range_skill(grid, entities, enemy, target);
     if (attack_skill == 0) {
-        return 0;
+        return dead;
     }
 
-    // action_try_attack takes range as a tile set now; hand it a single-tile
-    // set for the position ai_best_in_range_skill already confirmed in range.
+    if (skill_is_aoe(*attack_skill)) {
+        return ai_try_attack_area(allocator, grid, entities, enemy, *attack_skill, target->position);
+    }
+
+    // Single-tile range set for the position already confirmed in range.
     position_t attack_range_tile[1] = { target->position };
     slice_position_t attack_range_tiles = {
         .begin = attack_range_tile,
         .end = typeoffset(attack_range_tile, 1),
     };
 
-    return action_try_attack(enemy, *attack_skill, target, attack_range_tiles) ? target : 0;
+    // dead is still the allocator's top here, so growing it in place is safe.
+    if (action_try_attack(enemy, *attack_skill, target, attack_range_tiles) && !target->alive) {
+        slice_entity_ptr_t entry = LINEAR_ALLOCATOR_PUSH_GROW(allocator, &dead, 1);
+        SLICE_DEREF(entry) = target;
+    }
+
+    return dead;
 }
