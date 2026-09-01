@@ -109,6 +109,14 @@ endif()
 
 add_executable(app ${APP_SOURCES})
 
+# Lets #includes be spelled root-relative (e.g. "lib/linkage.h") from
+# anywhere under src/, matching the style already used in src/app.c and
+# src/test.c. Without this, compile_commands.json carries no -I/-iquote
+# entry for src/, so include-analysis tooling (clang-include-cleaner via
+# `npm run iwyu`) can't compute a relative spelling for a header outside
+# the including file's own directory and falls back to an absolute path.
+target_include_directories(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
 if(APP_COVERAGE)
     target_sources(app PRIVATE src/coverage_stub.c)
 endif()
