@@ -182,14 +182,14 @@ PRIVATE slice_entity_ptr_t ai_try_attack_area(linear_allocator_t *allocator, gri
         }
 
         if (dead_count > 0) {
-            size_t extra = (size_t)dead_count * sizeof(entity_ptr_t);
-            linear_allocator_insert(allocator, dead.slice.end, extra);
-            out_hit.slice = slice_shift(out_hit.slice, (ptrdiff_t)extra);
-            hit_align = slice_shift(hit_align, (ptrdiff_t)extra);
-            blast_tiles.slice = slice_shift(blast_tiles.slice, (ptrdiff_t)extra);
-            blast_align = slice_shift(blast_align, (ptrdiff_t)extra);
+            slice_entity_ptr_t inserted = LINEAR_ALLOCATOR_INSERT(allocator, dead, dead_count);
+            ptrdiff_t extra = SLICE_BYTESIZE(inserted);
+            out_hit.slice = slice_shift(out_hit.slice, extra);
+            hit_align = slice_shift(hit_align, extra);
+            blast_tiles.slice = slice_shift(blast_tiles.slice, extra);
+            blast_align = slice_shift(blast_align, extra);
 
-            entity_ptr_t *write = dead.end;
+            entity_ptr_t *write = inserted.begin;
             for (SLICE_FOREACH(out_hit, hit_s)) {
                 entity_t *hit = SLICE_DEREF(hit_s);
                 if (!hit->alive) {

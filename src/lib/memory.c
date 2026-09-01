@@ -52,14 +52,15 @@ PUBLIC void linear_allocator_pop(linear_allocator_t *allocator, slice_t marker) 
 }
 
 // Grows `allocator` by `size` bytes, opening a gap at `at` by sliding
-// everything above it up. Callers holding slices/pointers into the shifted
-// region must rebase them themselves.
-PUBLIC void linear_allocator_insert(linear_allocator_t *allocator, void *at, size_t size) {
+// everything above it up, and returns that gap as a slice. Callers holding
+// slices/pointers into the shifted region must rebase them themselves.
+PUBLIC slice_t linear_allocator_insert(linear_allocator_t *allocator, void *at, size_t size) {
     bool at_in_range = at >= allocator->data.begin && at <= allocator->cursor;
     assert_debug(at_in_range);
 #ifdef APP_BUILD_TESTS
     if (!at_in_range) {
-        return;
+        slice_t empty = { at, at };
+        return empty;
     }
 #endif
 
@@ -68,6 +69,9 @@ PUBLIC void linear_allocator_insert(linear_allocator_t *allocator, void *at, siz
     ptrdiff_t tail_size = bytesize(at, old_cursor);
     assert_debug(tail_size >= 0);
     __builtin_memmove(byteoffset(at, (ptrdiff_t)size), at, (size_t)tail_size);
+
+    slice_t inserted = { at, byteoffset(at, (ptrdiff_t)size) };
+    return inserted;
 }
 
 // Copies `from` into `to`, where `to` must be a slice already owned by
