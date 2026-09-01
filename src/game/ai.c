@@ -189,15 +189,15 @@ PRIVATE slice_entity_ptr_t ai_try_attack_area(linear_allocator_t *allocator, gri
             blast_tiles.slice = slice_shift(blast_tiles.slice, extra);
             blast_align = slice_shift(blast_align, extra);
 
-            entity_ptr_t *write = inserted.begin;
+            slice_entity_ptr_t write = inserted;
             for (SLICE_FOREACH(out_hit, hit_s)) {
                 entity_t *hit = SLICE_DEREF(hit_s);
                 if (!hit->alive) {
-                    *write = hit;
-                    write++;
+                    SLICE_DEREF(write) = hit;
+                    write = SLICE_ADVANCE(write, 1);
                 }
             }
-            dead.end = write;
+            dead.end = write.begin;
         }
 
         linear_allocator_pop(allocator, out_hit.slice);
