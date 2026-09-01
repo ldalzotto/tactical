@@ -46,6 +46,10 @@ const INPUT_EVENT_BYTE_SIZE = 12;
 function buildImportObject({ createWindow, presentWindow, debugLog, reportPanic }) {
     const memory = new WebAssembly.Memory({ initial: MEMORY_PAGES });
     const pendingInputEvents = new Map();
+    // Fragments streamed via debug_write accumulate here until the next
+    // debug_log call closes the line -- lets wasm build one debug line out
+    // of many small writes (see fmt.h) without a C-side buffer.
+    let pendingDebugLine = '';
 
     function pushInputEvent(windowHandle, type, x, y) {
         let events = pendingInputEvents.get(windowHandle);
@@ -63,9 +67,12 @@ function buildImportObject({ createWindow, presentWindow, debugLog, reportPanic 
             present_window(windowHandle, fbBegin, fbEnd) {
                 (presentWindow ?? (() => {}))(windowHandle, new Uint8ClampedArray(memory.buffer, fbBegin, fbEnd - fbBegin));
             },
-            debug_log(beginPtr, endPtr) {
-                const message = decodeWasmMemoryString(memory, beginPtr, endPtr - beginPtr);
-                (debugLog ?? console.log)(message);
+            debug_write(beginPtr, endPtr) {
+                pendingDebugLine += decodeWasmMemoryString(memory, beginPtr, endPtr - beginPtr);
+            },
+            debug_flush_line() {
+                (debugLog ?? console.log)(pendingDebugLine);
+                pendingDebugLine = '';
             },
             report_panic(fileBegin, fileEnd, line, msgBegin, msgEnd) {
                 const file = decodeWasmMemoryString(memory, fileBegin, fileEnd - fileBegin);
