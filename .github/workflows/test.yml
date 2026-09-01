@@ -1,0 +1,44 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install CMake
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake
+
+      # apt.llvm.org's script rather than the distro's own apt repos, since
+      # ubuntu-latest's default repos lag behind LLVM 22.
+      - name: Install LLVM 22
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 22 all
+          rm llvm.sh
+
+      # CMakeLists.txt and the build/coverage scripts invoke the
+      # unversioned tool names (clang, llvm-profdata, llvm-cov), matching
+      # what a local dev machine has on PATH -- point those at the LLVM 22
+      # install apt.llvm.org just made, same as this repo expects locally.
+      - name: Point unversioned LLVM tool names at LLVM 22
+        run: |
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-22 100
+          sudo update-alternatives --install /usr/bin/llvm-profdata llvm-profdata /usr/bin/llvm-profdata-22 100
+          sudo update-alternatives --install /usr/bin/llvm-cov llvm-cov /usr/bin/llvm-cov-22 100
+
+      - name: Run tests
+        run: npm run test
