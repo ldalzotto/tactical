@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "node server/build.js && npm run iwyu",
-    "build:verbose": "node server/build.js --verbose",
+    "build:verbose": "node server/build.js --verbose && npm run iwyu:verbose",
     "build:release": "node server/build.js --release",
     "build:release:verbose": "node server/build.js --release --verbose",
     "build:unity": "node server/build.js --unity",
