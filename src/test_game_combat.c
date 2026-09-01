@@ -966,6 +966,11 @@ PRIVATE void test_game_attack_toggle_then_ally_click_is_noop(linear_allocator_t 
     test_click_attack_toggle(&game, allocator);
     assert_test(game.mode == GAME_MODE_ATTACK);
 
+    // The ally's tile is same-team, so pathing_compute_attack_range
+    // excludes it from attack_range_tiles entirely -- it was never a
+    // selectable/highlighted target in the first place.
+    assert_test(!test_tile_list_contains(game.pathing.attack_range_tiles, ally->position));
+
     // In attack mode, clicking an ally still routes through
     // action_try_attack, which rejects same-team targets.
     test_click_tile(&game, allocator, ally->position);
