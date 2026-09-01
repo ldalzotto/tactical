@@ -1,10 +1,10 @@
 name: Build and Deploy to GitHub Pages
 
 on:
-  push:
-    branches:
-      - master
-  pull_request:
+  workflow_run:
+    workflows: ["Test"]
+    types:
+      - completed
   workflow_dispatch:
 
 permissions:
@@ -18,10 +18,16 @@ concurrency:
 
 jobs:
   build:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          # workflow_run always checks out the workflow file's own ref (the
+          # default branch) by default -- pin to the commit Test actually
+          # ran against so a PR's Pages build reflects that PR, not master.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -42,7 +48,10 @@ jobs:
           path: dist
 
   deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'master'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
