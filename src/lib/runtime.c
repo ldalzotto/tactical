@@ -15,11 +15,11 @@ extern window_handle_t __create_window(int32_t width, int32_t height);
 __attribute__((import_module("env"), import_name("present_window")))
 extern void __present_window(window_handle_t window, void *fb_begin, void *fb_end);
 
-__attribute__((import_module("env"), import_name("debug_write")))
-extern void __debug_write(void *begin, void *end);
+__attribute__((import_module("env"), import_name("write")))
+extern void __write(void *begin, void *end);
 
-__attribute__((import_module("env"), import_name("debug_flush_line")))
-extern void __debug_flush_line(void);
+__attribute__((import_module("env"), import_name("flush_line")))
+extern void __flush_line(void);
 
 __attribute__((import_module("env"), import_name("poll_input_events")))
 extern void *__poll_input_events(window_handle_t window, void *begin);
@@ -34,14 +34,14 @@ PUBLIC void present_window(window_handle_t window,  slice_t fb) {
 
 // Writes a fragment of a debug line without terminating it -- the JS side
 // buffers fragments and only emits the line (console.log) on the next
-// debug_flush_line call. Lets fmt.h stream formatted output piece by piece
+// flush_line call. Lets fmt.h stream formatted output piece by piece
 // (e.g. one JSON field at a time) with no C-side buffer of its own.
-PUBLIC void debug_write(slice_t str) {
-    __debug_write(str.begin, str.end);
+PUBLIC void write(slice_t str) {
+    __write(str.begin, str.end);
 }
 
-PUBLIC void debug_flush_line(void) {
-    __debug_flush_line();
+PUBLIC void flush_line(void) {
+    __flush_line();
 }
 
 PUBLIC void *poll_input_events(window_handle_t window, void *begin) {

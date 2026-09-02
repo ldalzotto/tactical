@@ -130,7 +130,7 @@ async function main() {
             win.imageData.data.set(pixels);
             win.ctx.putImageData(win.imageData, 0, 0);
         },
-        debugLog(message) {
+        printLine(message) {
             console.log(message);
         },
         reportPanic({ file, line, message }) {

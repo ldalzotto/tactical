@@ -6,17 +6,17 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-// Streams formatted debug output either through runtime.h's debug_write
-// (mid-line) / debug_flush_line (line-ending) bridge, or -- when `dest` is
+// Streams formatted debug output either through runtime.h's write
+// (mid-line) / flush_line (line-ending) bridge, or -- when `dest` is
 // non-NULL -- onto `dest` itself as a plain growing byte region. Every
 // fmt_write* below takes `dest` as its first argument:
 //   NULL      -- stream straight to the runtime debug bridge (production
-//                use: an agent drops a debug_print_* call site).
+//                use: an agent drops a print_* call site).
 //   non-NULL  -- push the formatted bytes onto `dest`. Consecutive pushes
 //                on the same allocator land contiguously, so a caller can
 //                mark `dest->cursor` before a sequence of fmt_write* calls
 //                and read everything written back as one slice afterward
-//                (see test_debug_print.c) -- no separate capture/redirect
+//                (see test_print.c) -- no separate capture/redirect
 //                mechanism needed.
 // Number formatting still uses a small stack-local buffer per call that
 // never outlives the call.

@@ -41,7 +41,7 @@ PUBLIC void fmt_write(linear_allocator_t *dest, slice_t str) {
         linear_allocator_copy(dest, str, chunk);
         return;
     }
-    debug_write(str);
+    write(str);
 }
 
 PUBLIC void fmt_write_int(linear_allocator_t *dest, int32_t value) {
@@ -65,5 +65,5 @@ PUBLIC void fmt_end_line(linear_allocator_t *dest) {
         fmt_write(dest, STR("\n"));
         return;
     }
-    debug_flush_line();
+    flush_line();
 }

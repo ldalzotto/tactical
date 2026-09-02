@@ -1,9 +1,9 @@
-#include "./debug_print.h"
+#include "./print.h"
 #include "../lib/fmt.h"
 #include "../lib/linkage.h"
 #include "../lib/memory.h"
 
-PUBLIC void debug_print_position(linear_allocator_t *dest, position_t position) {
+PUBLIC void print_position(linear_allocator_t *dest, position_t position) {
     fmt_write(dest, STR("{\"x\":"));
     fmt_write_int(dest, position.x);
     fmt_write(dest, STR(",\"y\":"));
@@ -12,7 +12,7 @@ PUBLIC void debug_print_position(linear_allocator_t *dest, position_t position) 
     fmt_end_line(dest);
 }
 
-PUBLIC void debug_print_skill(linear_allocator_t *dest, skill_t skill) {
+PUBLIC void print_skill(linear_allocator_t *dest, skill_t skill) {
     fmt_write(dest, STR("{\"range\":"));
     fmt_write_int(dest, skill.range);
     fmt_write(dest, STR(",\"damage\":"));
@@ -25,10 +25,10 @@ PUBLIC void debug_print_skill(linear_allocator_t *dest, skill_t skill) {
     fmt_end_line(dest);
 }
 
-// Shared by debug_print_entity and debug_print_entity_list -- writes just
+// Shared by print_entity and print_entity_list -- writes just
 // the field list (no surrounding braces), so the list variant can prefix
 // each entity with its index.
-PRIVATE void debug_print_entity_fields(linear_allocator_t *dest, entity_t entity) {
+PRIVATE void print_entity_fields(linear_allocator_t *dest, entity_t entity) {
     fmt_write(dest, STR("\"team\":\""));
     fmt_write(dest, entity.team == ENTITY_TEAM_PLAYER ? STR("player") : STR("enemy"));
     fmt_write(dest, STR("\",\"pos\":{\"x\":"));
@@ -53,27 +53,27 @@ PRIVATE void debug_print_entity_fields(linear_allocator_t *dest, entity_t entity
     fmt_write_int(dest, entity_skill_count(&entity));
 }
 
-PUBLIC void debug_print_entity(linear_allocator_t *dest, entity_t entity) {
+PUBLIC void print_entity(linear_allocator_t *dest, entity_t entity) {
     fmt_write(dest, STR("{"));
-    debug_print_entity_fields(dest, entity);
+    print_entity_fields(dest, entity);
     fmt_write(dest, STR("}"));
     fmt_end_line(dest);
 }
 
-PUBLIC void debug_print_entity_list(linear_allocator_t *dest, slice_entity_t list) {
+PUBLIC void print_entity_list(linear_allocator_t *dest, slice_entity_t list) {
     int index = 0;
     for (SLICE_FOREACH(list, entity_s)) {
         fmt_write(dest, STR("{\"index\":"));
         fmt_write_int(dest, index);
         fmt_write(dest, STR(","));
-        debug_print_entity_fields(dest, SLICE_DEREF(entity_s));
+        print_entity_fields(dest, SLICE_DEREF(entity_s));
         fmt_write(dest, STR("}"));
         fmt_end_line(dest);
         index++;
     }
 }
 
-PUBLIC void debug_print_turn_state(linear_allocator_t *dest, turn_state_t turn) {
+PUBLIC void print_turn_state(linear_allocator_t *dest, turn_state_t turn) {
     fmt_write(dest, STR("{\"cursor\":"));
     fmt_write_int(dest, turn.cursor);
     fmt_write(dest, STR(",\"order_count\":"));
@@ -82,7 +82,7 @@ PUBLIC void debug_print_turn_state(linear_allocator_t *dest, turn_state_t turn) 
     fmt_end_line(dest);
 }
 
-PRIVATE slice_t debug_print_game_mode_name(game_mode_t mode) {
+PRIVATE slice_t print_game_mode_name(game_mode_t mode) {
     switch (mode) {
         case GAME_MODE_MOVEMENT: return STR("movement");
         case GAME_MODE_ATTACK: return STR("attack");
@@ -90,7 +90,7 @@ PRIVATE slice_t debug_print_game_mode_name(game_mode_t mode) {
     }
 }
 
-PRIVATE slice_t debug_print_game_over_name(game_over_t game_over) {
+PRIVATE slice_t print_game_over_name(game_over_t game_over) {
     switch (game_over) {
         case GAME_OVER_WIN: return STR("win");
         case GAME_OVER_LOSE: return STR("lose");
@@ -98,9 +98,9 @@ PRIVATE slice_t debug_print_game_over_name(game_over_t game_over) {
     }
 }
 
-PUBLIC void debug_print_game_state(linear_allocator_t *dest, game_state_t game) {
+PUBLIC void print_game_state(linear_allocator_t *dest, game_state_t game) {
     fmt_write(dest, STR("{\"mode\":\""));
-    fmt_write(dest, debug_print_game_mode_name(game.mode));
+    fmt_write(dest, print_game_mode_name(game.mode));
     fmt_write(dest, STR("\",\"hover\":"));
     if (game.hover_valid) {
         fmt_write(dest, STR("{\"x\":"));
@@ -114,7 +114,7 @@ PUBLIC void debug_print_game_state(linear_allocator_t *dest, game_state_t game) 
     fmt_write(dest, STR(",\"selected_skill\":"));
     fmt_write_int(dest, game.selected_skill);
     fmt_write(dest, STR(",\"game_over\":\""));
-    fmt_write(dest, debug_print_game_over_name(game.game_over));
+    fmt_write(dest, print_game_over_name(game.game_over));
     fmt_write(dest, STR("\",\"entity_count\":"));
     fmt_write_int(dest, (int32_t)SLICE_TYPESIZE(game.entities));
     fmt_write(dest, STR(",\"turn_cursor\":"));

@@ -35,7 +35,7 @@ async function main() {
     const { failed, memory } = await runWasmTests({
         wasmBytes,
         resolveFrames,
-        debugLog: verbose ? console.log : () => {},
+        printLine: verbose ? console.log : () => {},
         onResult({ name, passed, detail }) {
             if (!passed) {
                 console.log(`FAIL  ${name}`);

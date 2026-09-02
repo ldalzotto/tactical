@@ -18,7 +18,7 @@
 #include "test_game_selection.h"
 #include "test_scenario.h"
 #include "test_render.h"
-#include "test_debug_print.h"
+#include "test_print.h"
 #endif
 #ifdef APP_BUILD_FUZZ_TESTS
 #include "test_game_fuzz.h"
@@ -65,8 +65,8 @@ PRIVATE const test_case_t *test_lookup(uint32_t index) {
     if (index < g_render_tests_count) { return &g_render_tests[index]; }
     index -= g_render_tests_count;
 
-    if (index < g_debug_print_tests_count) { return &g_debug_print_tests[index]; }
-    index -= g_debug_print_tests_count;
+    if (index < g_print_tests_count) { return &g_print_tests[index]; }
+    index -= g_print_tests_count;
 #endif
 
     // Guarded even though g_game_fuzz_tests_count is always defined (0 when
@@ -100,7 +100,7 @@ uint32_t test_discovery_count(void) {
         + g_game_selection_tests_count
         + g_scenario_tests_count
         + g_render_tests_count
-        + g_debug_print_tests_count;
+        + g_print_tests_count;
 #endif
 #ifdef APP_BUILD_FUZZ_TESTS
     count += g_game_fuzz_tests_count;

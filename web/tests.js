@@ -48,7 +48,7 @@ async function run_tests() {
     await runWasmTests({
         wasmBytes,
         resolveFrames,
-        debugLog: (message) => console.log(message),
+        printLine: (message) => console.log(message),
         onResult({ name, passed, detail }) {
             if (!passed) {
                 const { row, status } = addTestRow(panel, name);

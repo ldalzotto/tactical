@@ -1,5 +1,5 @@
-#include "test_debug_print.h"
-#include "game/debug_print.h"
+#include "test_print.h"
+#include "game/print.h"
 #include "game/entity.h"
 #include "game/game.h"
 #include "game/position.h"
@@ -12,15 +12,15 @@
 #include "test_game_helpers.h"
 #include <stdint.h>
 
-// Passing `allocator` itself as debug_print_*'s `dest` (see fmt.h) pushes
+// Passing `allocator` itself as print_*'s `dest` (see fmt.h) pushes
 // the JSON onto it instead of streaming to the runtime debug bridge.
 // Consecutive fmt_write* calls land contiguously, so marking the cursor
 // before the call and reading back up to the cursor after it recovers
 // exactly what was printed -- no separate capture mechanism needed.
 
-PRIVATE void test_debug_print_position(linear_allocator_t *allocator) {
+PRIVATE void test_print_position(linear_allocator_t *allocator) {
     void *mark = allocator->cursor;
-    debug_print_position(allocator, (position_t){ .x = 3, .y = 4 });
+    print_position(allocator, (position_t){ .x = 3, .y = 4 });
     slice_t captured = { mark, allocator->cursor };
 
     assert_test(slice_equals(captured, STR("{\"x\":3,\"y\":4}\n")));
@@ -28,9 +28,9 @@ PRIVATE void test_debug_print_position(linear_allocator_t *allocator) {
     linear_allocator_pop(allocator, captured);
 }
 
-PRIVATE void test_debug_print_skill(linear_allocator_t *allocator) {
+PRIVATE void test_print_skill(linear_allocator_t *allocator) {
     void *mark = allocator->cursor;
-    debug_print_skill(allocator, SKILL_FIREBALL);
+    print_skill(allocator, SKILL_FIREBALL);
     slice_t captured = { mark, allocator->cursor };
 
     assert_test(slice_equals(captured, STR("{\"range\":4,\"damage\":4,\"ap_cost\":1,\"aoe_radius\":2}\n")));
@@ -38,11 +38,11 @@ PRIVATE void test_debug_print_skill(linear_allocator_t *allocator) {
     linear_allocator_pop(allocator, captured);
 }
 
-PRIVATE void test_debug_print_entity(linear_allocator_t *allocator) {
+PRIVATE void test_print_entity(linear_allocator_t *allocator) {
     game_state_t game = scenario_setup_default(allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     void *mark = allocator->cursor;
-    debug_print_entity(allocator, SLICE_AT(game.entities, 0));
+    print_entity(allocator, SLICE_AT(game.entities, 0));
     slice_t captured = { mark, allocator->cursor };
 
     assert_test(slice_equals(captured, STR(
@@ -54,11 +54,11 @@ PRIVATE void test_debug_print_entity(linear_allocator_t *allocator) {
     game_deinit(allocator, game);
 }
 
-PRIVATE void test_debug_print_entity_list(linear_allocator_t *allocator) {
+PRIVATE void test_print_entity_list(linear_allocator_t *allocator) {
     game_state_t game = scenario_setup_default(allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     void *mark = allocator->cursor;
-    debug_print_entity_list(allocator, game.entities);
+    print_entity_list(allocator, game.entities);
     slice_t captured = { mark, allocator->cursor };
 
     assert_test(slice_equals(captured, STR(
@@ -74,11 +74,11 @@ PRIVATE void test_debug_print_entity_list(linear_allocator_t *allocator) {
     game_deinit(allocator, game);
 }
 
-PRIVATE void test_debug_print_turn_state(linear_allocator_t *allocator) {
+PRIVATE void test_print_turn_state(linear_allocator_t *allocator) {
     game_state_t game = scenario_setup_default(allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     void *mark = allocator->cursor;
-    debug_print_turn_state(allocator, game.turn);
+    print_turn_state(allocator, game.turn);
     slice_t captured = { mark, allocator->cursor };
 
     assert_test(slice_equals(captured, STR("{\"cursor\":0,\"order_count\":6}\n")));
@@ -87,11 +87,11 @@ PRIVATE void test_debug_print_turn_state(linear_allocator_t *allocator) {
     game_deinit(allocator, game);
 }
 
-PRIVATE void test_debug_print_game_state(linear_allocator_t *allocator) {
+PRIVATE void test_print_game_state(linear_allocator_t *allocator) {
     game_state_t game = scenario_setup_default(allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     void *mark = allocator->cursor;
-    debug_print_game_state(allocator, game);
+    print_game_state(allocator, game);
     slice_t captured = { mark, allocator->cursor };
 
     assert_test(slice_equals(captured, STR(
@@ -102,13 +102,13 @@ PRIVATE void test_debug_print_game_state(linear_allocator_t *allocator) {
     game_deinit(allocator, game);
 }
 
-const test_case_t g_debug_print_tests[] = {
-    { TEST_NAME("debug_print_position"), test_debug_print_position },
-    { TEST_NAME("debug_print_skill"), test_debug_print_skill },
-    { TEST_NAME("debug_print_entity"), test_debug_print_entity },
-    { TEST_NAME("debug_print_entity_list"), test_debug_print_entity_list },
-    { TEST_NAME("debug_print_turn_state"), test_debug_print_turn_state },
-    { TEST_NAME("debug_print_game_state"), test_debug_print_game_state },
+const test_case_t g_print_tests[] = {
+    { TEST_NAME("print_position"), test_print_position },
+    { TEST_NAME("print_skill"), test_print_skill },
+    { TEST_NAME("print_entity"), test_print_entity },
+    { TEST_NAME("print_entity_list"), test_print_entity_list },
+    { TEST_NAME("print_turn_state"), test_print_turn_state },
+    { TEST_NAME("print_game_state"), test_print_game_state },
 };
 
-const uint32_t g_debug_print_tests_count = sizeof(g_debug_print_tests) / sizeof(g_debug_print_tests[0]);
+const uint32_t g_print_tests_count = sizeof(g_print_tests) / sizeof(g_print_tests[0]);

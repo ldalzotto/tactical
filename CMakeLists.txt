@@ -58,7 +58,7 @@ else()
 
         src/game/action.c
         src/game/ai.c
-        src/game/debug_print.c
+        src/game/print.c
         src/game/entity.c
         src/game/game.c
         src/game/geometry.c
@@ -102,7 +102,7 @@ else()
             src/test_game_selection.c
             src/test_scenario.c
             src/test_render.c
-            src/test_debug_print.c
+            src/test_print.c
         )
     endif()
 
