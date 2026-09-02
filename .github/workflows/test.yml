@@ -16,44 +16,8 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Install CMake
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake
-
-      # apt.llvm.org's script rather than the distro's own apt repos, since
-      # ubuntu-latest's default repos lag behind LLVM 22.
-      - name: Install LLVM 22
-        run: |
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh 22 all
-          rm llvm.sh
-
-      # CMakeLists.txt and the build/coverage scripts invoke the unversioned
-      # tool names (clang, llvm-profdata, llvm-cov), matching what a local
-      # dev machine has on PATH. update-alternatives isn't reliable here --
-      # ubuntu-latest images ship several clang versions pre-registered as
-      # alternatives, and --install doesn't win over an existing manual
-      # selection -- so instead symlink LLVM 22's binaries into a directory
-      # prepended to PATH, which always wins regardless of what else is
-      # installed. All three must resolve to the *same* LLVM 22 install:
-      # coverage.js's "no coverage data found" is what a clang/llvm-cov
-      # version mismatch looks like.
-      - name: Point unversioned LLVM tool names at LLVM 22
-        run: |
-          mkdir -p "$HOME/llvm22-bin"
-          ln -sf /usr/bin/clang-22 "$HOME/llvm22-bin/clang"
-          ln -sf /usr/bin/llvm-profdata-22 "$HOME/llvm22-bin/llvm-profdata"
-          ln -sf /usr/bin/llvm-cov-22 "$HOME/llvm22-bin/llvm-cov"
-          echo "$HOME/llvm22-bin" >> "$GITHUB_PATH"
-
-      - name: Verify LLVM tool versions match
-        run: |
-          clang --version
-          llvm-cov --version
-          llvm-profdata --version
-          which clang llvm-cov llvm-profdata
-
+      # cmake, clang/lld, and a version-matched LLVM 22 (for coverage) are
+      # installed on demand by server/setup-toolchain.js, invoked from
+      # build.js/coverage.js as part of the npm scripts below.
       - name: Run tests
         run: npm run test
