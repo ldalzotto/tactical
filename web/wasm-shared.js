@@ -71,7 +71,7 @@ function buildImportObject({ createWindow, presentWindow, debugLog, reportPanic 
                 pendingDebugLine += decodeWasmMemoryString(memory, beginPtr, endPtr - beginPtr);
             },
             debug_flush_line() {
-                (debugLog ?? console.log)(pendingDebugLine);
+                debugLog(pendingDebugLine);
                 pendingDebugLine = '';
             },
             report_panic(fileBegin, fileEnd, line, msgBegin, msgEnd) {
