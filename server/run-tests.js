@@ -6,6 +6,7 @@ const { runWasmTests } = require('../web/wasm-shared');
 
 const ROOT = path.join(__dirname, '..');
 const WASM_PATH = path.join(ROOT, 'build', 'app.wasm');
+const verbose = process.argv.includes('--verbose');
 
 async function main() {
     const wasmBytes = fs.readFileSync(WASM_PATH);
@@ -14,6 +15,7 @@ async function main() {
     await runWasmTests({
         wasmBytes,
         resolveFrames,
+        debugLog: verbose ? console.log : () => {},
         onResult({ name, passed, detail }) {
             if (!passed) {
                 console.log(`FAIL  ${name}`);
