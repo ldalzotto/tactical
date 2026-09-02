@@ -109,7 +109,6 @@ PUBLIC ptrdiff_t bytesize(void *begin, void *end) {
     return (char *)end - (char *)begin;
 }
 
-#ifdef APP_BUILD_TESTS
 PUBLIC bool slice_equals(slice_t a, slice_t b) {
     ptrdiff_t len = bytesize(a.begin, a.end);
     if (len != bytesize(b.begin, b.end)) {
@@ -127,4 +126,3 @@ PUBLIC bool slice_equals(slice_t a, slice_t b) {
     }
     return true;
 }
-#endif
