@@ -8,10 +8,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// Enforces the region stacking order in scratch (walking_distances <
-// attack_range_tiles < blast_tiles). Every mutator below calls this
-// before returning, so a reorder bug trips an assert instead of silently
-// corrupting another region.
+// Enforces scratch's region stacking order (walking_distances <
+// attack_range_tiles < blast_tiles). Every mutator below calls this before
+// returning, so a reorder bug asserts instead of silently corrupting a region.
 PRIVATE void pathing_ranges_assert_layout(pathing_ranges_t ranges) {
     assert_debug(ranges.attack_range_align.begin >= ranges.walking_distances.dist.slice.end);
     assert_debug((void*)ranges.attack_range_tiles.begin >= ranges.walking_distances.dist.slice.end);
@@ -43,10 +42,9 @@ PRIVATE void pathing_ranges_set_attack_range(linear_allocator_t *scratch, pathin
     pathing_ranges_assert_layout(*ranges);
 }
 
-// Adopts a caller-built blast_tiles region. Safe to call any time (unlike
-// the setters above, doesn't require reachable/attack_range to be empty) as
-// long as the previous blast_tiles was cleared first via
-// pathing_ranges_clear_blast_tiles.
+// Adopts a caller-built blast_tiles region. Unlike the setters above,
+// doesn't require reachable/attack_range empty -- just the previous
+// blast_tiles cleared first via pathing_ranges_clear_blast_tiles.
 PRIVATE void pathing_ranges_set_blast_tiles(linear_allocator_t *scratch, pathing_ranges_t *ranges, slice_t blast_align, slice_position_t blast_tiles) {
     (void)scratch;
     ranges->blast_align = blast_align;
@@ -95,11 +93,11 @@ PUBLIC void pathing_ranges_reset(linear_allocator_t *scratch, pathing_ranges_t *
     *ranges = pathing_ranges_init(scratch);
 }
 
-// Grows `scratch` in place if needed to fit `temp_tiles`, copies
-// `temp_align`/`temp_tiles` into it as `out_align`/`out_tiles`, and pops the
-// caller's staged copy off `allocator`. Rebases `temp` if growth relocates
+// Grows `scratch` in place if needed for `temp_tiles`, copies
+// `temp_align`/`temp_tiles` in as `out_align`/`out_tiles`, and pops the
+// caller's staged copy off `allocator`, rebasing `temp` if growth relocated
 // memory. Returns the shift applied (0 if it already fit); callers must
-// propagate it to anything else they hold above `scratch`.
+// propagate it to anything else held above `scratch`.
 PRIVATE ptrdiff_t pathing_ranges_push_tiles(linear_allocator_t *allocator, linear_allocator_t *scratch,
         slice_t temp_align, slice_position_t temp_tiles,
         slice_t *out_align, slice_position_t *out_tiles) {
@@ -120,7 +118,6 @@ PRIVATE ptrdiff_t pathing_ranges_push_tiles(linear_allocator_t *allocator, linea
         shift = extra;
     }
 
-    // Push data to the game scratch
     *out_align = linear_allocator_push_alignment(scratch, _Alignof(position_t));
     *out_tiles = LINEAR_ALLOCATOR_PUSH(scratch, temp_tiles, SLICE_TYPESIZE(temp_tiles));
     linear_allocator_copy(scratch, temp_tiles.slice, out_tiles->slice);
@@ -131,10 +128,10 @@ PRIVATE ptrdiff_t pathing_ranges_push_tiles(linear_allocator_t *allocator, linea
     return shift;
 }
 
-// Grows `scratch` in place if needed to fit `temp`'s dist array, copies it
-// in as `out`, then pops `temp` off `allocator`. `temp` is rebased in place
-// if growth relocates memory. Returns the shift applied (0 if it already
-// fit); callers must propagate it to anything else held above `scratch`.
+// Grows `scratch` in place if needed for `temp`'s dist array, copies it in
+// as `out`, then pops `temp` off `allocator`, rebasing `temp` if growth
+// relocated memory. Returns the shift applied (0 if it already fit);
+// callers must propagate it to anything else held above `scratch`.
 PRIVATE ptrdiff_t pathing_ranges_push_pathing_state(linear_allocator_t *allocator, linear_allocator_t *scratch,
         pathing_state_t *temp,
         slice_t *out_align, pathing_state_t *out) {
@@ -155,8 +152,8 @@ PRIVATE ptrdiff_t pathing_ranges_push_pathing_state(linear_allocator_t *allocato
         shift = extra;
     }
 
-    // Outer marker absorbs the real alignment padding, so pathing_state_t's
-    // own internal align marker is pushed zero-length right after it.
+    // Outer marker absorbs the real padding; pathing_state_t's own internal
+    // align marker is pushed zero-length right after it.
     *out_align = linear_allocator_push_alignment(scratch, _Alignof(int32_t));
     out->align = linear_allocator_push(scratch, 0);
     out->dist = LINEAR_ALLOCATOR_PUSH(scratch, out->dist, SLICE_TYPESIZE(temp->dist));

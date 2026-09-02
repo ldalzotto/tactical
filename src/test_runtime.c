@@ -27,8 +27,8 @@ PRIVATE void test_fail_example(linear_allocator_t *allocator) {
 PRIVATE void test_test_discovery_out_of_range_panics(linear_allocator_t *allocator) {
     (void)allocator;
 
-    // test_lookup's fallback path (assert_test(false)) is only reachable
-    // through an out-of-range discovery index.
+    // test_lookup's fallback (assert_test(false)) is only reachable via an
+    // out-of-range index.
     expect_panic_begin();
     const char *name = test_discovery_name_begin(0xFFFFFFFF);
     assert_test(expect_panic_end());
@@ -39,9 +39,8 @@ PRIVATE void test_panic_without_expect_panic_traps(linear_allocator_t *allocator
     (void)allocator;
 
     // panic's non-expect_panic path falls through to report_panic, which
-    // throws on the JS side and unwinds the wasm instance. The JS runner
-    // treats this test's unwind as the expected outcome and confirms it
-    // via test_expect_trap_end.
+    // throws JS-side and unwinds the wasm instance; the JS runner expects
+    // this unwind and confirms it via test_expect_trap_end.
     expect_trap_begin();
     panic(false);
 }
@@ -49,8 +48,8 @@ PRIVATE void test_panic_without_expect_panic_traps(linear_allocator_t *allocator
 PRIVATE void test_expect_trap_end_without_trap_reports_false(linear_allocator_t *allocator) {
     (void)allocator;
 
-    // The expected-but-no-trap side of expect_trap_end's `&&` condition:
-    // a test can ask for a trap and then finish without reaching one.
+    // The expected-but-no-trap side of expect_trap_end's `&&`: a test can
+    // ask for a trap and finish without reaching one.
     expect_trap_begin();
     assert_test(!expect_trap_end());
 }

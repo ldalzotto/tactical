@@ -53,9 +53,7 @@ async function main() {
 
     run('llvm-profdata', ['merge', '-o', PROF_DATA, PROF_TEXT]);
 
-    // Annotated HTML report. `llvm-cov show` renders line *and* branch
-    // coverage for every compiled source; the browser view is the place to
-    // inspect the exact lines/branches that printUncovered flags below.
+    // Annotated HTML report for inspecting the line/branch gaps printUncovered flags below.
     run('llvm-cov', [
         'show',
         WASM_PATH,

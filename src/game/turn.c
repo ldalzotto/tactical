@@ -16,8 +16,8 @@ PUBLIC void turn_order_deinit(linear_allocator_t *allocator, slice_entity_ptr_t 
 }
 
 PUBLIC void turn_order_add(linear_allocator_t *allocator, slice_entity_ptr_t *order, entity_t *entity) {
-    // Same append-in-place discipline as entity_spawn: only allowed right
-    // after the previous add, with nothing else pushed in between.
+    // Same append-in-place discipline as entity_spawn: nothing else may be
+    // pushed between adds.
     slice_entity_ptr_t entry = LINEAR_ALLOCATOR_PUSH_GROW(allocator, order, 1);
     SLICE_DEREF(entry) = entity;
 }
@@ -48,11 +48,9 @@ PUBLIC turn_state_t turn_advance(turn_state_t state) {
 PUBLIC turn_state_t turn_remove_dead_entities(turn_state_t state, slice_entity_ptr_t dead) {
     assert_debug(SLICE_TYPESIZE(state.order) > 0);
 
-    // The active entity can never die: action_try_attack and
-    // action_try_attack_area both reject same-team damage, and the
-    // currently-active entity is always on the attacker's own team (it's
-    // the one doing the attacking), so it can never appear in `dead` --
-    // including from its own AoE blast.
+    // The active entity can never die: action_try_attack(_area) both reject
+    // same-team damage, and the active entity is always the attacker's own
+    // team, so it can't appear in `dead` -- even from its own AoE blast.
     entity_t *active = turn_active_entity(state);
     for ( SLICE_FOREACH(dead, dead_s) ) {
         entity_t *d = SLICE_DEREF(dead_s);
@@ -83,9 +81,8 @@ PUBLIC turn_state_t turn_remove_dead_entities(turn_state_t state, slice_entity_p
     }
     state.order.end = write.begin;
 
-    // The whole casualty batch is reconciled in this single call, so unlike
-    // the old per-casualty calling convention, every entity left in the
-    // order is guaranteed to still be alive once this returns.
+    // The whole casualty batch is reconciled in this one call, so every
+    // entity left in the order is guaranteed alive once this returns.
     for ( SLICE_FOREACH(state.order, remaining) ) {
         assert_debug(SLICE_DEREF(remaining)->alive);
     }

@@ -24,9 +24,8 @@ PRIVATE void test_scenario_setup_default_populates_map_and_units(linear_allocato
         skill_t default_skill; // skills[0]
         skill_t other_skill;   // skills[1]
     } expected[6] = {
-        // p1 carries SKILL_FIREBALL instead of SKILL_MELEE (see
-        // scenario_setup_default) so the AoE feature is reachable
-        // end-to-end, within VIEWPORT_MAX_SKILL_BUTTONS's 2-button cap.
+        // p1 carries SKILL_FIREBALL instead of SKILL_MELEE (scenario_setup_default)
+        // so AoE is reachable end-to-end within the 2-button skill cap.
         { 1, 2, ENTITY_TEAM_PLAYER, SKILL_RANGED, SKILL_FIREBALL },
         { 1, 5, ENTITY_TEAM_PLAYER, SKILL_MELEE, SKILL_RANGED },
         { 1, 8, ENTITY_TEAM_PLAYER, SKILL_MELEE, SKILL_RANGED },
@@ -48,7 +47,6 @@ PRIVATE void test_scenario_setup_default_populates_map_and_units(linear_allocato
         assert_test(entity->max_mp == 3);
         assert_test(entity->alive);
 
-        // Every entity in the default scenario now has both skills.
         assert_test(entity_skill_count(entity) == 2);
         assert_test(SLICE_AT(entity->skills, 0).range == expected[id].default_skill.range);
         assert_test(SLICE_AT(entity->skills, 0).damage == expected[id].default_skill.damage);

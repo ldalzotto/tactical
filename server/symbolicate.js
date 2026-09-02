@@ -23,9 +23,8 @@ function run(cmd, args) {
     });
 }
 
-// Ground truth for calibration: funcIndex -> declared function name, read
-// straight from the wasm module (imports + defined functions), independent
-// of DWARF/symbolizer address conventions.
+// Ground truth for calibration: funcIndex -> declared name, read from the
+// wasm module directly (independent of DWARF/symbolizer conventions).
 async function getFuncNames({ objPath }) {
     const stdout = await run(WASM_OBJDUMP_BIN, ['-x', objPath]);
     const names = new Map();
@@ -72,9 +71,8 @@ function runSymbolizer({ objPath, addresses }) {
     });
 }
 
-// llvm-symbolizer prints one block per input address (blank-line separated).
-// Each block is a sequence of (function name, file:line:col) line pairs -
-// more than one pair means the frame was inlined at that address.
+// llvm-symbolizer prints one blank-line-separated block per input address, as
+// (function name, file:line:col) pairs — more than one pair means inlining.
 function parseSymbolizerOutput(output, count) {
     const blocks = output.split(/\n\n+/).filter((b) => b.trim().length > 0);
 
@@ -104,13 +102,10 @@ function locationsMatchName(locations, expectedName) {
     return locations.some((loc) => loc.function === expectedName);
 }
 
-// Different LLVM/Emscripten versions have disagreed on whether the DWARF
-// addresses embedded in a wasm module's debug info are absolute file offsets
-// (matching the offsets V8 reports in trap stack traces) or relative to the
-// start of the Code section. Rather than assume one convention, calibrate
-// against this specific binary: resolve one frame both ways and see which
-// one actually names the function we know (from the module's own function
-// index) it should be.
+// LLVM/Emscripten versions disagree on whether DWARF addresses are absolute
+// file offsets (matching V8's trap stack traces) or relative to the Code
+// section start. Calibrate per binary: resolve one frame both ways and see
+// which matches the name we already know from the function index.
 async function needsCodeOffsetSubtraction({ objPath, frame, funcNames }) {
     const expectedName = funcNames.get(frame.funcIndex);
     if (!expectedName) {

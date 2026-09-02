@@ -4,16 +4,13 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 // llvm-cov export emits, per file, a `summary` with per-metric totals
-// ({ count, covered, notcovered, percent }) plus the detailed arrays that
-// back it: `segments`, `branches` and `expansions`.
+// ({ count, covered, notcovered, percent }) plus detailed arrays that back
+// it: `segments`, `branches`, `expansions`. The summary is authoritative for
+// "is anything missing" (it's what the HTML report renders); the detailed
+// arrays are used only to attach a `file:line:col` to each gap.
 //
-// The summary is what `llvm-cov show` / the annotated HTML report renders, so
-// it is the authoritative "is anything missing" signal. We use the detailed
-// arrays only to attach a `file:line:col` location to each gap.
-//
-// A branch entry is [line, col, lineEnd, colEnd, trueCount, falseCount, ...].
-// A side whose count is 0 is a coverage gap even though the line itself may
-// have executed — this is exactly the "missing branch" the HTML report flags.
+// Branch entry: [line, col, lineEnd, colEnd, trueCount, falseCount, ...]. A
+// side with count 0 is a gap even if the line itself executed.
 
 function run(cmd, args) {
     const result = spawnSync(cmd, args, { encoding: 'utf8', maxBuffer: Infinity });
@@ -45,13 +42,11 @@ function printUncovered({ wasmPath, profDataPath, root }) {
     for (const file of data.data[0].files) {
         const rel = relName(file.filename);
 
-        // Gaps attributed by the detailed passes below; the summary net
-        // reports only what these passes could not localize.
+        // Gaps attributed below; the summary net reports what's left unlocalized.
         const found = { regions: 0, branches: 0, functions: 0, instantiations: 0, lines: 0, mcdc: 0 };
 
-        // 1. Uncovered regions (statements executed 0 times). Only top-level
-        // segments carry region-entry flags; macro-body regions are handled
-        // by the summary net below.
+        // 1. Uncovered regions (executed 0 times). Only top-level segments
+        // carry region-entry flags; macro-body regions go to the summary net.
         for (const [line, col, count, hasCount, isRegionEntry, isGapRegion] of file.segments || []) {
             if (!isRegionEntry || !hasCount || isGapRegion || count !== 0) {
                 continue;
@@ -60,10 +55,9 @@ function printUncovered({ wasmPath, profDataPath, root }) {
             push(rel, line, col, 'uncovered code (executed 0 times)');
         }
 
-        // 2. Uncovered branches (a side of a condition that never executed).
-        // Top-level branches report at their own location; expansion branches
-        // report at the macro invocation site, which is where the source code
-        // the developer can change actually lives.
+        // 2. Uncovered branches. Top-level branches report at their own
+        // location; expansion branches report at the macro invocation site
+        // (the source the developer can actually edit).
         const scanBranches = (branches, line, col) => {
             let missing = 0;
             for (const branch of branches || []) {
@@ -92,10 +86,9 @@ function printUncovered({ wasmPath, profDataPath, root }) {
         };
         walkExpansions(file.expansions);
 
-        // 3. Summary net. llvm-cov already totals every metric; anything the
-        // passes above could not attribute (macro-body regions, function or
-        // line gaps, future mcdc instrumentation) is surfaced here so no
-        // class of gap is silently dropped.
+        // 3. Summary net: surfaces anything the passes above couldn't
+        // attribute (macro-body regions, function/line gaps, mcdc), so no
+        // gap class is silently dropped.
         const summary = file.summary || {};
         for (const metric of ['regions', 'branches', 'functions', 'instantiations', 'lines', 'mcdc']) {
             const m = summary[metric];
