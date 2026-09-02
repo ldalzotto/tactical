@@ -42,7 +42,7 @@ PRIVATE void test_debug_print_entity(linear_allocator_t *allocator) {
     game_state_t game = scenario_setup_default(allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     void *mark = allocator->cursor;
-    debug_print_entity(allocator, &SLICE_AT(game.entities, 0));
+    debug_print_entity(allocator, SLICE_AT(game.entities, 0));
     slice_t captured = { mark, allocator->cursor };
 
     assert_test(slice_equals(captured, STR(
@@ -91,7 +91,7 @@ PRIVATE void test_debug_print_game_state(linear_allocator_t *allocator) {
     game_state_t game = scenario_setup_default(allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
     void *mark = allocator->cursor;
-    debug_print_game_state(allocator, &game);
+    debug_print_game_state(allocator, game);
     slice_t captured = { mark, allocator->cursor };
 
     assert_test(slice_equals(captured, STR(

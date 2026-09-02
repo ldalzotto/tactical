@@ -28,32 +28,32 @@ PUBLIC void debug_print_skill(linear_allocator_t *dest, skill_t skill) {
 // Shared by debug_print_entity and debug_print_entity_list -- writes just
 // the field list (no surrounding braces), so the list variant can prefix
 // each entity with its index.
-PRIVATE void debug_print_entity_fields(linear_allocator_t *dest, entity_t *entity) {
+PRIVATE void debug_print_entity_fields(linear_allocator_t *dest, entity_t entity) {
     fmt_write(dest, STR("\"team\":\""));
-    fmt_write(dest, entity->team == ENTITY_TEAM_PLAYER ? STR("player") : STR("enemy"));
+    fmt_write(dest, entity.team == ENTITY_TEAM_PLAYER ? STR("player") : STR("enemy"));
     fmt_write(dest, STR("\",\"pos\":{\"x\":"));
-    fmt_write_int(dest, entity->position.x);
+    fmt_write_int(dest, entity.position.x);
     fmt_write(dest, STR(",\"y\":"));
-    fmt_write_int(dest, entity->position.y);
+    fmt_write_int(dest, entity.position.y);
     fmt_write(dest, STR("},\"hp\":"));
-    fmt_write_int(dest, entity->hp);
+    fmt_write_int(dest, entity.hp);
     fmt_write(dest, STR(",\"max_hp\":"));
-    fmt_write_int(dest, entity->max_hp);
+    fmt_write_int(dest, entity.max_hp);
     fmt_write(dest, STR(",\"ap\":"));
-    fmt_write_int(dest, entity->ap);
+    fmt_write_int(dest, entity.ap);
     fmt_write(dest, STR(",\"max_ap\":"));
-    fmt_write_int(dest, entity->max_ap);
+    fmt_write_int(dest, entity.max_ap);
     fmt_write(dest, STR(",\"mp\":"));
-    fmt_write_int(dest, entity->mp);
+    fmt_write_int(dest, entity.mp);
     fmt_write(dest, STR(",\"max_mp\":"));
-    fmt_write_int(dest, entity->max_mp);
+    fmt_write_int(dest, entity.max_mp);
     fmt_write(dest, STR(",\"alive\":"));
-    fmt_write_bool(dest, entity->alive);
+    fmt_write_bool(dest, entity.alive);
     fmt_write(dest, STR(",\"skill_count\":"));
-    fmt_write_int(dest, entity_skill_count(entity));
+    fmt_write_int(dest, entity_skill_count(&entity));
 }
 
-PUBLIC void debug_print_entity(linear_allocator_t *dest, entity_t *entity) {
+PUBLIC void debug_print_entity(linear_allocator_t *dest, entity_t entity) {
     fmt_write(dest, STR("{"));
     debug_print_entity_fields(dest, entity);
     fmt_write(dest, STR("}"));
@@ -66,7 +66,7 @@ PUBLIC void debug_print_entity_list(linear_allocator_t *dest, slice_entity_t lis
         fmt_write(dest, STR("{\"index\":"));
         fmt_write_int(dest, index);
         fmt_write(dest, STR(","));
-        debug_print_entity_fields(dest, &SLICE_DEREF(entity_s));
+        debug_print_entity_fields(dest, SLICE_DEREF(entity_s));
         fmt_write(dest, STR("}"));
         fmt_end_line(dest);
         index++;
@@ -98,27 +98,27 @@ PRIVATE slice_t debug_print_game_over_name(game_over_t game_over) {
     }
 }
 
-PUBLIC void debug_print_game_state(linear_allocator_t *dest, game_state_t *game) {
+PUBLIC void debug_print_game_state(linear_allocator_t *dest, game_state_t game) {
     fmt_write(dest, STR("{\"mode\":\""));
-    fmt_write(dest, debug_print_game_mode_name(game->mode));
+    fmt_write(dest, debug_print_game_mode_name(game.mode));
     fmt_write(dest, STR("\",\"hover\":"));
-    if (game->hover_valid) {
+    if (game.hover_valid) {
         fmt_write(dest, STR("{\"x\":"));
-        fmt_write_int(dest, game->hover.x);
+        fmt_write_int(dest, game.hover.x);
         fmt_write(dest, STR(",\"y\":"));
-        fmt_write_int(dest, game->hover.y);
+        fmt_write_int(dest, game.hover.y);
         fmt_write(dest, STR("}"));
     } else {
         fmt_write(dest, STR("null"));
     }
     fmt_write(dest, STR(",\"selected_skill\":"));
-    fmt_write_int(dest, game->selected_skill);
+    fmt_write_int(dest, game.selected_skill);
     fmt_write(dest, STR(",\"game_over\":\""));
-    fmt_write(dest, debug_print_game_over_name(game->game_over));
+    fmt_write(dest, debug_print_game_over_name(game.game_over));
     fmt_write(dest, STR("\",\"entity_count\":"));
-    fmt_write_int(dest, (int32_t)SLICE_TYPESIZE(game->entities));
+    fmt_write_int(dest, (int32_t)SLICE_TYPESIZE(game.entities));
     fmt_write(dest, STR(",\"turn_cursor\":"));
-    fmt_write_int(dest, game->turn.cursor);
+    fmt_write_int(dest, game.turn.cursor);
     fmt_write(dest, STR("}"));
     fmt_end_line(dest);
 }
