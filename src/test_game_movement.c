@@ -13,14 +13,10 @@
 #include "test_game_helpers.h"
 #include <stdint.h>
 
-// The tests below drive game subsystems (grid, entity, pathing, turn,
-// action, ai) only through game_init's public surface -- game_on_input_event
-// via test_click_tile/test_click_end_turn -- and assert on game_state_t
-// fields, the same way a player and a screen reader of the board would.
-// Behavior that the game API structurally prevents a player from ever
-// triggering (attacking a target the UI won't let you select, moving onto a
-// tile the UI routes to a different handler) has no equivalent test here:
-// there's no click that reaches it.
+// These tests drive game subsystems only through game_on_input_event (via
+// test_click_tile/test_click_end_turn) and assert on game_state_t fields,
+// same as a player would. Behavior the UI structurally prevents a player
+// from triggering has no test here -- there's no click that reaches it.
 
 PRIVATE void test_game_selecting_entity_computes_reachable_tiles_within_mp_and_moves(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
@@ -44,10 +40,9 @@ PRIVATE void test_game_selecting_entity_computes_reachable_tiles_within_mp_and_m
     assert_test(game.mode == GAME_MODE_MOVEMENT);
     assert_test(turn_active_entity(game.turn) == p);
 
-    // mp is 2: (0,0) is dist 0 (excluded, it's where the mover stands),
-    // (2,0) is dist 2 (in range), (3,0) is dist 3 and (3,3) is dist 6 (both
-    // beyond mp) -- so the highlighted set doubles as a check that BFS
-    // distance and the max-steps cap both land where expected.
+    // mp is 2: (0,0) is dist 0 (mover's own tile, excluded), (2,0) is dist 2
+    // (in range), (3,0)/(3,3) are dist 3/6 (beyond mp) -- checks both BFS
+    // distance and the max-steps cap.
     assert_test(!test_position_reachable(&game, (position_t){0, 0}));
     assert_test(test_position_reachable(&game, (position_t){2, 0}));
     assert_test(!test_position_reachable(&game, (position_t){3, 0}));
@@ -89,13 +84,11 @@ PRIVATE void test_game_obstacles_block_reachable_tiles_and_movement(linear_alloc
     assert_test(!test_position_reachable(&game, (position_t){2, 0}));
     assert_test(!test_position_reachable(&game, (position_t){2, 1}));
     assert_test(test_position_reachable(&game, (position_t){1, 1}));
-    // (4,1) sits right past the wall: with mp 4, it's only in range if
-    // the walk-around-the-wall path (6 tiles) is what BFS actually took
-    // -- the direct 4-tile path is blocked, so it must be absent.
+    // (4,1) is past the wall: only in range if BFS took the 6-tile
+    // walk-around (direct 4-tile path is blocked), so must be absent.
     assert_test(!test_position_reachable(&game, (position_t){4, 1}));
 
-    // Clicking straight onto the wall is a no-op: unwalkable tiles never
-    // become a valid move target, wall or no wall around it.
+    // Clicking the wall is a no-op: unwalkable tiles are never a valid target.
     test_click_tile(&game, allocator, (position_t){2, 0});
 
     entity_t *entity = p;
@@ -133,9 +126,8 @@ PRIVATE void test_game_occupied_tile_blocks_corridor_reachability(linear_allocat
     test_click_tile(&game, allocator, p->position);
 
     assert_test(test_position_reachable(&game, (position_t){1, 0}));
-    // The occupied tile itself, and everything past it in this single-file
-    // corridor, are unreachable: the living blocker seals the corridor even
-    // though the mover has plenty of mp to cross it.
+    // The occupied tile and everything past it are unreachable: the living
+    // blocker seals the corridor despite ample mp.
     assert_test(!test_position_reachable(&game, (position_t){2, 0}));
     assert_test(!test_position_reachable(&game, (position_t){3, 0}));
     assert_test(!test_position_reachable(&game, (position_t){4, 0}));
@@ -201,10 +193,9 @@ PRIVATE void test_game_tile_pressed_noops_on_unreachable_tile(linear_allocator_t
     game_deinit(allocator, game);
 }
 
-// Fresh 4x4-grid, single-player scenario for
-// test_game_reachable_tiles_match_what_action_try_move_accepts, which needs
-// a new instance per target tile since each click consumes mp and moves
-// the entity.
+// Fresh 4x4 single-player scenario, one instance per target tile since
+// each click in test_game_reachable_tiles_match_what_action_try_move_accepts
+// consumes mp and moves the entity.
 PRIVATE game_state_t test_e2e_movement_scenario(linear_allocator_t *allocator, entity_t **out_p) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 4);

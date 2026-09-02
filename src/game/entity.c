@@ -14,7 +14,7 @@ PUBLIC void entity_list_deinit(linear_allocator_t *allocator, slice_entity_t lis
 }
 
 PUBLIC entity_t* entity_spawn(linear_allocator_t *allocator, slice_entity_t *entities, entity_team_t team, position_t position, int hp, int ap, int mp) {
-    // We are allowed to push an entity only at the same time where the list is created. For now.
+    // For now, entities may only be pushed right after list creation.
     slice_entity_t entry = LINEAR_ALLOCATOR_PUSH_GROW(allocator, entities, 1);
 
     SLICE_DEREF(entry) = (entity_t){

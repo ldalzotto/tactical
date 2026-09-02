@@ -15,11 +15,9 @@ const debugSymbols = args.includes('--debug-symbols');
 const BUILD_DIR = 'build';
 const FLAGS_MARKER = path.join(BUILD_DIR, '.build-flags');
 // Encodes every flag that changes compiled output (not --verbose). CMake's
-// incremental rebuild doesn't reliably invalidate every object when e.g.
-// APP_COVERAGE flips between runs against the same build dir (a stale,
-// differently-instrumented .o can survive and fail to link) -- so instead
-// of trusting it across configurations, wipe build/ whenever this
-// signature differs from the last build that ran there.
+// incremental rebuild can leave stale, differently-instrumented .o files
+// when e.g. APP_COVERAGE flips (causing link failures), so wipe build/
+// whenever this signature differs from the last build.
 const flagsSignature = JSON.stringify({ mode, unity, tests, fuzzTests, coverage, assertions, debugSymbols });
 
 function run(cmd, cmdArgs) {

@@ -164,16 +164,14 @@ function parseDataSegmentNames(buf) {
     return names;
 }
 
-// LLVM's profile name hash (InstrProf::ComputeHash) is the low 64 bits of the
-// MD5 of the PGO function name, read little-endian.
+// InstrProf::ComputeHash: low 64 bits of MD5(name), little-endian.
 function computeHash(name) {
     return crypto.createHash('md5').update(name).digest().readBigUInt64LE(0);
 }
 
-// __llvm_prf_names is a sequence of chunks. Each chunk is
-//   ULEB128 uncompressed-length, ULEB128 compressed-length, zlib data.
-// Decompressed chunks hold complete names separated by 0x01 (names never span
-// a chunk boundary), so each chunk is split independently.
+// __llvm_prf_names: chunks of (ULEB128 uncompressed-len, ULEB128
+// compressed-len, zlib data). Decompressed names are 0x01-separated and
+// never span a chunk, so each chunk splits independently.
 function decompressNames(namesSeg) {
     const names = [];
     let pos = 0;
@@ -195,9 +193,8 @@ function decompressNames(namesSeg) {
     return names;
 }
 
-// Reads the live coverage counters out of wasm memory after the tests have
-// run and serializes them in llvm-profdata's text format, which llvm-profdata
-// can merge without us having to write the raw binary profile format.
+// Reads live coverage counters from wasm memory and serializes them in
+// llvm-profdata's text format (avoids writing the raw binary profile format).
 function buildTextProfile({ wasmBytes, memory }) {
     const segments = parseDataSegments(wasmBytes);
     const segmentNames = parseDataSegmentNames(wasmBytes);
@@ -237,8 +234,7 @@ function buildTextProfile({ wasmBytes, memory }) {
         const funcHash = view.getBigUint64(base + PRF_DATA_FUNC_HASH_OFFSET, true);
         const numCounters = view.getUint32(base + numCountersOffset, true);
 
-        // Counters are laid out sequentially per record; always consume the
-        // record's counters so later records stay aligned.
+        // Always consume this record's counters to keep later records aligned.
         const counters = [];
         for (let c = 0; c < numCounters; c++) {
             counters.push(view.getBigUint64(countersSeg.offset + counterIndex * 8, true));

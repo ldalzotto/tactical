@@ -23,9 +23,8 @@ function run(cmd, args) {
     });
 }
 
-// Ground truth for calibration: funcIndex -> declared function name, read
-// straight from the wasm module (imports + defined functions), independent
-// of DWARF/symbolizer address conventions.
+// Ground truth for calibration: funcIndex -> declared name, read from the
+// wasm module directly (independent of DWARF/symbolizer conventions).
 async function getFuncNames({ objPath }) {
     const stdout = await run(WASM_OBJDUMP_BIN, ['-x', objPath]);
     const names = new Map();
@@ -72,9 +71,8 @@ function runSymbolizer({ objPath, addresses }) {
     });
 }
 
-// llvm-symbolizer prints one block per input address (blank-line separated).
-// Each block is a sequence of (function name, file:line:col) line pairs -
-// more than one pair means the frame was inlined at that address.
+// llvm-symbolizer prints one blank-line-separated block per input address, as
+// (function name, file:line:col) pairs — more than one pair means inlining.
 function parseSymbolizerOutput(output, count) {
     const blocks = output.split(/\n\n+/).filter((b) => b.trim().length > 0);
 

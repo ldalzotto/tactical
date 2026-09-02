@@ -13,12 +13,9 @@
 #include "../lib/assert.h"
 #include <stddef.h>
 
-/*
-    Distance from the BFS root to a tile adjacent to `position`.
-    (`position` itself is unreachable in the field — the candidate
-    occupies it — so take the min over its four neighbors instead.
-    0 means the candidate is already adjacent to the root.)
-*/
+// Distance from the BFS root to a tile adjacent to `position`. `position`
+// itself is occupied (unreachable), so min over its four neighbors instead;
+// 0 means already adjacent.
 PRIVATE int ai_distance_to_adjacency(pathing_state_t pathing, grid_t grid, position_t position) {
     int best = -1;
     for (SLICE_FOREACH(POSITION_DIRECTIONS, dir_s)) {
@@ -70,8 +67,7 @@ PRIVATE entity_t* ai_find_nearest_player(linear_allocator_t *allocator, grid_t g
 
 PRIVATE void ai_step_toward(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t* enemy, entity_t *target) {
     int max_steps = grid.width * grid.height;
-    // We compute the distance from the target.
-    // The smallest distance of ennemy neighbor is the tile we are going to move towards.
+    // BFS from the target; move to whichever enemy neighbor is closest to it.
     pathing_state_t pathing = pathing_compute_walking_distances(allocator, grid, entities, target->position, max_steps);
 
     bool found = false;
@@ -100,13 +96,12 @@ PRIVATE void ai_step_toward(linear_allocator_t *allocator, grid_t grid, slice_en
     pathing_deinit(allocator, pathing);
 
     // ai_run_ennemy_turn only calls us after ai_find_nearest_player found a
-    // reachable player, which implies at least one of the enemy's neighbors
-    // is reachable from that player (the BFS path is reversible), so `found`
-    // is always true here.
+    // reachable player, so (BFS being reversible) some enemy neighbor is
+    // always reachable from it -- `found` is always true here.
     assert_debug(found);
 
-    // action_try_move takes its distance grid from the caller now, so
-    // build it here: a fresh BFS rooted at the mover, capped at its own mp.
+    // action_try_move needs its own distance grid: BFS rooted at the mover,
+    // capped at its mp.
     pathing_state_t move_distances = pathing_compute_walking_distances(allocator, grid, entities, enemy->position, enemy->mp);
     action_try_move(move_distances, grid, enemy, best_position);
     pathing_deinit(allocator, move_distances);
@@ -153,10 +148,10 @@ PRIVATE skill_t* ai_best_in_range_skill(grid_t grid, slice_entity_t entities, en
 }
 
 // AoE counterpart of the plain action_try_attack call below: casts `skill`
-// centered on `impact`, returning the resulting casualties as `dead`.
+// on `impact`, returns casualties as `dead`.
 //
-// `dead` sits under temp allocations on the stack, so it's grown via
-// linear_allocator_insert (shifts the temp regions up) instead of push-and-grow.
+// `dead` sits under temp allocations on the stack, so it grows via
+// linear_allocator_insert (shifts the temps up) instead of push-and-grow.
 PRIVATE slice_entity_ptr_t ai_try_attack_area(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, entity_t *enemy, skill_t skill, position_t impact) {
     slice_entity_ptr_t dead = LINEAR_ALLOCATOR_PUSH(allocator, dead, 0);
 
@@ -242,7 +237,7 @@ PUBLIC slice_entity_ptr_t ai_run_ennemy_turn(linear_allocator_t *allocator, grid
         .end = typeoffset(attack_range_tile, 1),
     };
 
-    // dead is still the allocator's top here, so growing it in place is safe.
+    // dead is still the allocator's top, so growing it in place is safe.
     if (action_try_attack(enemy, *attack_skill, target, attack_range_tiles) && !target->alive) {
         slice_entity_ptr_t entry = LINEAR_ALLOCATOR_PUSH_GROW(allocator, &dead, 1);
         SLICE_DEREF(entry) = target;

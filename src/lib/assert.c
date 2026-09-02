@@ -23,9 +23,9 @@ PUBLIC void panic_at(bool condition, slice_t file, int line, slice_t msg) {
         }
         g_trap_occurred = true;
 #endif
-        // __report_panic always throws on the JS side, which unwinds the
-        // wasm call immediately -- control never returns here, 
-        // in theory the __builtin_trap is never called, but we keep it for safety.
+        // __report_panic always throws on the JS side and unwinds immediately,
+        // so __builtin_trap below is never reached in practice; kept as a
+        // safety net.
         __report_panic(file.begin, file.end, line, msg.begin, msg.end);
         __builtin_trap();
     }

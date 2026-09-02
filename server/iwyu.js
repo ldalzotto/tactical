@@ -7,10 +7,9 @@ const verbose = process.argv.includes('--verbose');
 const BUILD_DIR = 'build';
 const COMPILE_COMMANDS = path.join(BUILD_DIR, 'compile_commands.json');
 
-// clang-include-cleaner must come from the same LLVM toolchain as the
-// clang used to compile app.wasm (see CMakeLists.txt) -- otherwise it
-// parses with a mismatched AST. Require it on PATH so the toolchain is
-// explicit rather than silently falling back to a hardcoded version.
+// Must be the same LLVM toolchain used to compile app.wasm (CMakeLists.txt),
+// else it parses with a mismatched AST — require it on PATH explicitly
+// rather than falling back to a hardcoded version.
 function findIncludeCleaner() {
     const onPath = spawnSync('which', ['clang-include-cleaner'], { encoding: 'utf8' });
     if (onPath.status !== 0) {

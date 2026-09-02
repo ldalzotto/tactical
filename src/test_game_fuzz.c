@@ -12,18 +12,14 @@
 #include "test_invariants.h"
 #include <stdint.h>
 
-// Two complementary fuzz drivers over scenario_setup_default's default
-// roster, each with a fixed xorshift seed so a failure is reproducible from
-// its test name alone -- no external RNG state to capture.
+// Two complementary fuzz drivers over scenario_setup_default's roster, each
+// with a fixed xorshift seed so a failure reproduces from the test name alone.
 //
 // - test_fuzz_pixels: raw input_event_t over the full framebuffer. Exercises
-//   pixel-to-grid dispatch and button-hit geometry, mostly against ordinary
-//   tiles since buttons are a small fraction of the fb.
-// - test_fuzz_actions: drives the same semantic actions a player has (click
-//   tile, move-hover, end turn, attack toggle, skill select) via
-//   test_game_helpers.h, so the seed spends its randomness choosing *which*
-//   state transition happens instead of mostly landing on tile clicks --
-//   better coverage of mode/turn/combat state combinations.
+//   pixel-to-grid dispatch and button-hit geometry.
+// - test_fuzz_actions: drives semantic actions (click tile, move-hover, end
+//   turn, attack toggle, skill select) via test_game_helpers.h, so randomness
+//   picks *which* transition happens -- better mode/turn/combat coverage.
 
 PRIVATE void test_fuzz_pixels(linear_allocator_t *allocator, uint32_t seed) {
     game_state_t game = scenario_setup_default(allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
