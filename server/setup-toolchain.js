@@ -14,8 +14,22 @@ const { spawnSync } = require('node:child_process');
 const REQUIRED_LLVM_MAJOR = '22';
 const LLVM_BIN_DIR = path.join(os.homedir(), '.cache', 'app-llvm22-bin');
 
+let verbose = false;
+
+function log(...args) {
+    if (verbose) console.log(...args);
+}
+
+function logError(...args) {
+    if (verbose) console.error(...args);
+}
+
 function run(cmd, args, opts = {}) {
     return spawnSync(cmd, args, { encoding: 'utf8', ...opts });
+}
+
+function runLogged(cmd, args, opts = {}) {
+    return run(cmd, args, { stdio: verbose ? 'inherit' : 'ignore', ...opts });
 }
 
 function commandExists(cmd) {
@@ -30,7 +44,7 @@ function majorVersion(cmd) {
 }
 
 function apt(args) {
-    return run('sudo', ['apt-get', ...args], { stdio: 'inherit' });
+    return runLogged('sudo', ['apt-get', ...args]);
 }
 
 // llvm.sh (see installLlvm) shells out to `add-apt-repository`, whose
@@ -50,25 +64,25 @@ function ensureAddAptRepositoryPython() {
     const soPath = (found.stdout || '').trim();
     const match = soPath.match(/cpython-(\d)(\d+)/);
     if (!match) {
-        console.error('[setup-toolchain] python3 cannot import apt_pkg and no matching interpreter was found; add-apt-repository may fail.');
+        logError('[setup-toolchain] python3 cannot import apt_pkg and no matching interpreter was found; add-apt-repository may fail.');
         return;
     }
     const interpreter = `/usr/bin/python${match[1]}.${match[2]}`;
     if (!fs.existsSync(interpreter)) {
-        console.error(`[setup-toolchain] apt_pkg needs ${interpreter}, which is not installed; add-apt-repository may fail.`);
+        logError(`[setup-toolchain] apt_pkg needs ${interpreter}, which is not installed; add-apt-repository may fail.`);
         return;
     }
-    console.log(`[setup-toolchain] python3 alternative can't import apt_pkg; repointing it at ${interpreter}...`);
+    log(`[setup-toolchain] python3 alternative can't import apt_pkg; repointing it at ${interpreter}...`);
     run('sudo', ['update-alternatives', '--install', '/usr/bin/python3', 'python3', interpreter, '1']);
     run('sudo', ['update-alternatives', '--set', 'python3', interpreter]);
     if (run('/usr/bin/python3', ['-c', 'import apt_pkg']).status !== 0) {
-        console.error('[setup-toolchain] Repointing python3 did not fix apt_pkg; add-apt-repository may fail.');
+        logError('[setup-toolchain] Repointing python3 did not fix apt_pkg; add-apt-repository may fail.');
     }
 }
 
 function ensureCmake() {
     if (commandExists('cmake')) return;
-    console.log('[setup-toolchain] cmake not found, installing...');
+    log('[setup-toolchain] cmake not found, installing...');
     apt(['update']);
     if (apt(['install', '-y', 'cmake']).status !== 0) {
         console.error('[setup-toolchain] Failed to install cmake. Install it manually and retry.');
@@ -78,7 +92,7 @@ function ensureCmake() {
 
 function ensureClangAndLld() {
     if (commandExists('clang') && commandExists('lld')) return;
-    console.log('[setup-toolchain] clang/lld not found, installing...');
+    log('[setup-toolchain] clang/lld not found, installing...');
     apt(['update']);
     if (apt(['install', '-y', 'clang', 'lld']).status !== 0) {
         console.error('[setup-toolchain] Failed to install clang/lld. Install them manually and retry.');
@@ -114,15 +128,15 @@ function llvmToolchainConsistent() {
 }
 
 function installLlvm(major) {
-    console.log(`[setup-toolchain] Installing LLVM ${major}...`);
+    log(`[setup-toolchain] Installing LLVM ${major}...`);
     ensureAddAptRepositoryPython();
     const scriptPath = path.join(os.tmpdir(), 'llvm.sh');
-    if (run('wget', ['-O', scriptPath, 'https://apt.llvm.org/llvm.sh'], { stdio: 'inherit' }).status !== 0) {
+    if (runLogged('wget', ['-O', scriptPath, 'https://apt.llvm.org/llvm.sh']).status !== 0) {
         console.error('[setup-toolchain] Failed to download the LLVM install script.');
         process.exit(1);
     }
     fs.chmodSync(scriptPath, 0o755);
-    const install = run('sudo', [scriptPath, major, 'all'], { stdio: 'inherit' });
+    const install = runLogged('sudo', [scriptPath, major, 'all']);
     fs.rmSync(scriptPath, { force: true });
     if (install.status !== 0) {
         console.error(`[setup-toolchain] Failed to install LLVM ${major}. Install it manually and retry.`);
@@ -155,8 +169,9 @@ function prependPinnedToolchainToPath() {
 
 let toolchainReady = false;
 
-function ensureToolchain() {
+function ensureToolchain({ verbose: verboseOpt = false } = {}) {
     if (toolchainReady) return;
+    verbose = verboseOpt;
     ensureCmake();
     ensureClangAndLld();
     const pinnedReady = pinnedToolchainReady();
