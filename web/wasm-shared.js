@@ -36,11 +36,9 @@ function decodeWasmMemoryString(memory, ptr, len) {
     return new TextDecoder().decode(bytes);
 }
 
-// Wasm memory is imported (not module-owned), so JS decides the budget up
-// front. 32 pages (2 MiB) comfortably covers the module's static data/stack
-// plus the framebuffer with headroom; bump it if the app grows. If it's ever
-// too small, the C-side linear allocator asserts/traps instead of silently
-// corrupting memory.
+// Wasm memory is imported (not module-owned), so JS sets the budget: 32
+// pages (2 MiB) covers static data/stack/framebuffer with headroom; bump if
+// the app grows. Too small traps in the C-side allocator, not silent corruption.
 const MEMORY_PAGES = 32;
 
 const INPUT_EVENT_BYTE_SIZE = 12;

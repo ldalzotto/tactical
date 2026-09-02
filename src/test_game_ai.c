@@ -188,8 +188,7 @@ PRIVATE void test_game_ai_multiple_enemies_act_independently_on_end_turn(linear_
 
     game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
 
-    // One end-turn press plays out both enemies' turns in order, back
-    // around to the player.
+    // One end-turn plays both enemies' turns, then wraps back to p.
     test_click_end_turn(&game, allocator);
 
     assert_test(turn_active_entity(game.turn) == p);
@@ -284,22 +283,19 @@ PRIVATE void test_game_ai_ranged_enemy_attacks_from_range_without_closing_on_end
     game_deinit(allocator, game);
 }
 
-// A multi-skill enemy prefers its highest-damage skill (melee,
-// SKILL_MELEE.damage=5 > SKILL_RANGED.damage=3) and closes distance for it
-// when it has enough mp to reach melee range this turn, rather than settling
-// for ranged just because it's already in range.
-// Enemy's skills are added SKILL_RANGED then SKILL_MELEE, deliberately so
-// skills[0] is the WEAKER skill -- this way the test only passes if
-// ai_preferred_skill actually picks by damage, not by coincidentally
-// matching whichever skill happens to be first in the list.
+// A multi-skill enemy prefers its highest-damage skill (melee > ranged) and
+// closes distance for it when reachable, rather than settling for ranged
+// just because it's already in range. Skills are added ranged-then-melee
+// (weaker first) so the test only passes if ai_preferred_skill picks by
+// damage, not list order.
 PRIVATE void test_game_ai_multi_skill_enemy_closes_to_melee_range_when_reachable(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 1);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
     entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
-    // Starts at distance 3: already within SKILL_RANGED.range (3), outside
-    // SKILL_MELEE.range (1), with enough mp (3) to close all the way in.
+    // Distance 3: within SKILL_RANGED.range, outside SKILL_MELEE.range,
+    // with enough mp (3) to close all the way in.
     entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 2, 3);
 
     slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
@@ -322,30 +318,29 @@ PRIVATE void test_game_ai_multi_skill_enemy_closes_to_melee_range_when_reachable
     test_click_end_turn(&game, allocator);
 
     assert_test(turn_active_entity(game.turn) == p);
-    // Closed all the way to adjacency (distance 1) instead of stopping at
-    // distance 2 or 3 where ranged was already usable.
+    // Closed to adjacency instead of stopping where ranged was usable.
     assert_test(enemy->position.x == 1);
     assert_test(enemy->position.y == 0);
     assert_test(enemy->mp == 1);
     assert_test(enemy->ap == 1);
-    // SKILL_MELEE.damage (5), not SKILL_RANGED.damage (3): attacked with the
-    // preferred (higher-damage) skill, since it ended up in range.
+    // SKILL_MELEE damage, not SKILL_RANGED: attacked with the preferred
+    // (higher-damage) skill once in range.
     assert_test(p->hp == 10 - SKILL_MELEE.damage);
     assert_test(p->alive);
 
     game_deinit(allocator, game);
 }
 
-// Same setup, but not enough mp to reach melee range this turn -- falls back
-// to ranged (still in range) rather than landing no attack at all.
+// Same setup, but not enough mp to reach melee -- falls back to ranged
+// rather than attacking not at all.
 PRIVATE void test_game_ai_multi_skill_enemy_falls_back_to_ranged_when_melee_unreachable(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 1);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
     entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
-    // Starts at distance 3, but mp=1 only closes to distance 2 -- still
-    // outside SKILL_MELEE.range (1), still within SKILL_RANGED.range (3).
+    // Distance 3, mp=1 only closes to distance 2: still outside melee
+    // range, still within ranged range.
     entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 2, 1);
 
     slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
@@ -372,8 +367,8 @@ PRIVATE void test_game_ai_multi_skill_enemy_falls_back_to_ranged_when_melee_unre
     assert_test(enemy->position.y == 0);
     assert_test(enemy->mp == 0);
     assert_test(enemy->ap == 1);
-    // SKILL_RANGED.damage (3): melee was never reachable this turn, so the
-    // fallback (still-in-range) skill was used instead of no attack at all.
+    // SKILL_RANGED.damage: melee was unreachable, so the fallback skill
+    // was used instead.
     assert_test(p->hp == 10 - SKILL_RANGED.damage);
     assert_test(p->alive);
 
@@ -383,8 +378,8 @@ PRIVATE void test_game_ai_multi_skill_enemy_falls_back_to_ranged_when_melee_unre
 PRIVATE void test_game_ai_unreachable_player_noops_on_end_turn(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 5, 5);
-    // p is boxed into the top-left corner: its only two neighbors are
-    // unwalkable, so no path from the enemy reaches a tile adjacent to p.
+    // p's only two neighbors are unwalkable, so no path reaches a tile
+    // adjacent to p.
     grid_set_walkable(grid, (position_t){1, 0}, false);
     grid_set_walkable(grid, (position_t){0, 1}, false);
 
@@ -411,8 +406,7 @@ PRIVATE void test_game_ai_unreachable_player_noops_on_end_turn(linear_allocator_
 
     test_click_end_turn(&game, allocator);
 
-    // No reachable player target: the AI turn is a no-op and control wraps
-    // back to p.
+    // No reachable target: AI turn is a no-op, control wraps back to p.
     assert_test(turn_active_entity(game.turn) == p);
     assert_test(enemy->position.x == 4);
     assert_test(enemy->position.y == 4);
@@ -427,10 +421,9 @@ PRIVATE void test_game_ai_chooses_nearest_player_on_end_turn(linear_allocator_t 
     grid_t grid = grid_init(allocator, 4, 4);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
-    // Far player is spawned (and therefore iterated) first; the near player
-    // second. ai_find_nearest_player must replace the far candidate when it
-    // reaches the nearer one. The two players are on different axes so the
-    // nearer one doesn't occlude the far one in the BFS.
+    // Far player spawned (iterated) first, near player second:
+    // ai_find_nearest_player must replace the far candidate. Different axes
+    // so neither occludes the other in the BFS.
     entity_t* p_far = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 3}, 10, 2, 3);
     entity_t* p_near = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){2, 0}, 10, 2, 3);
     entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){0, 0}, 10, 2, 3);
@@ -457,8 +450,8 @@ PRIVATE void test_game_ai_chooses_nearest_player_on_end_turn(linear_allocator_t 
 
     test_click_end_turn(&game, allocator);
 
-    // Enemy closed on the nearer player and attacked it, leaving the far one
-    // untouched. The cursor then advanced to the near player.
+    // Enemy closed on the nearer player, leaving the far one untouched;
+    // cursor advanced to the near player.
     assert_test(turn_active_entity(game.turn) == p_near);
     assert_test(enemy->position.x == 1);
     assert_test(enemy->position.y == 0);

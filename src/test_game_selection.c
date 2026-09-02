@@ -43,8 +43,7 @@ PRIVATE void test_game_entity_pressed_selects_only_the_active_entity(linear_allo
     assert_test(game.mode == GAME_MODE_MOVEMENT);
     assert_test(turn_active_entity(game.turn) == p1);
 
-    // p2 isn't the active entity: pressing it is a no-op, including as an
-    // attack target -- same-team damage never lands.
+    // p2 isn't active: pressing it is a no-op, even as an attack target.
     test_click_tile(&game, allocator, p2->position);
     assert_test(game.mode == GAME_MODE_MOVEMENT);
     assert_test(turn_active_entity(game.turn) == p1);
@@ -466,10 +465,9 @@ PRIVATE void test_game_skill_button_hit_test_clamps_more_than_two_skills(linear_
     test_click_tile(&game, allocator, p->position);
     assert_test(game.mode == GAME_MODE_MOVEMENT);
 
-    // Any subsequent click passes through the skill-button hit-test gate;
-    // with 3 skills the gate must clamp to VIEWPORT_MAX_SKILL_BUTTONS (2)
-    // and keep working. Clicking the active entity again re-enters movement
-    // mode without a crash or a selected-skill change.
+    // With 3 skills, the hit-test gate must clamp to
+    // VIEWPORT_MAX_SKILL_BUTTONS (2); re-clicking the active entity
+    // re-enters movement mode without a crash or skill change.
     test_click_tile(&game, allocator, p->position);
     assert_test(game.mode == GAME_MODE_MOVEMENT);
     assert_test(game.selected_skill == 0);

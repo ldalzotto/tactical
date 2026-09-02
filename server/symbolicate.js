@@ -102,13 +102,10 @@ function locationsMatchName(locations, expectedName) {
     return locations.some((loc) => loc.function === expectedName);
 }
 
-// Different LLVM/Emscripten versions have disagreed on whether the DWARF
-// addresses embedded in a wasm module's debug info are absolute file offsets
-// (matching the offsets V8 reports in trap stack traces) or relative to the
-// start of the Code section. Rather than assume one convention, calibrate
-// against this specific binary: resolve one frame both ways and see which
-// one actually names the function we know (from the module's own function
-// index) it should be.
+// LLVM/Emscripten versions disagree on whether DWARF addresses are absolute
+// file offsets (matching V8's trap stack traces) or relative to the Code
+// section start. Calibrate per binary: resolve one frame both ways and see
+// which matches the name we already know from the function index.
 async function needsCodeOffsetSubtraction({ objPath, frame, funcNames }) {
     const expectedName = funcNames.get(frame.funcIndex);
     if (!expectedName) {

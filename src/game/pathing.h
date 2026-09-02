@@ -19,54 +19,44 @@ typedef struct {
 
 PUBLIC void pathing_deinit(linear_allocator_t *allocator, pathing_state_t state);
 
-// Allocates a pathing_state_t from allocator (width*height dist + queue,
-// grid.width*grid.height derived from grid), then BFS from `from`
-// over walkable, unoccupied tiles (any alive entity blocks passage --
-// the root tile itself is seeded before neighbors are explored, so the
-// mover standing there never blocks its own path).
-// Distances beyond max_steps are left -1. Standard array-queue BFS,
-// 4-directional neighbors, capacity width*height (can't overflow). Caller
-// must pathing_deinit the result when done with it.
+// Allocates a pathing_state_t (width*height dist + queue), then BFS from
+// `from` over walkable, unoccupied tiles (any alive entity blocks passage;
+// the root is seeded before neighbors are explored, so the mover never
+// blocks its own path). Distances beyond max_steps stay -1. Standard
+// array-queue BFS, 4-directional, capacity width*height. Caller must
+// pathing_deinit the result.
 //
-// This is walking distance: it routes around obstacles. It's the right
-// metric for movement range. Skill range is a different metric -- see
-// pathing_can_target -- and does not use this function.
+// This is walking distance -- it routes around obstacles, the right metric
+// for movement range. Skill range is different (see pathing_can_target) and
+// doesn't use this function.
 PUBLIC pathing_state_t pathing_compute_walking_distances(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, position_t from, int max_steps);
 
-// True if `to` is within Manhattan distance max_range of `from` AND there's
-// a clear line of sight -- a straight ray from `from` to `to`, unobstructed
-// by a sight-blocking tile (grid_set_blocks_sight, independent of
-// walkability) or by any other entity standing on an intermediate tile (`to`
-// itself is never checked this way, so an entity standing on sight-blocking
-// ground doesn't occlude itself) -- AND `to` isn't empty sight-blocking
-// ground (blocking sight with no entity on it: nothing there to target).
+// True if `to` is within Manhattan max_range of `from` AND has clear line of
+// sight -- a straight ray unobstructed by a sight-blocking tile
+// (grid_set_blocks_sight, independent of walkability) or an intermediate
+// entity (`to` itself is exempt, so a unit doesn't occlude itself) -- AND
+// `to` isn't empty sight-blocking ground (nothing there to target).
 // Unlike pathing_compute_walking_distances, this never routes around
-// obstacles: a target hidden behind a sight-blocking tile or a standing
-// unit is out of range even if a walkable detour exists, and a target
-// beyond a non-walkable-but-sight-clear tile (a chasm, a window) is in
-// range as long as the ray and the Manhattan distance both clear.
+// obstacles: hidden-behind-cover targets are out of range even with a
+// walkable detour, while non-walkable-but-sight-clear tiles (chasm, window)
+// are in range as long as ray and distance both clear.
 //
 // Point query, O(max_range) -- no allocator, no grid-wide scan.
 PUBLIC bool pathing_can_target(grid_t grid, slice_entity_t entities, position_t from, position_t to, int max_range);
 
-PUBLIC int pathing_distance_at(pathing_state_t state, grid_t grid, position_t position); // -1 if unreached OR out of bounds -- this is a defensive query (arbitrary coords from clicks later), do NOT make it panic like grid_tile_at does
+PUBLIC int pathing_distance_at(pathing_state_t state, grid_t grid, position_t position); // -1 if unreached or out of bounds; defensive (click coords), don't panic like grid_tile_at
 
 // The blast footprint of an AoE impact: every tile within Manhattan
-// `radius` of `center`, ignoring obstacles entirely -- no line-of-sight
-// check, no occupancy check, nothing shadowed. No per-tile distance/falloff
-// data -- a plain tile list, staged on `allocator` the same way game.c's
-// mode-switch tile scans are (grow a slice_position_t while scanning the
-// whole grid). Caller owns the result and pops it from `allocator` when
-// done (linear_allocator_pop(allocator, result.slice) -- no _deinit needed,
-// unlike pathing_state_t).
+// `radius` of `center`, ignoring obstacles (no LOS or occupancy check). No
+// per-tile falloff data, just a plain tile list, staged on `allocator` like
+// game.c's mode-switch scans. Caller pops it when done
+// (linear_allocator_pop(allocator, result.slice) -- no _deinit, unlike
+// pathing_state_t).
 PUBLIC slice_position_t pathing_compute_blast_tiles(linear_allocator_t *allocator, grid_t grid, position_t center, int radius);
 
-// Every tile a skill with `max_range` can legally target from `from`:
-// pathing_can_target, excluding `from`'s own tile (trivially in range but
-// never a valid attack target).
-//
-// Staged on `allocator` like pathing_compute_blast_tiles: a plain tile list
-// from a grid-wide scan, caller pops it from `allocator` when done.
+// Every tile a skill with `max_range` can legally target from `from`
+// (pathing_can_target), excluding `from` itself (trivially in range but
+// never a valid target). Staged on `allocator` like pathing_compute_blast_tiles.
 PUBLIC slice_position_t pathing_compute_attack_range(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, position_t from, int max_range);
 
 #ifdef APP_UNITY_BUILD

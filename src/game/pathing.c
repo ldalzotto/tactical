@@ -29,8 +29,8 @@ PRIVATE pathing_state_t pathing_bfs(linear_allocator_t *allocator, grid_t grid, 
     slice_int32_t frontier;
     frontier = LINEAR_ALLOCATOR_PUSH(allocator, frontier, count);
 
-    // Occupancy bitmap: O(N) to build once, turns each neighbor's
-    // occupancy test into an O(1) read instead of an O(N) entity_find_at scan.
+    // Occupancy bitmap: O(N) to build, but turns each neighbor check into
+    // O(1) instead of an O(N) entity_find_at scan.
     slice_uint8_t occupied;
     occupied = LINEAR_ALLOCATOR_PUSH(allocator, occupied, count);
 
@@ -80,7 +80,6 @@ PRIVATE pathing_state_t pathing_bfs(linear_allocator_t *allocator, grid_t grid, 
             }
 
             int neighbor_index = neighbor.y * grid.width + neighbor.x;
-            // If already visited
             if (SLICE_AT(dist, neighbor_index) != -1) {
                 continue;
             }
@@ -115,9 +114,8 @@ PRIVATE int pathing_manhattan_distance(position_t a, position_t b) {
 }
 
 // True if the straight ray from `from` to `to` (`to` != `from`) is
-// unobstructed: every intermediate tile -- both endpoints excluded, so
-// neither `from`'s nor `to`'s own tile can block sight to itself -- does
-// not block sight and is unoccupied.
+// unobstructed: every intermediate tile (endpoints excluded, so neither can
+// block sight to itself) is sight-clear and unoccupied.
 PRIVATE bool pathing_line_of_sight_clear(grid_t grid, slice_entity_t entities, position_t from, position_t to) {
     geometry_line_iter_t it = geometry_line_iter_start(from, to);
 
@@ -144,9 +142,8 @@ PUBLIC bool pathing_can_target(grid_t grid, slice_entity_t entities, position_t 
         return false;
     }
 
-    // Empty sight-blocking ground: nothing there to target, even though
-    // pathing_line_of_sight_clear doesn't check `to` itself (that exemption
-    // exists for entities standing on sight-blocking tiles, not empty ones).
+    // pathing_line_of_sight_clear skips `to` (so a standing entity doesn't
+    // occlude itself), but empty sight-blocking ground has nothing to target.
     if (grid_blocks_sight(grid, to) && entity_find_at(entities, to) == 0) {
         return false;
     }
@@ -184,10 +181,9 @@ PUBLIC slice_position_t pathing_compute_attack_range(linear_allocator_t *allocat
     slice_position_t tiles;
     tiles = LINEAR_ALLOCATOR_PUSH(allocator, tiles, 0);
 
-    // Attack range is for targeting the opposing team -- a tile occupied by
-    // one of the attacker's own team is never a valid target or AoE impact
-    // point, even if it's otherwise in range/LOS. `from` is always the
-    // computing entity's own position, so it's always occupied.
+    // A tile occupied by the attacker's own team is never a valid target or
+    // AoE impact, even if in range/LOS. `from` is the attacker's own
+    // position, so it's always occupied.
     entity_t *self = entity_find_at(entities, from);
     assert_debug(self != 0);
 

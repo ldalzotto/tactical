@@ -217,9 +217,8 @@ PRIVATE game_state_t test_e2e_movement_scenario(linear_allocator_t *allocator, e
     return game;
 }
 
-// End-to-end: the reachable-tiles overlay (walking_distances >= 1, what
-// render.c shows) and action_try_move (what execution accepts) agree --
-// every tile the overlay marks reachable can actually be clicked, and
+// End-to-end: the reachable-tiles overlay (render.c) and action_try_move
+// agree -- every tile the overlay marks reachable can be clicked and
 // deducts exactly the mp the cache reports.
 PRIVATE void test_game_reachable_tiles_match_what_action_try_move_accepts(linear_allocator_t *allocator) {
     entity_t *p;
