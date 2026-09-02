@@ -7,7 +7,7 @@
 #include <stdint.h>
 
 // Streams formatted debug output either through runtime.h's debug_write
-// (mid-line) / debug_log (line-ending) bridge, or -- when `dest` is
+// (mid-line) / debug_flush_line (line-ending) bridge, or -- when `dest` is
 // non-NULL -- onto `dest` itself as a plain growing byte region. Every
 // fmt_write* below takes `dest` as its first argument:
 //   NULL      -- stream straight to the runtime debug bridge (production

@@ -47,8 +47,8 @@ function buildImportObject({ createWindow, presentWindow, debugLog, reportPanic 
     const memory = new WebAssembly.Memory({ initial: MEMORY_PAGES });
     const pendingInputEvents = new Map();
     // Fragments streamed via debug_write accumulate here until the next
-    // debug_log call closes the line -- lets wasm build one debug line out
-    // of many small writes (see fmt.h) without a C-side buffer.
+    // debug_flush_line call closes the line -- lets wasm build one debug line
+    // out of many small writes (see fmt.h) without a C-side buffer.
     let pendingDebugLine = '';
 
     function pushInputEvent(windowHandle, type, x, y) {

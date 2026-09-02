@@ -44,11 +44,6 @@ PUBLIC void debug_flush_line(void) {
     __debug_flush_line();
 }
 
-PUBLIC void debug_log(slice_t str) {
-    debug_write(str);
-    debug_flush_line();
-}
-
 PUBLIC void *poll_input_events(window_handle_t window, void *begin) {
     return __poll_input_events(window, begin);
 }
