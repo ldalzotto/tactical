@@ -45,15 +45,14 @@ PRIVATE void test_game_attack_kills_defender_clamps_hp_and_frees_tile_for_moveme
     test_click_attack_toggle(&game, allocator);
     test_click_tile(&game, allocator, e->position);
 
-    // Attack damage (5) exceeds e's hp (3): hp clamps to 0, not negative.
+    // Damage (5) exceeds e's hp (3): hp clamps to 0, not negative.
     assert_test(e->hp == 0);
     assert_test(!e->alive);
     assert_test(p->ap == 1);
-    // e2 is still alive, so the enemy team isn't wiped out yet.
+    // e2 still alive: enemy team not wiped out yet.
     assert_test(game.game_over == GAME_OVER_NONE);
 
-    // e's corpse no longer occupies its tile: pressing it now falls through
-    // to a move, same as any other empty tile.
+    // e's corpse frees its tile: pressing it now falls through to a move.
     test_click_tile(&game, allocator, (position_t){1, 0});
 
     entity_t *entity = p;
@@ -100,12 +99,12 @@ PRIVATE void test_game_entity_pressed_diagonal_and_far_enemy_attack_noop(linear_
     test_click_attack_toggle(&game, allocator);
     assert_test(game.mode == GAME_MODE_ATTACK);
 
-    // Diagonal doesn't count as adjacent: pressing it is a no-op.
+    // Diagonal isn't adjacent: press is a no-op.
     test_click_tile(&game, allocator, diagonal->position);
     assert_test(p->ap == 2);
     assert_test(diagonal->hp == 10);
 
-    // Neither does simply being far away.
+    // Nor does being far away.
     test_click_tile(&game, allocator, far->position);
     assert_test(p->ap == 2);
     assert_test(far->hp == 10);
@@ -229,7 +228,7 @@ PRIVATE void test_game_ranged_attack_hits_at_max_range_without_moving(linear_all
 
     test_click_attack_toggle(&game, allocator);
 
-    // e sits exactly 3 tiles away (SKILL_RANGED.range): reachable without moving.
+    // e is exactly SKILL_RANGED.range away: reachable without moving.
     test_click_tile(&game, allocator, e->position);
 
     assert_test(e->hp == 7);
@@ -267,7 +266,7 @@ PRIVATE void test_game_ranged_attack_noop_beyond_range(linear_allocator_t *alloc
     test_click_tile(&game, allocator, p->position);
     test_click_attack_toggle(&game, allocator);
 
-    // e sits 4 tiles away, one beyond SKILL_RANGED.range (3): out of reach.
+    // e is one tile beyond SKILL_RANGED.range: out of reach.
     test_click_tile(&game, allocator, e->position);
 
     assert_test(e->hp == 10);
@@ -277,10 +276,9 @@ PRIVATE void test_game_ranged_attack_noop_beyond_range(linear_allocator_t *alloc
 }
 
 // Any entity -- ally or enemy -- occludes the attack-range BFS: a target
-// acts as an obstacle, not a window, so an enemy standing on the only
-// straight-line path still blocks a shot at another enemy behind it (same
-// rule as the ally case in test_game_ranged_attack_still_blocked_by_ally_in_path
-// below).
+// is an obstacle, not a window, so an enemy on the only straight-line
+// path still blocks a shot at one behind it (same rule as the ally case in
+// test_game_ranged_attack_still_blocked_by_ally_in_path below).
 PRIVATE void test_game_ranged_attack_blocked_by_enemy_in_path(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 1);
@@ -313,11 +311,10 @@ PRIVATE void test_game_ranged_attack_blocked_by_enemy_in_path(linear_allocator_t
     test_click_tile(&game, allocator, p->position);
     test_click_attack_toggle(&game, allocator);
 
-    // blocker occupies the only tile on the straight-line path (height-1
-    // grid, no way around): its own tile is reachable-for-targeting
-    // (distance 2, within SKILL_RANGED.range=3), but it occludes everything
-    // behind it, so e never appears in attack_range_tiles and an attack on
-    // e is illegal.
+    // blocker occupies the only path tile (height-1 grid, no way around):
+    // its own tile is reachable-for-targeting, but it occludes everything
+    // behind it, so e never enters attack_range_tiles and attacking e
+    // is illegal.
     assert_test(test_tile_list_contains(game.pathing.attack_range_tiles, blocker->position));
     assert_test(!test_tile_list_contains(game.pathing.attack_range_tiles, e->position));
     test_click_tile(&game, allocator, e->position);
@@ -330,7 +327,7 @@ PRIVATE void test_game_ranged_attack_blocked_by_enemy_in_path(linear_allocator_t
 }
 
 // Allies still block occupancy in the attack-range BFS -- only the
-// attacker's opposing team is made passable.
+// opposing team is made passable.
 PRIVATE void test_game_ranged_attack_still_blocked_by_ally_in_path(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 1);
@@ -363,8 +360,8 @@ PRIVATE void test_game_ranged_attack_still_blocked_by_ally_in_path(linear_alloca
     test_click_tile(&game, allocator, p->position);
     test_click_attack_toggle(&game, allocator);
 
-    // e is within range (3), but ally occupies the only tile on the
-    // straight-line path: still unreachable, since allies aren't passable.
+    // e is in range, but ally occupies the only path tile: unreachable,
+    // since allies aren't passable.
     assert_test(!test_tile_list_contains(game.pathing.attack_range_tiles, e->position));
     test_click_tile(&game, allocator, e->position);
 
@@ -375,9 +372,9 @@ PRIVATE void test_game_ranged_attack_still_blocked_by_ally_in_path(linear_alloca
     game_deinit(allocator, game);
 }
 
-// attack_range_tiles includes an occupied entity's own tile (so it's
-// targetable), but the entity still occludes the BFS: nothing behind it
-// enters attack_range_tiles, even if it would otherwise be within range.
+// attack_range_tiles includes an occupied tile itself (targetable), but
+// the entity still occludes the BFS: nothing behind it enters
+// attack_range_tiles even if otherwise in range.
 PRIVATE void test_game_attack_range_tiles_include_occupied_but_not_beyond(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 5, 1);
@@ -405,24 +402,20 @@ PRIVATE void test_game_attack_range_tiles_include_occupied_but_not_beyond(linear
     test_click_tile(&game, allocator, p->position);
     test_click_attack_toggle(&game, allocator);
 
-    // enemy_at_range_2's own tile (distance 2, within SKILL_RANGED.range=3):
-    // reachable-for-targeting even though it's occupied.
+    // enemy_at_range_2's tile: reachable-for-targeting despite being occupied.
     assert_test(test_tile_list_contains(game.pathing.attack_range_tiles, enemy_at_range_2->position));
-    // (3, 0): occluded by enemy_at_range_2, the only tile on the
-    // straight-line path (height-1 grid, no way around) -- never enters
-    // attack_range_tiles, in range or not.
+    // (3,0): occluded by enemy_at_range_2, the only path tile -- never
+    // enters attack_range_tiles regardless of range.
     assert_test(!test_tile_list_contains(game.pathing.attack_range_tiles, (position_t){3, 0}));
-    // (4, 0): also occluded, and would be out of range (distance 4 > 3) even
-    // if it weren't.
+    // (4,0): also occluded, and out of range regardless.
     assert_test(!test_tile_list_contains(game.pathing.attack_range_tiles, (position_t){4, 0}));
 
     game_deinit(allocator, game);
 }
 
-// A wall doesn't block walking here -- a same-length detour exists around
-// it -- but it must still block a ranged attack's line of sight: the
-// straight ray to the target crosses the wall tile even though a walking
-// path of equal length gets there by going around it.
+// A wall doesn't block walking here (a same-length detour exists), but
+// must still block LOS: the straight ray crosses the wall even though a
+// walking path of equal length goes around it.
 PRIVATE void test_game_ranged_attack_blocked_by_wall_on_diagonal_line(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 3, 3);
@@ -437,10 +430,9 @@ PRIVATE void test_game_ranged_attack_blocked_by_wall_on_diagonal_line(linear_all
     slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
     slice_skill_t skills = skill_list_init(allocator);
     skill_t *p_skills_begin = skills.end;
-    // range=4: e sits at Manhattan distance 4, and the (0,0)->(1,1)->(2,2)
-    // diagonal ray crosses the wall at (1,1); a walking detour around it
-    // (e.g. (0,0)->(1,0)->(2,0)->(2,1)->(2,2)) is also exactly 4 steps, so
-    // this only stays out of range if LOS -- not walking distance -- gates it.
+    // range=4: e at Manhattan distance 4; the diagonal ray crosses the
+    // wall at (1,1), but a walking detour is also exactly 4 steps -- stays
+    // out of range only if LOS (not walking distance) gates it.
     skill_list_add(allocator, &skills, (skill_t){ .range = 4, .damage = 3, .ap_cost = 1 });
     p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
     skill_t *e_skills_begin = skills.end;
@@ -466,10 +458,9 @@ PRIVATE void test_game_ranged_attack_blocked_by_wall_on_diagonal_line(linear_all
     game_deinit(allocator, game);
 }
 
-// A non-walkable tile that doesn't block sight (a chasm, a low wall) must
-// not shrink attack range: range is Manhattan distance + line of sight, not
-// walking distance, so a target in plain sight across an impassable tile is
-// still a legal target.
+// A non-walkable tile that doesn't block sight (chasm, low wall) must not
+// shrink attack range: range is Manhattan distance + LOS, not walking
+// distance, so a target in plain sight across it is still legal.
 PRIVATE void test_game_ranged_attack_not_blocked_by_non_walkable_sight_clear_tile(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 5, 3);
@@ -499,8 +490,7 @@ PRIVATE void test_game_ranged_attack_not_blocked_by_non_walkable_sight_clear_til
     test_click_tile(&game, allocator, p->position);
     test_click_attack_toggle(&game, allocator);
 
-    // e is at Manhattan distance 2 (within SKILL_RANGED.range=3), and the
-    // straight ray crosses only (1,1), which is non-walkable but not
+    // e is within range; the ray crosses only (1,1), non-walkable but not
     // sight-blocking -- e stays a legal target.
     assert_test(test_tile_list_contains(game.pathing.attack_range_tiles, e->position));
     test_click_tile(&game, allocator, e->position);
@@ -512,8 +502,7 @@ PRIVATE void test_game_ranged_attack_not_blocked_by_non_walkable_sight_clear_til
 }
 
 // Empty grass (walkable but sight-blocking) must not enter
-// attack_range_tiles even though it's in range -- nothing stands there to
-// see or target.
+// attack_range_tiles even in range -- nothing there to target.
 PRIVATE void test_game_attack_range_excludes_empty_sight_blocking_tile(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 3, 1);
@@ -543,8 +532,8 @@ PRIVATE void test_game_attack_range_excludes_empty_sight_blocking_tile(linear_al
     game_deinit(allocator, game);
 }
 
-// An entity standing on grass doesn't occlude itself -- unlike empty grass,
-// it stays targetable.
+// An entity on grass doesn't occlude itself -- unlike empty grass, it
+// stays targetable.
 PRIVATE void test_game_attack_range_includes_entity_on_sight_blocking_tile(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 3, 1);
@@ -583,18 +572,17 @@ PRIVATE void test_game_attack_range_includes_entity_on_sight_blocking_tile(linea
     game_deinit(allocator, game);
 }
 
-// Range is a Manhattan-distance boundary: exactly max_range is in, one step
-// further is out, on open ground with no occlusion on either ray.
+// Range is a Manhattan-distance boundary: exactly max_range is in, one
+// step further is out, open ground, no occlusion.
 PRIVATE void test_game_attack_range_manhattan_boundary(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 5, 4);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
     entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 3, 1);
-    // South, at exactly SKILL_RANGED.range (3).
+    // South, at exactly SKILL_RANGED.range.
     entity_t* in_range = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){0, 3}, 10, 1, 3);
-    // East, at SKILL_RANGED.range + 1 (4) -- a different axis from in_range
-    // so neither ray crosses the other's tile.
+    // East, at range + 1 -- different axis from in_range so rays don't cross.
     entity_t* out_of_range = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){4, 0}, 10, 1, 3);
 
     slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
@@ -639,8 +627,8 @@ PRIVATE void test_game_attack_toggle_after_move_selection_does_not_overflow_scra
     grid_t grid = grid_init(allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
-    // Centered with room to spare in every direction, and mp == SKILL_RANGED.range (3),
-    // so both diamonds are the same, uncropped, maximum size.
+    // Centered with room to spare, mp == SKILL_RANGED.range, so both
+    // diamonds are the same, uncropped, maximum size.
     entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){8, 5}, 10, 2, 3);
 
     slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
@@ -654,16 +642,16 @@ PRIVATE void test_game_attack_toggle_after_move_selection_does_not_overflow_scra
 
     game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
-    // Selecting first populates the walking_distances overlay (mp=3, a
-    // ~24-tile diamond) in game->scratch.
+    // Selecting first populates the walking_distances overlay in
+    // game->scratch.
     test_click_tile(&game, allocator, p->position);
     assert_test(test_reachable_tile_count(&game) > 0);
     assert_test(SLICE_TYPESIZE(game.pathing.attack_range_tiles) == 0);
 
-    // Toggling attack mode next computes a same-sized attack_range_tiles
-    // diamond (skill.range=3). walking_distances and attack_range_tiles are
-    // mutually exclusive, so walking_distances must be nullified first --
-    // scratch never has to fit both diamonds at once.
+    // Toggling attack mode computes a same-sized attack_range_tiles
+    // diamond. walking_distances/attack_range_tiles are mutually
+    // exclusive, so walking_distances is nullified first -- scratch never
+    // fits both diamonds at once.
     expect_panic_begin();
     test_click_attack_toggle(&game, allocator);
     assert_test(!expect_panic_end());
@@ -672,8 +660,7 @@ PRIVATE void test_game_attack_toggle_after_move_selection_does_not_overflow_scra
     assert_test(SLICE_TYPESIZE(game.pathing.attack_range_tiles) > 0);
     assert_test(SLICE_TYPESIZE(game.pathing.walking_distances.dist) == 0);
 
-    // Toggling back off restores the walking_distances overlay and nullifies
-    // attack_range_tiles.
+    // Toggling off restores walking_distances and nullifies attack_range_tiles.
     test_click_attack_toggle(&game, allocator);
     assert_test(game.mode == GAME_MODE_MOVEMENT);
     assert_test(test_reachable_tile_count(&game) > 0);
@@ -682,10 +669,9 @@ PRIVATE void test_game_attack_toggle_after_move_selection_does_not_overflow_scra
     game_deinit(allocator, game);
 }
 
-// Regression test: a skill range this large used to overflow game->scratch's
-// old fixed 256-byte capacity (32 position_t tiles). It now grows on demand
-// (see pathing_ranges_push_attack_range in pathing_ranges.c), so this must
-// not panic.
+// Regression: this skill range used to overflow game->scratch's old fixed
+// 256-byte capacity. It now grows on demand (pathing_ranges_push_attack_range
+// in pathing_ranges.c), so this must not panic.
 PRIVATE void test_game_attack_toggle_with_large_range_skill_grows_scratch(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT);
@@ -711,8 +697,8 @@ PRIVATE void test_game_attack_toggle_with_large_range_skill_grows_scratch(linear
     assert_test(!expect_panic_end());
 
     assert_test(game.mode == GAME_MODE_ATTACK);
-    // Old capacity was 256 bytes / sizeof(position_t) == 32 tiles; a
-    // range-20 diamond on a 16x10 grid comfortably exceeds that.
+    // Old capacity was 32 tiles (256 bytes / sizeof(position_t)); a
+    // range-20 diamond on a 16x10 grid exceeds that.
     assert_test(SLICE_TYPESIZE(game.pathing.attack_range_tiles) > 32);
 
     game_deinit(allocator, game);
@@ -723,8 +709,8 @@ PRIVATE void test_game_selecting_shows_reachable_tiles_and_toggle_shows_attack_r
     grid_t grid = grid_init(allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
-    // mp (1) is well short of SKILL_RANGED.range (3), so a tile 3 steps away
-    // is within skill range but unambiguously out of move range.
+    // mp is well short of SKILL_RANGED.range, so a tile 3 steps away is in
+    // skill range but out of move range.
     entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){5, 5}, 10, 2, 1);
 
     slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
@@ -741,15 +727,14 @@ PRIVATE void test_game_selecting_shows_reachable_tiles_and_toggle_shows_attack_r
     position_t adjacent_tile = { 6, 5 };  // 1 tile away: within mp, within skill range
     position_t far_tile = { 8, 5 };       // 3 tiles away: within skill range, beyond mp
 
-    // Pressing the entity selects it: reachable tiles (move range) become
-    // visible, attack range tiles stay hidden.
+    // Selecting the entity shows reachable tiles (move range); attack
+    // range stays hidden.
     test_click_tile(&game, allocator, p->position);
     assert_test(test_position_reachable(&game, adjacent_tile));
     assert_test(!test_position_reachable(&game, far_tile));
     assert_test(SLICE_TYPESIZE(game.pathing.attack_range_tiles) == 0);
 
-    // Pressing the attack toggle flips visibility: attack range tiles (skill
-    // range) become visible, reachable tiles are hidden.
+    // Attack toggle flips visibility: attack range shows, reachable tiles hide.
     test_click_attack_toggle(&game, allocator);
     assert_test(test_tile_list_contains(game.pathing.attack_range_tiles, adjacent_tile));
     assert_test(test_tile_list_contains(game.pathing.attack_range_tiles, far_tile));
@@ -758,8 +743,8 @@ PRIVATE void test_game_selecting_shows_reachable_tiles_and_toggle_shows_attack_r
     game_deinit(allocator, game);
 }
 
-// Ticket 006: clicking a skill button switches the active entity's selected
-// skill and recomputes attack_range_tiles for the new skill's range.
+// Ticket 006: clicking a skill button switches the selected skill and
+// recomputes attack_range_tiles for its range.
 PRIVATE void test_game_skill_button_switches_attack_range_to_selected_skill(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 5, 1);
@@ -782,15 +767,15 @@ PRIVATE void test_game_skill_button_switches_attack_range_to_selected_skill(line
     test_click_tile(&game, allocator, p->position);
     test_click_attack_toggle(&game, allocator);
 
-    // skills[0] (SKILL_MELEE, range 1) is selected by default: only the
-    // adjacent tile is in range, not the far one.
+    // skills[0] (SKILL_MELEE, range 1) selected by default: only adjacent
+    // is in range.
     assert_test(game.selected_skill == 0);
     assert_test(test_tile_list_contains(game.pathing.attack_range_tiles, (position_t){1, 0}));
     assert_test(!test_tile_list_contains(game.pathing.attack_range_tiles, (position_t){3, 0}));
 
     test_click_skill_button(&game, allocator, 1);
 
-    // skills[1] (SKILL_RANGED, range 3) now selected: range extends.
+    // skills[1] (SKILL_RANGED) now selected: range extends.
     assert_test(game.selected_skill == 1);
     assert_test(test_tile_list_contains(game.pathing.attack_range_tiles, (position_t){1, 0}));
     assert_test(test_tile_list_contains(game.pathing.attack_range_tiles, (position_t){3, 0}));
@@ -798,25 +783,22 @@ PRIVATE void test_game_skill_button_switches_attack_range_to_selected_skill(line
     game_deinit(allocator, game);
 }
 
-// Skill-button clicks no-op outside their valid conditions: mode NONE (no
-// selection made yet), and an index the entity doesn't have that many
-// skills for (single-skill entity, button index 1).
-// entity_spawn requires all spawns to happen contiguously right after
-// entity_list_init (assert_debug(allocator->cursor == entities->end) in
-// entity.c), so all three entities used here -- two multi-skill, one
-// single-skill -- must be spawned upfront, before skill_list_init/turn_order_init.
+// Skill-button clicks no-op outside valid conditions: mode NONE, or an
+// out-of-range skill index. entity_spawn requires spawns contiguous right
+// after entity_list_init (assert_debug in entity.c), so all three entities
+// here must be spawned upfront, before skill_list_init/turn_order_init.
 PRIVATE void test_game_skill_button_pressed_noop_outside_valid_conditions(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 5, 1);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
     entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 1, 3);
-    // Single-skill entity, to test the out-of-range button index (1) noops
-    // for an entity that doesn't have that many skills.
+    // Single-skill entity: tests that button index 1 noops when the
+    // entity lacks that many skills.
     entity_t* p2 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){4, 0}, 10, 1, 3);
-    // Multi-skill enemy, to test that a non-player active entity ignores
-    // skill-button clicks entirely (both game_on_skill_button_pressed's own
-    // team check, and the input-dispatch hit-test gating in front of it).
+    // Multi-skill enemy: tests that a non-player active entity ignores
+    // skill-button clicks entirely (game_on_skill_button_pressed's team
+    // check, plus the hit-test gate in front of it).
     entity_t* e = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){2, 0}, 10, 1, 3);
 
     slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
@@ -841,8 +823,8 @@ PRIVATE void test_game_skill_button_pressed_noop_outside_valid_conditions(linear
 
     game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
 
-    // e is active first (turn order: e, p, p2) and isn't player-controlled:
-    // click is a no-op regardless of e having multiple skills.
+    // e is active first and isn't player-controlled: click is a no-op
+    // regardless of multiple skills.
     assert_test(turn_active_entity(game.turn) == e);
     test_click_skill_button(&game, allocator, 1);
     assert_test(game.selected_skill == 0);
@@ -857,8 +839,8 @@ PRIVATE void test_game_skill_button_pressed_noop_when_mode_none_or_index_out_of_
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
     entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 1, 3);
-    // Single-skill entity, to test the out-of-range button index (1) noops
-    // for an entity that doesn't have that many skills.
+    // Single-skill entity: tests that button index 1 noops when the
+    // entity lacks that many skills.
     entity_t* p2 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){4, 0}, 10, 1, 3);
 
     slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
@@ -878,7 +860,7 @@ PRIVATE void test_game_skill_button_pressed_noop_when_mode_none_or_index_out_of_
 
     game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
 
-    // GAME_MODE_NONE: nothing selected yet, click is a no-op.
+    // GAME_MODE_NONE: nothing selected, click is a no-op.
     test_click_skill_button(&game, allocator, 1);
     assert_test(game.selected_skill == 0);
 
@@ -894,14 +876,14 @@ PRIVATE void test_game_skill_button_pressed_noop_when_mode_none_or_index_out_of_
 }
 
 // Attacking after switching skills uses the newly selected skill's
-// damage/ap_cost, not the default one.
+// damage/ap_cost, not the default.
 PRIVATE void test_game_attack_after_skill_switch_uses_new_skill_damage_and_ap_cost(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 5, 1);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
     entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 1, 3);
-    // Distance 3: out of SKILL_MELEE.range (1), within SKILL_RANGED.range (3).
+    // Distance 3: out of SKILL_MELEE.range, within SKILL_RANGED.range.
     entity_t* e = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 0}, 10, 1, 3);
 
     slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
@@ -924,7 +906,7 @@ PRIVATE void test_game_attack_after_skill_switch_uses_new_skill_damage_and_ap_co
     test_click_tile(&game, allocator, p->position);
     test_click_attack_toggle(&game, allocator);
 
-    // Still on melee (default): e is out of range, clicking it is a no-op.
+    // Still on melee (default): e is out of range, click is a no-op.
     test_click_tile(&game, allocator, e->position);
     assert_test(e->hp == 10);
     assert_test(p->ap == 1);
@@ -966,13 +948,12 @@ PRIVATE void test_game_attack_toggle_then_ally_click_is_noop(linear_allocator_t 
     test_click_attack_toggle(&game, allocator);
     assert_test(game.mode == GAME_MODE_ATTACK);
 
-    // The ally's tile is same-team, so pathing_compute_attack_range
-    // excludes it from attack_range_tiles entirely -- it was never a
-    // selectable/highlighted target in the first place.
+    // Ally's tile is same-team, so pathing_compute_attack_range excludes
+    // it from attack_range_tiles -- never a highlighted target.
     assert_test(!test_tile_list_contains(game.pathing.attack_range_tiles, ally->position));
 
-    // In attack mode, clicking an ally still routes through
-    // action_try_attack, which rejects same-team targets.
+    // In attack mode, clicking an ally routes through action_try_attack,
+    // which rejects same-team targets.
     test_click_tile(&game, allocator, ally->position);
 
     assert_test(p->ap == 2);
@@ -982,9 +963,9 @@ PRIVATE void test_game_attack_toggle_then_ally_click_is_noop(linear_allocator_t 
     game_deinit(allocator, game);
 }
 
-// D1 regression: clicking an empty tile while in GAME_MODE_ATTACK must never
-// fall through to action_try_move, whether the tile sits inside the attack
-// overlay or only inside the (now-hidden) movement range.
+// D1 regression: clicking an empty tile in GAME_MODE_ATTACK must never
+// fall through to action_try_move, whether inside the attack overlay or
+// only the (hidden) movement range.
 PRIVATE void test_game_attack_mode_tile_click_does_not_move(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 6, 1);
@@ -1007,9 +988,8 @@ PRIVATE void test_game_attack_mode_tile_click_does_not_move(linear_allocator_t *
     test_click_attack_toggle(&game, allocator);
     assert_test(game.mode == GAME_MODE_ATTACK);
 
-    // (2, 0): within mp (3) move range, but outside SKILL_MELEE's range-1
-    // attack overlay -- exactly the tile that used to silently move the
-    // entity and drop it out of attack mode.
+    // (2,0): within move range but outside the melee attack overlay --
+    // the tile that used to silently move the entity and drop attack mode.
     assert_test(!test_tile_list_contains(game.pathing.attack_range_tiles, (position_t){2, 0}));
     test_click_tile(&game, allocator, (position_t){2, 0});
     assert_test(p->position.x == 0);
@@ -1017,8 +997,8 @@ PRIVATE void test_game_attack_mode_tile_click_does_not_move(linear_allocator_t *
     assert_test(p->mp == 3);
     assert_test(game.mode == GAME_MODE_ATTACK);
 
-    // (1, 0): inside the attack overlay itself, and empty (no entity there).
-    // Still not a valid attack target, so it must no-op the same way.
+    // (1,0): inside the attack overlay but empty. Still not a valid
+    // target, must no-op the same way.
     assert_test(test_tile_list_contains(game.pathing.attack_range_tiles, (position_t){1, 0}));
     test_click_tile(&game, allocator, (position_t){1, 0});
     assert_test(p->position.x == 0);
@@ -1029,8 +1009,8 @@ PRIVATE void test_game_attack_mode_tile_click_does_not_move(linear_allocator_t *
     game_deinit(allocator, game);
 }
 
-// Regression guard for the D1 fix: toggling into attack mode and back out
-// must not disturb the legitimate movement-mode tile click path.
+// D1 regression guard: toggling attack mode on and off must not disturb
+// the legitimate movement-mode tile click path.
 PRIVATE void test_game_tile_click_moves_after_toggling_attack_mode_off(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 6, 1);

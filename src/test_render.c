@@ -16,15 +16,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// render.c's turn-indicator color/inset/size are PRIVATE (file-local in every
-// build mode, see linkage.h), so these tests treat the marker as a black box:
-// scan for its known RGBA rather than importing render.c's constants. Keep
-// this literal in sync with render.c's COLOR_TURN_INDICATOR if that ever
-// changes.
+// render.c's turn-indicator color/inset/size are PRIVATE (linkage.h), so
+// these tests treat the marker as a black box: scan for its known RGBA
+// rather than importing constants. Keep in sync with COLOR_TURN_INDICATOR.
 static const rgba_t TEST_COLOR_TURN_INDICATOR = { 250, 210, 40, 255 };
-// The pre-existing mode-gated selection outline's color (render.c's
-// COLOR_WHITE) -- used to confirm the two indicators coexist without one
-// overwriting the other, not just that the new one appears in isolation.
+// The pre-existing mode-gated selection outline's color (COLOR_WHITE) --
+// confirms the two indicators coexist without one overwriting the other.
 static const rgba_t TEST_COLOR_SELECTION_OUTLINE = { 255, 255, 255, 255 };
 
 static bool test_tile_contains_color(slice_rgba_t fb, int fb_width, viewport_t viewport, position_t tile, rgba_t color) {
@@ -60,8 +57,8 @@ static bool test_tile_fully_color(slice_rgba_t fb, int fb_width, viewport_t view
 }
 
 PRIVATE void test_render_turn_indicator_visible_before_and_after_selection(linear_allocator_t *allocator) {
-    // Framebuffer is pushed before the game state (and popped after
-    // game_deinit below) to respect the allocator's LIFO push/pop discipline.
+    // Framebuffer pushed before game state (popped after game_deinit) to
+    // respect the allocator's LIFO discipline.
     slice_t fb_align = linear_allocator_push_alignment(allocator, _Alignof(rgba_t));
     slice_rgba_t fb;
     fb = LINEAR_ALLOCATOR_PUSH(allocator, fb, (size_t)(GAME_TEST_FB_WIDTH * GAME_TEST_FB_HEIGHT));
@@ -89,16 +86,15 @@ PRIVATE void test_render_turn_indicator_visible_before_and_after_selection(linea
 
     game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
-    // GAME_MODE_NONE: no selection made yet, but it's still p's turn.
+    // GAME_MODE_NONE: nothing selected yet, but still p's turn.
     render_frame(fb, GAME_TEST_FB_WIDTH, game);
     assert_test(test_tile_contains_color(fb, GAME_TEST_FB_WIDTH, game.viewport, p->position, TEST_COLOR_TURN_INDICATOR));
-    // Not active: no indicator on the enemy's tile.
+    // Not active: no indicator on enemy's tile.
     assert_test(!test_tile_contains_color(fb, GAME_TEST_FB_WIDTH, game.viewport, enemy->position, TEST_COLOR_TURN_INDICATOR));
 
-    // Selecting the active entity enters GAME_MODE_MOVEMENT -- indicator
-    // should still be present (it doesn't depend on mode), AND coexist with
-    // the pre-existing mode-gated selection outline (not overwritten by it,
-    // nor overwriting it) -- both colors must be found on the same tile.
+    // Selecting the entity enters GAME_MODE_MOVEMENT -- indicator still
+    // present (mode-independent) and coexists with the selection outline;
+    // both colors must be found on the same tile.
     test_click_tile(&game, allocator, p->position);
     render_frame(fb, GAME_TEST_FB_WIDTH, game);
     assert_test(test_tile_contains_color(fb, GAME_TEST_FB_WIDTH, game.viewport, p->position, TEST_COLOR_TURN_INDICATOR));
@@ -137,9 +133,8 @@ PRIVATE void test_render_turn_indicator_follows_active_entity_across_turns(linea
 
     game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
 
-    // enemy has 0 mp and is far from p, so ai_run_ennemy_turn is a no-op and
-    // the turn comes right back around to p -- turn_active_entity(game.turn)
-    // stays p, and the indicator should stay on p's tile throughout.
+    // enemy has 0 mp and is far away, so ai_run_ennemy_turn is a no-op and
+    // turn comes right back to p -- indicator stays on p's tile throughout.
     test_click_end_turn(&game, allocator);
     assert_test(turn_active_entity(game.turn) == p);
 
@@ -207,24 +202,20 @@ PRIVATE void test_render_attack_range_tile_occupied_by_enemy_is_dithered_not_sol
     render_frame(fb, GAME_TEST_FB_WIDTH, game);
 
     rgba_t tint = { 230, 140, 60, 255 };
-    // COLOR_TILE_WALKABLE (render.c) -- the outer-border tile color a
-    // checkerboard "off" pixel falls back to once the tint isn't drawn
-    // there. Grid has no obstacles, so every tile is walkable.
+    // COLOR_TILE_WALKABLE -- what a checkerboard "off" pixel falls back to
+    // when tint isn't drawn there. Grid has no obstacles.
     rgba_t tile_walkable = { 40, 40, 40, 255 };
 
-    // (1, 0): in range, unoccupied -- full solid tint fill (dithering only
+    // (1,0): in range, unoccupied -- solid tint fill (dithering only
     // applies to occupied tiles).
     assert_test(test_tile_fully_color(fb, GAME_TEST_FB_WIDTH, game.viewport, (position_t){1, 0}, tint));
 
-    // enemy's own tile: two horizontally-adjacent pixels in the top-left
-    // corner (row 0, columns 0-1 of the tile -- inside the outer 2px border
-    // band, well above render_entities' square_top so the entity sprite
-    // never overwrites this row) must differ: even (px+py) parity draws
-    // tint, odd parity is skipped and falls through to the tile's own
-    // color. A solid (non-dithered) fill would make both pixels equal tint
-    // -- this is the actual proof dithering happened, not just "some tint
-    // pixel exists somewhere on the tile" (which is also true of a solid
-    // fill's untouched margin, so doesn't distinguish the two).
+    // enemy's tile: two adjacent pixels in the top-left corner (row 0,
+    // cols 0-1 -- above render_entities' square_top so the sprite never
+    // overwrites this row) must differ: even (px+py) parity draws tint,
+    // odd falls through to tile color. A solid fill would make both
+    // pixels equal tint -- this is the proof dithering happened, not just
+    // "some tint pixel exists" (also true of a solid fill's margin).
     int enemy_px, enemy_py;
     grid_to_screen(game.viewport, enemy->position.x, enemy->position.y, &enemy_px, &enemy_py);
     assert_test((enemy_px + enemy_py) % 2 == 0); // sanity: the pixel we check is the "on" one
@@ -238,13 +229,12 @@ PRIVATE void test_render_attack_range_tile_occupied_by_enemy_is_dithered_not_sol
     linear_allocator_pop(allocator, fb_align);
 }
 
-// F1-06: hovering a valid AoE impact tile in attack mode draws the blast
-// overlay (dithered, like attack_range_tiles), layered on top of the
-// still-visible attack-range overlay -- not a replacement for it. Not
-// required by F1-08 (which explicitly scopes pixel-level assertions out),
-// but this file already establishes that convention for
-// attack_range_tiles above, so it's the natural place to also cover
-// render_tiles' blast_tiles loop.
+// F1-06: hovering a valid AoE impact tile draws the blast overlay
+// (dithered, like attack_range_tiles), layered on the still-visible
+// attack-range overlay, not replacing it. Not required by F1-08 (which
+// scopes pixel-level assertions out), but this file already covers
+// attack_range_tiles the same way, so it's the natural place for
+// render_tiles' blast_tiles loop too.
 PRIVATE void test_render_blast_tile_is_dithered_over_attack_range(linear_allocator_t *allocator) {
     slice_t fb_align = linear_allocator_push_alignment(allocator, _Alignof(rgba_t));
     slice_rgba_t fb;
@@ -272,14 +262,13 @@ PRIVATE void test_render_blast_tile_is_dithered_over_attack_range(linear_allocat
     test_move_tile(&game, allocator, (position_t){3, 0});
     render_frame(fb, GAME_TEST_FB_WIDTH, game);
 
-    // render.c's COLOR_BLAST_PREVIEW_TINT is PRIVATE -- keep this literal in
-    // sync with it if it ever changes (same convention as the attack-range
-    // tint literal above).
+    // COLOR_BLAST_PREVIEW_TINT is PRIVATE -- keep this literal in sync
+    // (same convention as the attack-range tint above).
     rgba_t blast_tint = { 220, 40, 40, 255 };
     assert_test(test_tile_contains_color(fb, GAME_TEST_FB_WIDTH, game.viewport, (position_t){3, 0}, blast_tint));
 
-    // attack_range_tiles stays visible underneath -- the blast overlay
-    // layers on top rather than replacing it (F1-05).
+    // attack_range_tiles stays visible underneath -- blast layers on top,
+    // doesn't replace it (F1-05).
     assert_test(SLICE_TYPESIZE(game.pathing.attack_range_tiles) > 0);
 
     game_deinit(allocator, game);
@@ -418,7 +407,7 @@ PRIVATE void test_render_small_tile_clamps_hp_bar_and_entity_metrics(linear_allo
     game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, fb_width, fb_height, hud_height);
     assert_test(game.viewport.tile_size == 2);
 
-    // ts=2 drives every small-tile clamp in render_hp_bar/render_entities.
+    // ts=2 exercises every small-tile clamp in render_hp_bar/render_entities.
     render_frame(fb, fb_width, game);
 
     game_deinit(allocator, game);
@@ -537,7 +526,7 @@ PRIVATE void test_render_game_over_screens(linear_allocator_t *allocator) {
     render_frame(fb, GAME_TEST_FB_WIDTH, game);
     assert_test(test_tile_contains_color(fb, GAME_TEST_FB_WIDTH, game.viewport, (position_t){0, 0}, lose));
 
-    // fb_width == 0 exercises the fb_height ternary's fallback branch.
+    // fb_width == 0: exercises fb_height ternary's fallback branch.
     game.game_over = GAME_OVER_WIN;
     render_frame(fb, 0, game);
 
@@ -638,7 +627,7 @@ PRIVATE void test_render_enemy_active_uses_inactive_hud_buttons(linear_allocator
 
     render_frame(fb, GAME_TEST_FB_WIDTH, game);
 
-    // The enemy is active, so both HUD buttons use the inactive color.
+    // Enemy is active: both HUD buttons use the inactive color.
     rgba_t inactive = { 80, 80, 80, 255 };
     int bx = game.viewport.end_turn_button.x + 1;
     int by = game.viewport.end_turn_button.y + 1;
@@ -651,8 +640,7 @@ PRIVATE void test_render_enemy_active_uses_inactive_hud_buttons(linear_allocator
 
 // Mirrors the enemy-occupied attack-range test: an ally is same-team, so
 // pathing_compute_attack_range excludes its tile from attack_range_tiles
-// entirely -- render_tiles' loop never iterates it, so it gets no
-// attack-range tint at all (not even the "not targetable" solid fill).
+// entirely -- no attack-range tint at all, not even the solid fill.
 PRIVATE void test_render_attack_range_tile_occupied_by_ally_is_not_highlighted(linear_allocator_t *allocator) {
     slice_t fb_align = linear_allocator_push_alignment(allocator, _Alignof(rgba_t));
     slice_rgba_t fb;
@@ -685,14 +673,12 @@ PRIVATE void test_render_attack_range_tile_occupied_by_ally_is_not_highlighted(l
     test_click_attack_toggle(&game, allocator);
     render_frame(fb, GAME_TEST_FB_WIDTH, game);
 
-    // COLOR_TILE_WALKABLE (render.c) -- what the ally's tile must show
-    // since it's excluded from attack_range_tiles entirely (same-team
-    // tiles are never valid targets, see pathing_compute_attack_range).
+    // COLOR_TILE_WALKABLE -- what the ally's tile shows since it's excluded
+    // from attack_range_tiles (same-team tiles are never valid targets).
     rgba_t tile_walkable = { 40, 40, 40, 255 };
 
-    // Same top-left corner probe as the enemy-dither test, but here both
-    // pixels must fall through to the plain tile color: no attack-range
-    // tint at all, dithered or solid, over a same-team tile.
+    // Same corner probe as the enemy-dither test, but here both pixels
+    // fall through to plain tile color: no attack-range tint at all.
     int ally_px, ally_py;
     grid_to_screen(game.viewport, ally->position.x, ally->position.y, &ally_px, &ally_py);
     rgba_t corner_on = SLICE_AT(fb, ally_py * GAME_TEST_FB_WIDTH + ally_px);
@@ -705,8 +691,8 @@ PRIVATE void test_render_attack_range_tile_occupied_by_ally_is_not_highlighted(l
     linear_allocator_pop(allocator, fb_align);
 }
 
-// With exactly two skills, render_hud's skill-button loop must draw without
-// taking the VIEWPORT_MAX_SKILL_BUTTONS clamp (button_count > 2 is false).
+// With exactly two skills, render_hud's skill-button loop must draw
+// without the VIEWPORT_MAX_SKILL_BUTTONS clamp (button_count > 2 false).
 PRIVATE void test_render_skill_buttons_two_skills_do_not_clamp(linear_allocator_t *allocator) {
     slice_t fb_align = linear_allocator_push_alignment(allocator, _Alignof(rgba_t));
     slice_rgba_t fb;

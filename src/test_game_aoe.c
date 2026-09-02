@@ -1281,7 +1281,7 @@ PRIVATE void test_aoe_blast_tiles_match_what_execution_hits(linear_allocator_t *
     test_move_tile(&game, allocator, (position_t){3, 1});
     assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) > 0);
 
-    // Capture the previewed footprint before casting mutates game state.
+    // Capture the preview before casting mutates game state.
     position_t footprint[64];
     int footprint_count = 0;
     for (SLICE_FOREACH(game.pathing.blast_tiles, tile_s)) {
