@@ -2,6 +2,11 @@
 #include "../lib/fmt.h"
 #include "../lib/linkage.h"
 #include "../lib/memory.h"
+#include "game/entity.h"
+#include "game/game.h"
+#include "game/position.h"
+#include "game/turn.h"
+#include <stdint.h>
 
 PUBLIC void print_position(linear_allocator_t *dest, position_t position) {
     fmt_write(dest, STR("{\"x\":"));

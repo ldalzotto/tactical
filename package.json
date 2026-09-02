@@ -16,7 +16,7 @@
     "start:release": "node server/server.js --release",
     "start:unity": "node server/server.js --unity",
     "start:unity:release": "node server/server.js --unity --release",
-    "test": "npm run test:debug && npm run test:fuzz:debug && npm run test:release && npm run test:fuzz:release && npm run test:release:no-assertions && npm run test:fuzz:release:no-assertions",
+    "test": "npm run test:debug && npm run test:fuzz:debug && npm run test:release && npm run test:fuzz:release && npm run test:release:no-assertions && npm run test:fuzz:release:no-assertions && npm run iwyu",
     "test:debug": "node server/build.js --tests --coverage && node server/coverage.js",
     "test:fuzz:debug": "node server/build.js --fuzz-tests && node server/run-tests.js",
     "test:release": "node server/build.js --release --debug-symbols --tests --assertions --coverage && node server/coverage.js",

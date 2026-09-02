@@ -2,6 +2,8 @@
 #include "lib/linkage.h"
 #include "lib/memory.h"
 #include "lib/runtime.h"
+#include <stddef.h>
+#include <stdint.h>
 
 PUBLIC slice_t fmt_uint_to_chars(uint32_t value, slice_t buf) {
     char *begin = buf.begin;
