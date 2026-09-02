@@ -32,26 +32,35 @@ PUBLIC int fmt_int_to_chars(int32_t value, char *buf) {
     return fmt_uint_to_chars((uint32_t)value, buf);
 }
 
-PUBLIC void fmt_write(slice_t str) {
+PUBLIC void fmt_write(linear_allocator_t *dest, slice_t str) {
+    if (dest != 0) {
+        slice_t chunk = linear_allocator_push(dest, (size_t)bytesize(str.begin, str.end));
+        linear_allocator_copy(dest, str, chunk);
+        return;
+    }
     debug_write(str);
 }
 
-PUBLIC void fmt_write_int(int32_t value) {
+PUBLIC void fmt_write_int(linear_allocator_t *dest, int32_t value) {
     char buf[11];
     int count = fmt_int_to_chars(value, buf);
-    fmt_write((slice_t){ .begin = buf, .end = buf + count });
+    fmt_write(dest, (slice_t){ .begin = buf, .end = buf + count });
 }
 
-PUBLIC void fmt_write_uint(uint32_t value) {
+PUBLIC void fmt_write_uint(linear_allocator_t *dest, uint32_t value) {
     char buf[10];
     int count = fmt_uint_to_chars(value, buf);
-    fmt_write((slice_t){ .begin = buf, .end = buf + count });
+    fmt_write(dest, (slice_t){ .begin = buf, .end = buf + count });
 }
 
-PUBLIC void fmt_write_bool(bool value) {
-    fmt_write(value ? STR("true") : STR("false"));
+PUBLIC void fmt_write_bool(linear_allocator_t *dest, bool value) {
+    fmt_write(dest, value ? STR("true") : STR("false"));
 }
 
-PUBLIC void fmt_end_line(void) {
+PUBLIC void fmt_end_line(linear_allocator_t *dest) {
+    if (dest != 0) {
+        fmt_write(dest, STR("\n"));
+        return;
+    }
     debug_flush_line();
 }

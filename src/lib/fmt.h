@@ -6,11 +6,20 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-// Streams formatted debug output straight through runtime.h's debug_write
-// (mid-line) / debug_log (line-ending) bridge -- no buffer of its own.
-// Number formatting uses a small stack-local buffer per call that never
-// outlives the call. Intended for debug_print.h's pretty-printers, not for
-// anything the game's runtime behaviour depends on.
+// Streams formatted debug output either through runtime.h's debug_write
+// (mid-line) / debug_log (line-ending) bridge, or -- when `dest` is
+// non-NULL -- onto `dest` itself as a plain growing byte region. Every
+// fmt_write* below takes `dest` as its first argument:
+//   NULL      -- stream straight to the runtime debug bridge (production
+//                use: an agent drops a debug_print_* call site).
+//   non-NULL  -- push the formatted bytes onto `dest`. Consecutive pushes
+//                on the same allocator land contiguously, so a caller can
+//                mark `dest->cursor` before a sequence of fmt_write* calls
+//                and read everything written back as one slice afterward
+//                (see test_debug_print.c) -- no separate capture/redirect
+//                mechanism needed.
+// Number formatting still uses a small stack-local buffer per call that
+// never outlives the call.
 
 // Converts value's decimal digits into buf (which must have room for at
 // least 10 chars) and returns how many chars were written. Pure and
@@ -22,14 +31,14 @@ PUBLIC int fmt_uint_to_chars(uint32_t value, char *buf);
 PUBLIC int fmt_int_to_chars(int32_t value, char *buf);
 
 // Writes a fragment of the current debug line (no line break).
-PUBLIC void fmt_write(slice_t str);
-PUBLIC void fmt_write_int(int32_t value);
-PUBLIC void fmt_write_uint(uint32_t value);
-PUBLIC void fmt_write_bool(bool value);
+PUBLIC void fmt_write(linear_allocator_t *dest, slice_t str);
+PUBLIC void fmt_write_int(linear_allocator_t *dest, int32_t value);
+PUBLIC void fmt_write_uint(linear_allocator_t *dest, uint32_t value);
+PUBLIC void fmt_write_bool(linear_allocator_t *dest, bool value);
 
 // Ends the current debug line, flushing whatever was streamed via
 // fmt_write* since the last fmt_end_line.
-PUBLIC void fmt_end_line(void);
+PUBLIC void fmt_end_line(linear_allocator_t *dest);
 
 #ifdef APP_UNITY_BUILD
 #include "fmt.c"
