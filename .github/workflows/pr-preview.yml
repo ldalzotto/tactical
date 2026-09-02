@@ -1,0 +1,47 @@
+name: PR Preview
+
+# Publishes each PR's web build to the gh-pages branch under
+# pr-preview/pr-<number>/, and keeps a sticky comment on the PR with the
+# link -- see pr-preview-action's README for the comment/cleanup mechanics.
+# Requires the repo's Pages source to be "Deploy from a branch: gh-pages"
+# (see pages.yml, which publishes the master build to the same branch's
+# root with keep_files so it doesn't clobber active PR preview folders).
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: pr-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        if: github.event.action != 'closed'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install CMake and build dependencies
+        if: github.event.action != 'closed'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake clang lld
+
+      - name: Build for GitHub Pages
+        if: github.event.action != 'closed'
+        run: npm run build:pages
+
+      - name: Deploy PR preview
+        uses: rossjrw/pr-preview-action@v1
+        with:
+          source-dir: ./dist
