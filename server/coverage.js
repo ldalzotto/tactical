@@ -9,7 +9,6 @@ const { runWasmTests } = require('../web/wasm-shared');
 const { buildTextProfile } = require('./wasm-profile');
 const { printUncovered } = require('./coverage-missing');
 const { ensureToolchain } = require('./setup-toolchain');
-ensureToolchain();
 
 const ROOT = path.join(__dirname, '..');
 const WASM_PATH = path.join(ROOT, 'build', 'app.wasm');
@@ -17,6 +16,7 @@ const PROF_TEXT = path.join(ROOT, 'build', 'coverage.proftext');
 const PROF_DATA = path.join(ROOT, 'build', 'coverage.profdata');
 const HTML_DIR = path.join(ROOT, 'build', 'coverage-html');
 const verbose = process.argv.includes('--verbose');
+ensureToolchain({ verbose });
 
 function run(cmd, args) {
     const result = spawnSync(cmd, args, { encoding: 'utf8', maxBuffer: Infinity });
