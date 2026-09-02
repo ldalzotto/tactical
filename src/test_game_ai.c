@@ -462,26 +462,21 @@ PRIVATE void test_game_ai_chooses_nearest_player_on_end_turn(linear_allocator_t 
     game_deinit(allocator, game);
 }
 
-// Exercises two AI candidate-selection branches that passing end-turn play
-// can reach but the simpler single-player tests don't:
-// - ai_find_nearest_player's !candidate->alive skip (a dead player stays in
-//   the entity list after turn_remove_dead_entities compacts only the turn
-//   order).
-// - ai_find_nearest_player's dist < best_dist comparison evaluated false
-//   (a nearer player is scanned before a farther one).
+// Exercises two ai_find_nearest_player branches single-player tests can't
+// reach: the !candidate->alive skip (a dead player stays in the entity
+// list; turn_remove_dead_entities only compacts turn order), and
+// dist < best_dist evaluating false (nearer player scanned first).
 PRIVATE void test_game_ai_skips_dead_player_and_keeps_nearest_on_end_turn(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 4);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
-    // Spawn the doomed player first so entity iteration sees it before the
-    // surviving player -- once dead, it exercises the !alive skip on the
-    // next enemy turn.
+    // Doomed player spawned first so iteration sees it before the survivor,
+    // exercising the !alive skip once dead.
     entity_t* p_doomed = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 5, 2, 3);
     entity_t* p_alive = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
-    // e_killer starts adjacent to p_doomed (distance 1) and two steps from
-    // p_alive, so it attacks p_doomed. That makes p_alive the "farther
-    // candidate" whose dist < best_dist is false in the same scan.
+    // e_killer is adjacent to p_doomed, two steps from p_alive: attacks
+    // p_doomed, making p_alive the farther candidate (dist < best_dist false).
     entity_t* e_killer = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){1, 1}, 10, 2, 3);
     entity_t* e_other = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){3, 3}, 10, 2, 0);
 
@@ -511,8 +506,8 @@ PRIVATE void test_game_ai_skips_dead_player_and_keeps_nearest_on_end_turn(linear
 
     test_click_end_turn(&game, allocator);
 
-    // e_killer killed p_doomed; e_other then skipped the dead player and
-    // had no target in range (mp=0), so control wrapped to p_alive unharmed.
+    // e_killer killed p_doomed; e_other skipped the dead player, had no
+    // target (mp=0), so control wrapped to p_alive unharmed.
     assert_test(!p_doomed->alive);
     assert_test(p_alive->alive);
     assert_test(p_alive->hp == 10);
@@ -521,9 +516,8 @@ PRIVATE void test_game_ai_skips_dead_player_and_keeps_nearest_on_end_turn(linear
     game_deinit(allocator, game);
 }
 
-// A multi-skill enemy with both skills already in range must still evaluate
-// ai_best_in_range_skill's "does this later skill beat the current best?"
-// comparison as false when the earlier skill is stronger.
+// Both skills already in range: ai_best_in_range_skill's "later skill beats
+// current best?" comparison must evaluate false when earlier is stronger.
 PRIVATE void test_game_ai_best_in_range_skill_rejects_weaker_later_skill(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 2, 1);
@@ -537,8 +531,8 @@ PRIVATE void test_game_ai_best_in_range_skill_rejects_weaker_later_skill(linear_
     skill_t *p_skills_begin = skills.end;
     skill_list_add(allocator, &skills, SKILL_MELEE);
     p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
-    // Melee (damage 5) first, ranged (damage 3) second: both are in range
-    // at adjacency, and the later ranged skill must be rejected as weaker.
+    // Melee first, ranged second: both in range at adjacency, ranged must
+    // be rejected as weaker.
     skill_t *enemy_skills_begin = skills.end;
     skill_list_add(allocator, &skills, SKILL_MELEE);
     skill_list_add(allocator, &skills, SKILL_RANGED);
@@ -553,8 +547,7 @@ PRIVATE void test_game_ai_best_in_range_skill_rejects_weaker_later_skill(linear_
 
     test_click_end_turn(&game, allocator);
 
-    // The stronger melee skill (damage 5) was used, not the weaker ranged
-    // fallback, and the enemy never needed to move.
+    // Stronger melee skill was used, not weaker ranged; enemy never moved.
     assert_test(turn_active_entity(game.turn) == p);
     assert_test(enemy->position.x == 1);
     assert_test(enemy->position.y == 0);
@@ -634,8 +627,8 @@ PRIVATE void test_game_ai_attack_noops_when_ap_insufficient_for_skill(linear_all
 
     test_click_end_turn(&game, allocator);
 
-    // The only skill is in range but costs more AP than the enemy has, so
-    // action_try_attack rejects it and the AI turn ends without damage.
+    // In range but costs more AP than the enemy has: action_try_attack
+    // rejects it, no damage.
     assert_test(turn_active_entity(game.turn) == p);
     assert_test(enemy->position.x == 1);
     assert_test(enemy->position.y == 0);
@@ -645,8 +638,8 @@ PRIVATE void test_game_ai_attack_noops_when_ap_insufficient_for_skill(linear_all
     game_deinit(allocator, game);
 }
 
-// An enemy with only an AoE skill (SKILL_FIREBALL) casts it on the target's
-// tile -- already in range, so no movement.
+// Enemy with only an AoE skill (SKILL_FIREBALL) casts on the target's tile,
+// already in range so no movement.
 PRIVATE void test_game_ai_aoe_enemy_hits_target_with_blast_on_end_turn(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 1);
@@ -674,7 +667,7 @@ PRIVATE void test_game_ai_aoe_enemy_hits_target_with_blast_on_end_turn(linear_al
     test_click_end_turn(&game, allocator);
 
     assert_test(turn_active_entity(game.turn) == p);
-    // Already within SKILL_FIREBALL.range (4): no need to move in.
+    // Already within SKILL_FIREBALL.range: no need to move in.
     assert_test(enemy->position.x == 3);
     assert_test(enemy->position.y == 0);
     assert_test(enemy->mp == 3);
@@ -685,8 +678,7 @@ PRIVATE void test_game_ai_aoe_enemy_hits_target_with_blast_on_end_turn(linear_al
     game_deinit(allocator, game);
 }
 
-// AoE version of test_game_ai_attack_noops_when_ap_insufficient_for_skill:
-// the in-range skill costs more AP than the enemy has, so the cast is rejected.
+// AoE version of test_game_ai_attack_noops_when_ap_insufficient_for_skill.
 PRIVATE void test_game_ai_aoe_attack_noops_when_ap_insufficient_for_skill(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 2, 1);
@@ -725,8 +717,8 @@ PRIVATE void test_game_ai_aoe_attack_noops_when_ap_insufficient_for_skill(linear
     game_deinit(allocator, game);
 }
 
-// Blast damages a bystander without killing it: p1 (the target) dies, p2
-// survives -- exercises the "hit but still alive" branch of dead-splicing.
+// Blast damages a bystander without killing it: p1 dies, p2 survives --
+// exercises the "hit but still alive" branch of dead-splicing.
 PRIVATE void test_game_ai_aoe_blast_damages_bystander_without_killing_on_end_turn(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 4);
@@ -734,7 +726,7 @@ PRIVATE void test_game_ai_aoe_blast_damages_bystander_without_killing_on_end_tur
     slice_entity_t entities = entity_list_init(allocator);
     entity_t* p1 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){1, 0}, 4, 2, 3);
     entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){0, 0}, 10, 2, 3);
-    // In blast radius (2) of p1's tile but has enough hp to survive it.
+    // In blast radius of p1's tile, but hp enough to survive.
     entity_t* p2 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 2, 3);
 
     slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
@@ -769,20 +761,19 @@ PRIVATE void test_game_ai_aoe_blast_damages_bystander_without_killing_on_end_tur
     game_deinit(allocator, game);
 }
 
-// A fireball on the nearest target also catches a second player within
-// blast radius, killing both in one cast; a third player outside the blast
-// survives untouched.
+// Fireball on the nearest target also catches a second player in blast
+// radius, killing both; a third outside the blast survives.
 PRIVATE void test_game_ai_aoe_blast_kills_multiple_players_on_end_turn(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 4);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
     slice_entity_t entities = entity_list_init(allocator);
-    // p1 spawned first, so it wins the ai_find_nearest_player tie against p2.
+    // p1 spawned first, wins the ai_find_nearest_player tie vs p2.
     entity_t* p1 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){1, 0}, 4, 2, 3);
     entity_t* enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){0, 0}, 10, 2, 3);
-    // In blast radius (2) of p1 but not itself the impact tile.
+    // In blast radius of p1, but not the impact tile.
     entity_t* p2 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 4, 2, 3);
-    // Outside the blast radius, so untouched.
+    // Outside blast radius.
     entity_t* p3 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){3, 3}, 10, 2, 3);
 
     slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));

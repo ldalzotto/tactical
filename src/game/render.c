@@ -95,9 +95,8 @@ PRIVATE void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
             graphics_draw_rectangle(fb, fb_width, px, py, ts, ts, outer);
             graphics_draw_rectangle(fb, fb_width, px + 2, py + 2, ts - 4, ts - 4, inset);
 
-            // Movement overlay: read straight off walking_distances instead
-            // of a separate reachable-tiles list -- distance >= 1 means
-            // reachable this turn (0 is the mover's own tile).
+            // Movement overlay reads walking_distances directly: distance
+            // >= 1 means reachable (0 is the mover's own tile).
             if (game.mode == GAME_MODE_MOVEMENT && pathing_distance_at(game.pathing.walking_distances, game.grid, (position_t){tx, ty}) >= 1) {
                 graphics_draw_rectangle(fb, fb_width, px, py, ts, ts, COLOR_REACHABLE_TINT);
             }
@@ -110,11 +109,9 @@ PRIVATE void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
         grid_to_screen(game.viewport, tile.x, tile.y, &px, &py);
         int ts = game.viewport.tile_size;
 
-        // Occupied tiles in attack_range_tiles are always opposing-team --
-        // pathing_compute_attack_range excludes same-team tiles entirely --
-        // so draw them dithered, keeping the highlight visible under the
-        // entity's opaque sprite, drawn later in render_entities. Empty
-        // tiles fall back to solid.
+        // Occupied tiles are always opposing-team (pathing_compute_attack_range
+        // excludes same-team), drawn dithered so the highlight stays visible
+        // under the entity's opaque sprite (drawn later in render_entities).
         bool occupied = entity_find_at(game.entities, tile) != 0;
         if (occupied) {
             graphics_draw_rectangle_dithered(fb, fb_width, px, py, ts, ts, COLOR_ATTACK_RANGE_TINT);
@@ -123,10 +120,9 @@ PRIVATE void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
         }
     }
 
-    // Drawn after attack_range_tiles so the blast overlay layers on top of
-    // it (blast_tiles coexists with attack_range_tiles -- see F1-05). This
-    // is the same data game_cast_attack_area resolves the cast against, not
-    // a rendering-only preview.
+    // Drawn after attack_range_tiles so the blast overlay layers on top
+    // (blast_tiles coexists with it). Same data game_cast_attack_area
+    // resolves the cast against, not just a rendering preview.
     for (SLICE_FOREACH(game.pathing.blast_tiles, tile_s)) {
         position_t tile = SLICE_DEREF(tile_s);
         int px, py;
@@ -157,9 +153,8 @@ PRIVATE void render_hp_bar(slice_rgba_t fb, int fb_width, int px, int py, int ts
     graphics_draw_rectangle(fb, fb_width, bar_x, bar_y, bar_width, bar_height, COLOR_HP_BG);
 
     int fg_width = entity->max_hp > 0 ? (bar_width * entity->hp) / entity->max_hp : 0;
-    // With max_hp > 0 and 0 <= hp <= max_hp, fg_width is always clamped to
-    // [0, bar_width] by construction. Assert the invariant instead of
-    // leaving dead clamp branches behind.
+    // fg_width is always in [0, bar_width] by construction (max_hp > 0,
+    // 0 <= hp <= max_hp); assert the invariant instead of dead clamp branches.
     assert_debug(fg_width >= 0);
     assert_debug(fg_width <= bar_width);
     graphics_draw_rectangle(fb, fb_width, bar_x, bar_y, fg_width, bar_height, COLOR_HP_FG);
@@ -193,8 +188,8 @@ PRIVATE void render_entities(slice_rgba_t fb, int fb_width, game_state_t game) {
         graphics_draw_rectangle(fb, fb_width, square_x, square_top, square_width, square_height, color);
 
         if (entity == active) {
-            // Always visible, regardless of mode. Distinct from the outline
-            // below so the two never look identical when both apply.
+            // Always visible regardless of mode; distinct from the outline
+            // below so both can apply without looking identical.
             graphics_draw_rectangle(fb, fb_width, px + TURN_INDICATOR_INSET, py + TURN_INDICATOR_INSET, TURN_INDICATOR_SIZE, TURN_INDICATOR_SIZE, COLOR_TURN_INDICATOR);
         }
 
@@ -246,8 +241,9 @@ PRIVATE void render_hud(slice_rgba_t fb, int fb_width, game_state_t game) {
     }
     graphics_draw_rectangle(fb, fb_width, attack_button.x, attack_button.y, attack_button.width, attack_button.height, attack_button_color);
 
-    // A single-skill entity has nothing to switch between, so no row is drawn.
-    // layout_visible_skill_button_count keeps this in sync with game_on_input_event.
+    // A single-skill entity has nothing to switch between, so no row is
+    // drawn (layout_visible_skill_button_count keeps this in sync with
+    // game_on_input_event).
     int button_count = layout_visible_skill_button_count(active->team == ENTITY_TEAM_PLAYER, game.mode != GAME_MODE_NONE, entity_skill_count(active));
     for (int i = 0; i < button_count; i++) {
         rect_t skill_button = SLICE_AT(viewport_skill_buttons(&game.viewport), i);

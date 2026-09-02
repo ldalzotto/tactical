@@ -26,11 +26,9 @@ PUBLIC entity_t* turn_active_entity(turn_state_t state);
 PUBLIC turn_state_t turn_advance(turn_state_t state);
 
 // Removes a batch of already-dead entities from the order in one pass --
-// callers reconcile every casualty from a single game action (e.g. an AoE
-// blast) through one call, not one call per casualty. None of `dead` may be
-// the currently active entity -- asserted in turn.c, since nothing in the
-// game API can damage the active entity today (see the comment there for
-// how to lift this once that changes).
+// callers reconcile every casualty from a single action (e.g. an AoE blast)
+// in one call, not per-casualty. None of `dead` may be the active entity
+// (asserted in turn.c; see the comment there).
 PUBLIC turn_state_t turn_remove_dead_entities(turn_state_t state, slice_entity_ptr_t dead);
 
 #ifdef APP_UNITY_BUILD

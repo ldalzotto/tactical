@@ -29,17 +29,15 @@ PUBLIC game_state_t scenario_setup_default(linear_allocator_t* allocator, int gr
     entity_t *e2 = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){14, 5}, 10, 1, 3);
     entity_t *e3 = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){14, 8}, 10, 1, 3);
 
-    // Every entity gets both skills, populated into the shared skill list
-    // after every entity exists (entity_spawn requires no interleaved
-    // spawns). Exercises AI skill choice and player skill selection on both
-    // teams by default, not just in unit tests.
+    // Skills are populated after every entity exists (entity_spawn allows
+    // no interleaved spawns). Every entity gets two, exercising AI and
+    // player skill selection on both teams by default.
     slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
     slice_skill_t skills = skill_list_init(allocator);
 
-    // p1 carries SKILL_FIREBALL instead of SKILL_MELEE: VIEWPORT_MAX_SKILL_BUTTONS
-    // caps the skill-button row at 2, so a 3rd skill would sit behind a
-    // button the player can never click -- swapping keeps SKILL_FIREBALL
-    // reachable end-to-end through the real game, not just unit tests.
+    // p1 gets SKILL_FIREBALL instead of SKILL_MELEE: VIEWPORT_MAX_SKILL_BUTTONS
+    // caps the button row at 2, so this keeps SKILL_FIREBALL clickable in
+    // the real game rather than stuck behind a 3rd slot.
     skill_t *p1_skills_begin = skills.end;
     skill_list_add(allocator, &skills, SKILL_RANGED);
     skill_list_add(allocator, &skills, SKILL_FIREBALL);
@@ -70,8 +68,7 @@ PUBLIC game_state_t scenario_setup_default(linear_allocator_t* allocator, int gr
     skill_list_add(allocator, &skills, SKILL_RANGED);
     e3->skills = (slice_skill_t){ .begin = e3_skills_begin, .end = skills.end };
 
-    // Turn order is authored here, the same way the roster above is: one
-    // call per entity, in the exact sequence it should act.
+    // Turn order: one call per entity, in the exact sequence it should act.
     slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
     slice_entity_ptr_t order = turn_order_init(allocator);
     turn_order_add(allocator, &order, p1);
