@@ -63,7 +63,7 @@ function llvmToolchainConsistent() {
     const clangVer = majorVersion('clang');
     const covVer = majorVersion('llvm-cov');
     const profVer = majorVersion('llvm-profdata');
-    return Boolean(clangVer) && clangVer === covVer && clangVer === profVer;
+    return clangVer === REQUIRED_LLVM_MAJOR && clangVer === covVer && clangVer === profVer;
 }
 
 function installLlvm(major) {
