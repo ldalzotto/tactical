@@ -108,3 +108,21 @@ PUBLIC slice_t slice_shift(slice_t s, ptrdiff_t by) {
 PUBLIC ptrdiff_t bytesize(void *begin, void *end) {
     return (char *)end - (char *)begin;
 }
+
+PUBLIC bool slice_equals(slice_t a, slice_t b) {
+    ptrdiff_t len = bytesize(a.begin, a.end);
+    if (len != bytesize(b.begin, b.end)) {
+        return false;
+    }
+    // No memcmp in this freestanding build (unlike memcpy/memmove, wasm's
+    // bulk-memory proposal has no compare instruction for LLVM to lower
+    // this to, so a libcall would be emitted with nothing to satisfy it).
+    const uint8_t *pa = a.begin;
+    const uint8_t *pb = b.begin;
+    for (ptrdiff_t i = 0; i < len; i++) {
+        if (pa[i] != pb[i]) {
+            return false;
+        }
+    }
+    return true;
+}

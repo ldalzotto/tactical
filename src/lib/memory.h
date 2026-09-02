@@ -2,6 +2,7 @@
 
 #include "linkage.h"
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -45,6 +46,7 @@ PUBLIC void *byteoffset(void *pointer, ptrdiff_t by);
 PUBLIC void *slice_at(slice_t s, size_t index, size_t alignment);
 PUBLIC slice_t slice_advance(slice_t s, size_t by);
 PUBLIC slice_t slice_shift(slice_t s, ptrdiff_t by);
+PUBLIC bool slice_equals(slice_t a, slice_t b);
 PUBLIC ptrdiff_t bytesize(void *begin, void *end);
 #define typesize(begin, end) bytesize(begin, end) / sizeof(*begin)
 

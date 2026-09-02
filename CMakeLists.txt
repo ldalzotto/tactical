@@ -51,12 +51,14 @@ else()
     set(APP_SOURCES
         src/lib/assert.c
         src/lib/clock.c
+        src/lib/fmt.c
         src/lib/graphics.c
         src/lib/memory.c
         src/lib/runtime.c
 
         src/game/action.c
         src/game/ai.c
+        src/game/print.c
         src/game/entity.c
         src/game/game.c
         src/game/geometry.c
@@ -91,6 +93,7 @@ else()
             src/test_app.c
             src/test_runtime.c
             src/test_memory.c
+            src/test_fmt.c
             src/test_layout.c
             src/test_game_movement.c
             src/test_game_combat.c
@@ -99,6 +102,7 @@ else()
             src/test_game_selection.c
             src/test_scenario.c
             src/test_render.c
+            src/test_print.c
         )
     endif()
 

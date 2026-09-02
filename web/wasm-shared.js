@@ -43,9 +43,13 @@ const MEMORY_PAGES = 32;
 
 const INPUT_EVENT_BYTE_SIZE = 12;
 
-function buildImportObject({ createWindow, presentWindow, debugLog, reportPanic }) {
+function buildImportObject({ createWindow, presentWindow, printLine, reportPanic }) {
     const memory = new WebAssembly.Memory({ initial: MEMORY_PAGES });
     const pendingInputEvents = new Map();
+    // Fragments streamed via write accumulate here until the next
+    // flush_line call closes the line -- lets wasm build one line
+    // out of many small writes (see fmt.h) without a C-side buffer.
+    let pendingLine = '';
 
     function pushInputEvent(windowHandle, type, x, y) {
         let events = pendingInputEvents.get(windowHandle);
@@ -63,9 +67,12 @@ function buildImportObject({ createWindow, presentWindow, debugLog, reportPanic 
             present_window(windowHandle, fbBegin, fbEnd) {
                 (presentWindow ?? (() => {}))(windowHandle, new Uint8ClampedArray(memory.buffer, fbBegin, fbEnd - fbBegin));
             },
-            debug_log(beginPtr, endPtr) {
-                const message = decodeWasmMemoryString(memory, beginPtr, endPtr - beginPtr);
-                (debugLog ?? console.log)(message);
+            write(beginPtr, endPtr) {
+                pendingLine += decodeWasmMemoryString(memory, beginPtr, endPtr - beginPtr);
+            },
+            flush_line() {
+                printLine(pendingLine);
+                pendingLine = '';
             },
             report_panic(fileBegin, fileEnd, line, msgBegin, msgEnd) {
                 const file = decodeWasmMemoryString(memory, fileBegin, fileEnd - fileBegin);
@@ -103,8 +110,8 @@ function buildImportObject({ createWindow, presentWindow, debugLog, reportPanic 
     return { memory, importObject, pushInputEvent };
 }
 
-async function runWasmTests({ wasmBytes, resolveFrames, onResult, onComplete, createWindow, presentWindow, debugLog }) {
-    const { memory, importObject } = buildImportObject({ createWindow, presentWindow, debugLog });
+async function runWasmTests({ wasmBytes, resolveFrames, onResult, onComplete, createWindow, presentWindow, printLine }) {
+    const { memory, importObject } = buildImportObject({ createWindow, presentWindow, printLine });
     const { instance } = await WebAssembly.instantiate(wasmBytes, importObject);
     const { test_discovery_count, test_discovery_name_begin, test_discovery_name_end, test_discovery_fn_at, test_run, test_expect_trap_end } = instance.exports;
     const count = test_discovery_count();
@@ -139,11 +146,11 @@ async function runWasmTests({ wasmBytes, resolveFrames, onResult, onComplete, cr
     return { passed, failed, count, memory, instance };
 }
 
-async function runApp({ wasmBytes, now, createWindow, presentWindow, debugLog, reportPanic }) {
+async function runApp({ wasmBytes, now, createWindow, presentWindow, printLine, reportPanic }) {
     const { memory, importObject, pushInputEvent } = buildImportObject({
         createWindow: createWindow && ((width, height) => createWindow(width, height, pushInputEvent)),
         presentWindow,
-        debugLog,
+        printLine,
         reportPanic,
     });
     const { instance } = await WebAssembly.instantiate(wasmBytes, importObject);
