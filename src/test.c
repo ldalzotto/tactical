@@ -22,9 +22,8 @@
 #include "test_game_fuzz.h"
 #endif
 
-// g_*_tests_count is an extern const, not a compile-time constant in C, so
-// it can't seed a static initializer -- these helpers do the same
-// suite-by-suite dispatch at runtime instead of building a lookup table.
+// g_*_tests_count is extern const, not a compile-time constant, so it can't
+// seed a static initializer -- dispatch suite-by-suite at runtime instead.
 
 PRIVATE const test_case_t *test_lookup(uint32_t index) {
 #ifdef APP_BUILD_TEST_SUITES
@@ -62,21 +61,17 @@ PRIVATE const test_case_t *test_lookup(uint32_t index) {
     index -= g_render_tests_count;
 #endif
 
-    // Guarded even though test_game_fuzz.c always defines
-    // g_game_fuzz_tests_count (0 when fuzzing is off): an unguarded runtime
-    // check here would compile into a branch that's structurally
-    // unreachable whenever fuzzing is off, and coverage would flag it as a
-    // gap for every non-fuzz (e.g. coverage) build.
+    // Guarded even though g_game_fuzz_tests_count is always defined (0 when
+    // fuzzing is off): unguarded, this branch would be unreachable in
+    // non-fuzz builds and coverage would flag it as a gap.
 #ifdef APP_BUILD_FUZZ_TESTS
     if (index < g_game_fuzz_tests_count) { return &g_game_fuzz_tests[index]; }
 #endif
 
     assert_test(false);
-    // Reached only when assert_test's panic is swallowed by expect_panic
-    // (see test_discovery_out_of_range_panics). Callers dereference the
-    // returned pointer's fields unconditionally, so this must be a real
-    // object rather than NULL -- a NULL return, dereferenced right back at
-    // the call site, is UB that -O3 is free to turn into a trap.
+    // Reached only if assert_test's panic is swallowed (see
+    // test_discovery_out_of_range_panics). Must be a real object, not NULL:
+    // callers deref the fields unconditionally, and -O3 can trap on NULL UB.
     static const test_case_t out_of_range = { { 0, 0 }, 0 };
     return &out_of_range;
 }

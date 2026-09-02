@@ -15,8 +15,7 @@ PUBLIC bool action_try_move(pathing_state_t walking_distances, grid_t grid, enti
     if (distance < 0) {
         return false;
     }
-    // walking_distances is capped at entity->mp by its caller, so a
-    // reachable tile's distance can never exceed the mover's remaining mp.
+    // Caller caps walking_distances at entity->mp, so distance <= mp always.
     assert_debug(distance <= entity->mp);
 
     entity->mp -= distance;
@@ -61,9 +60,8 @@ PUBLIC bool action_try_attack_area(linear_allocator_t *allocator, slice_entity_t
 
     attacker->ap -= skill.ap_cost;
 
-    // Caller must have `allocator`'s cursor pre-aligned to
-    // _Alignof(entity_ptr_t) -- this function does not self-align (see
-    // entity_list_align et al. for the push-align-then-push convention).
+    // Caller must pre-align `allocator`'s cursor to _Alignof(entity_ptr_t)
+    // (see entity_list_align et al.); this function does not self-align.
     slice_entity_ptr_t hit;
     hit = LINEAR_ALLOCATOR_PUSH(allocator, hit, 0);
 

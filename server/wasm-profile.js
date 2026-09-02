@@ -3,32 +3,24 @@
 const zlib = require('node:zlib');
 const crypto = require('node:crypto');
 
-// Layout of one __llvm_prf_data record on wasm32. See clang's
-// include/profile/InstrProfData.inc for the authoritative struct. NameRef
-// and FuncHash are stable across toolchains, but the fields after them
-// (pointers, then NumCounters) have shifted between clang releases as LLVM
-// added value-profile kinds, e.g. IPVK_VTableTarget inserted a 4-byte field
-// before NumCounters, changing the padded record size from 48 to 56 bytes:
-//   NameRef          u64 @ 0
-//   FuncHash         u64 @ 8
-//   ...toolchain-dependent...
-//   NumCounters      u32 @ (32 on older clang, 36 on newer)
-//   ...padded to the toolchain's record size
-// Rather than pin a clang-version cutoff (fragile — the exact version this
-// changed in isn't reliably knowable across every clang/emscripten build),
-// detectRecordLayout() below tries each known layout against the actual
-// binary and picks the one whose summed NumCounters matches the counters
-// segment size.
+// Layout of one __llvm_prf_data record on wasm32 (see clang's
+// include/profile/InstrProfData.inc). NameRef/FuncHash are stable, but later
+// fields shift between clang releases (e.g. IPVK_VTableTarget grew the
+// record from 48 to 56 bytes by adding a field before NumCounters):
+//   NameRef u64 @ 0, FuncHash u64 @ 8, ...toolchain-dependent...,
+//   NumCounters u32 @ (32 old clang / 36 new), padded to record size.
+// No reliable version cutoff exists, so detectRecordLayout() below tries
+// each known layout and picks the one whose summed NumCounters matches the
+// counters segment size.
 const PRF_DATA_FUNC_HASH_OFFSET = 8;
 const KNOWN_RECORD_LAYOUTS = [
     { recordSize: 48, numCountersOffset: 32 }, // clang <= 17
     { recordSize: 56, numCountersOffset: 36 }, // clang with IPVK_VTableTarget (observed on clang 23 trunk)
 ];
 
-// Different clang/LLVM versions lay out __llvm_prf_data records differently
-// (see KNOWN_RECORD_LAYOUTS above). Detect which one produced this binary by
-// checking which candidate's summed per-record NumCounters matches the
-// counters segment size -- a mismatch means we mis-parsed the records.
+// Detects which KNOWN_RECORD_LAYOUTS entry produced this binary: the correct
+// one is whichever candidate's summed per-record NumCounters matches the
+// counters segment size.
 function detectRecordLayout(dataSeg, countersSeg) {
     const expectedCounterCount = countersSeg.size / 8;
     const bytes = dataSeg.bytes;
