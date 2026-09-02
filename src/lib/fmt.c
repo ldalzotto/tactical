@@ -3,10 +3,11 @@
 #include "lib/memory.h"
 #include "lib/runtime.h"
 
-PUBLIC int fmt_uint_to_chars(uint32_t value, char *buf) {
+PUBLIC slice_t fmt_uint_to_chars(uint32_t value, slice_t buf) {
+    char *begin = buf.begin;
     if (value == 0) {
-        buf[0] = '0';
-        return 1;
+        begin[0] = '0';
+        return (slice_t){ .begin = begin, .end = begin + 1 };
     }
 
     char reversed[10];
@@ -17,17 +18,19 @@ PUBLIC int fmt_uint_to_chars(uint32_t value, char *buf) {
     }
 
     for (int i = 0; i < count; i++) {
-        buf[i] = reversed[count - 1 - i];
+        begin[i] = reversed[count - 1 - i];
     }
-    return count;
+    return (slice_t){ .begin = begin, .end = begin + count };
 }
 
-PUBLIC int fmt_int_to_chars(int32_t value, char *buf) {
+PUBLIC slice_t fmt_int_to_chars(int32_t value, slice_t buf) {
     if (value < 0) {
-        buf[0] = '-';
+        char *begin = buf.begin;
+        begin[0] = '-';
         // Widen before negating: -(int32_t)INT32_MIN overflows int32_t.
         uint32_t magnitude = (uint32_t)(-(int64_t)value);
-        return 1 + fmt_uint_to_chars(magnitude, buf + 1);
+        slice_t digits = fmt_uint_to_chars(magnitude, slice_advance(buf, 1));
+        return (slice_t){ .begin = begin, .end = digits.end };
     }
     return fmt_uint_to_chars((uint32_t)value, buf);
 }
@@ -43,14 +46,14 @@ PUBLIC void fmt_write(linear_allocator_t *dest, slice_t str) {
 
 PUBLIC void fmt_write_int(linear_allocator_t *dest, int32_t value) {
     char buf[11];
-    int count = fmt_int_to_chars(value, buf);
-    fmt_write(dest, (slice_t){ .begin = buf, .end = buf + count });
+    slice_t chars = fmt_int_to_chars(value, (slice_t){ .begin = buf, .end = buf + sizeof(buf) });
+    fmt_write(dest, chars);
 }
 
 PUBLIC void fmt_write_uint(linear_allocator_t *dest, uint32_t value) {
     char buf[10];
-    int count = fmt_uint_to_chars(value, buf);
-    fmt_write(dest, (slice_t){ .begin = buf, .end = buf + count });
+    slice_t chars = fmt_uint_to_chars(value, (slice_t){ .begin = buf, .end = buf + sizeof(buf) });
+    fmt_write(dest, chars);
 }
 
 PUBLIC void fmt_write_bool(linear_allocator_t *dest, bool value) {

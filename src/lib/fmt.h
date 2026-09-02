@@ -22,13 +22,13 @@
 // never outlives the call.
 
 // Converts value's decimal digits into buf (which must have room for at
-// least 10 chars) and returns how many chars were written. Pure and
+// least 10 chars) and returns the written prefix of buf. Pure and
 // buffer-only, so it's unit-testable without any I/O.
-PUBLIC int fmt_uint_to_chars(uint32_t value, char *buf);
+PUBLIC slice_t fmt_uint_to_chars(uint32_t value, slice_t buf);
 
 // Same, but for a signed value; buf must have room for at least 11 chars
 // (10 digits plus a leading '-').
-PUBLIC int fmt_int_to_chars(int32_t value, char *buf);
+PUBLIC slice_t fmt_int_to_chars(int32_t value, slice_t buf);
 
 // Writes a fragment of the current debug line (no line break).
 PUBLIC void fmt_write(linear_allocator_t *dest, slice_t str);
