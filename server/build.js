@@ -2,6 +2,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
+const { ensureToolchain } = require('./setup-toolchain');
+ensureToolchain();
+
 const args = process.argv.slice(2);
 const mode = args.includes('--release') ? 'Release' : 'Debug';
 const verbose = args.includes('--verbose');
