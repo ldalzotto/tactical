@@ -102,6 +102,57 @@ PRIVATE void test_print_game_state(linear_allocator_t *allocator) {
     game_deinit(allocator, game);
 }
 
+PRIVATE void test_print_game_state_movement_mode_with_hover(linear_allocator_t *allocator) {
+    game_state_t game = scenario_setup_default(allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+    game.mode = GAME_MODE_MOVEMENT;
+    game.hover = (position_t){ .x = 5, .y = 6 };
+    game.hover_valid = true;
+
+    void *mark = allocator->cursor;
+    print_game_state(allocator, game);
+    slice_t captured = { mark, allocator->cursor };
+
+    assert_test(slice_equals(captured, STR(
+        "{\"mode\":\"movement\",\"hover\":{\"x\":5,\"y\":6},\"selected_skill\":0,\"game_over\":\"none\",\"entity_count\":6,\"turn_cursor\":0}\n"
+    )));
+
+    linear_allocator_pop(allocator, captured);
+    game_deinit(allocator, game);
+}
+
+PRIVATE void test_print_game_state_attack_mode_win(linear_allocator_t *allocator) {
+    game_state_t game = scenario_setup_default(allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+    game.mode = GAME_MODE_ATTACK;
+    game.game_over = GAME_OVER_WIN;
+
+    void *mark = allocator->cursor;
+    print_game_state(allocator, game);
+    slice_t captured = { mark, allocator->cursor };
+
+    assert_test(slice_equals(captured, STR(
+        "{\"mode\":\"attack\",\"hover\":null,\"selected_skill\":0,\"game_over\":\"win\",\"entity_count\":6,\"turn_cursor\":0}\n"
+    )));
+
+    linear_allocator_pop(allocator, captured);
+    game_deinit(allocator, game);
+}
+
+PRIVATE void test_print_game_state_lose(linear_allocator_t *allocator) {
+    game_state_t game = scenario_setup_default(allocator, GAME_TEST_GRID_WIDTH, GAME_TEST_GRID_HEIGHT, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+    game.game_over = GAME_OVER_LOSE;
+
+    void *mark = allocator->cursor;
+    print_game_state(allocator, game);
+    slice_t captured = { mark, allocator->cursor };
+
+    assert_test(slice_equals(captured, STR(
+        "{\"mode\":\"none\",\"hover\":null,\"selected_skill\":0,\"game_over\":\"lose\",\"entity_count\":6,\"turn_cursor\":0}\n"
+    )));
+
+    linear_allocator_pop(allocator, captured);
+    game_deinit(allocator, game);
+}
+
 const test_case_t g_print_tests[] = {
     { TEST_NAME("print_position"), test_print_position },
     { TEST_NAME("print_skill"), test_print_skill },
@@ -109,6 +160,9 @@ const test_case_t g_print_tests[] = {
     { TEST_NAME("print_entity_list"), test_print_entity_list },
     { TEST_NAME("print_turn_state"), test_print_turn_state },
     { TEST_NAME("print_game_state"), test_print_game_state },
+    { TEST_NAME("print_game_state_movement_mode_with_hover"), test_print_game_state_movement_mode_with_hover },
+    { TEST_NAME("print_game_state_attack_mode_win"), test_print_game_state_attack_mode_win },
+    { TEST_NAME("print_game_state_lose"), test_print_game_state_lose },
 };
 
 const uint32_t g_print_tests_count = sizeof(g_print_tests) / sizeof(g_print_tests[0]);

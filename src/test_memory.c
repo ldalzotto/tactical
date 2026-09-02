@@ -361,6 +361,16 @@ PRIVATE void test_bytesize(linear_allocator_t *allocator) {
     LINEAR_ALLOCATOR_POP(allocator, s);
 }
 
+PRIVATE void test_slice_equals_different_lengths(linear_allocator_t *allocator) {
+    (void)allocator;
+    assert_test(!slice_equals(STR("abc"), STR("ab")));
+}
+
+PRIVATE void test_slice_equals_same_length_different_content(linear_allocator_t *allocator) {
+    (void)allocator;
+    assert_test(!slice_equals(STR("abc"), STR("abd")));
+}
+
 const test_case_t g_memory_tests[] = {
     { TEST_NAME("byteoffset"), test_byteoffset },
     { TEST_NAME("linear_allocator_init"), test_linear_allocator_init },
@@ -403,6 +413,8 @@ const test_case_t g_memory_tests[] = {
     { TEST_NAME("slice_advance_panics_on_out_of_bounds"), test_slice_advance_panics_on_out_of_bounds },
 #endif
     { TEST_NAME("bytesize"), test_bytesize },
+    { TEST_NAME("slice_equals_different_lengths"), test_slice_equals_different_lengths },
+    { TEST_NAME("slice_equals_same_length_different_content"), test_slice_equals_same_length_different_content },
 };
 
 const uint32_t g_memory_tests_count = sizeof(g_memory_tests) / sizeof(g_memory_tests[0]);
