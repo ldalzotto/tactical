@@ -2,6 +2,7 @@
 
 #include "linkage.h"
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -46,6 +47,13 @@ PUBLIC void *slice_at(slice_t s, size_t index, size_t alignment);
 PUBLIC slice_t slice_advance(slice_t s, size_t by);
 PUBLIC slice_t slice_shift(slice_t s, ptrdiff_t by);
 PUBLIC ptrdiff_t bytesize(void *begin, void *end);
+
+#ifdef APP_BUILD_TESTS
+// Byte-for-byte comparison, for tests to assert on captured output
+// (debug_capture_end et al.) against a STR() literal. Not used by any
+// production path, hence gated the same way assert.h's expect_panic is.
+PUBLIC bool slice_equals(slice_t a, slice_t b);
+#endif
 #define typesize(begin, end) bytesize(begin, end) / sizeof(*begin)
 
 #define SLICE_DEFINE(type) \
