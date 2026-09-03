@@ -9,6 +9,7 @@ const { runWasmTests } = require('../web/wasm-shared');
 const { buildTextProfile } = require('./wasm-profile');
 const { printUncovered } = require('./coverage-missing');
 const { ensureToolchain } = require('./setup-toolchain');
+const { checkSymbolicationDetail } = require('./verify-symbolication');
 
 const ROOT = path.join(__dirname, '..');
 const WASM_PATH = path.join(ROOT, 'build', 'app.wasm');
@@ -31,12 +32,14 @@ function run(cmd, args) {
 async function main() {
     const wasmBytes = fs.readFileSync(WASM_PATH);
     const resolveFrames = (frames) => symbolicate({ wasmPath: WASM_PATH, frames });
+    let symbolicationError = null;
 
     const { failed, memory } = await runWasmTests({
         wasmBytes,
         resolveFrames,
         printLine: verbose ? console.log : () => {},
         onResult({ name, passed, detail }) {
+            symbolicationError ??= checkSymbolicationDetail(name, detail);
             if (!passed) {
                 console.log(`FAIL  ${name}`);
                 console.log(detail.replace(/^/gm, '      '));
@@ -46,6 +49,12 @@ async function main() {
             console.log(`\nTests: ${passed}/${count} passed, ${failed} failed`);
         },
     });
+
+    if (symbolicationError) {
+        console.log(`\nFAIL  symbolication check: ${symbolicationError}`);
+        process.exitCode = 1;
+        return;
+    }
 
     if (failed > 0) {
         process.exitCode = 1;

@@ -130,14 +130,18 @@ async function runWasmTests({ wasmBytes, resolveFrames, onResult, onComplete, cr
             passed++;
             onResult({ name, passed: true });
         } catch (err) {
-            if (test_expect_trap_end()) {
+            const isExpectedTrap = test_expect_trap_end();
+            // Resolved even for an expected trap: this is the only place an
+            // expected trap's stack is symbolicated, and callers use it to
+            // verify symbolication itself is working (see verify-symbolication.js).
+            const { message, framesText } = await resolveFailureText(err, resolveFrames);
+            const detail = framesText ? `${message}\n${framesText}` : message;
+            if (isExpectedTrap) {
                 passed++;
-                onResult({ name, passed: true });
+                onResult({ name, passed: true, detail });
                 continue;
             }
             failed++;
-            const { message, framesText } = await resolveFailureText(err, resolveFrames);
-            const detail = framesText ? `${message}\n${framesText}` : message;
             onResult({ name, passed: false, detail });
         }
     }
