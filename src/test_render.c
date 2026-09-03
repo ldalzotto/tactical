@@ -229,6 +229,82 @@ PRIVATE void test_render_attack_range_tile_occupied_by_enemy_is_dithered_not_sol
     linear_allocator_pop(allocator, fb_align);
 }
 
+// los_blocked_tiles: in-range but LOS-blocked tiles stay visible (dimmed),
+// with the same occupied-dithering treatment as attack_range_tiles.
+// Mirrors the enemy-occupied attack-range test above, but for the
+// LOS-blocked overlay: an unoccupied blocked tile ((4,0), blocked by a
+// wall directly on the straight ray) is a solid fill, while an occupied
+// one (enemy standing at (2,2), blocked by a wall on the diagonal ray)
+// dithers.
+PRIVATE void test_render_los_blocked_tile_occupied_by_enemy_is_dithered_not_solid(linear_allocator_t *allocator) {
+    slice_t fb_align = linear_allocator_push_alignment(allocator, _Alignof(rgba_t));
+    slice_rgba_t fb;
+    fb = LINEAR_ALLOCATOR_PUSH(allocator, fb, (size_t)(GAME_TEST_FB_WIDTH * GAME_TEST_FB_HEIGHT));
+
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 5, 3);
+    // Blocks the straight ray from (0,0) to (4,0): (4,0) is LOS-blocked
+    // and left unoccupied.
+    grid_set_walkable(grid, (position_t){2, 0}, false);
+    grid_set_blocks_sight(grid, (position_t){2, 0}, true);
+    // Blocks the diagonal ray from (0,0) to (2,2), where the enemy stands.
+    grid_set_walkable(grid, (position_t){1, 1}, false);
+    grid_set_blocks_sight(grid, (position_t){1, 1}, true);
+
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t *p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
+    entity_t *enemy = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){2, 2}, 10, 2, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, (skill_t){ .range = 4, .damage = 3, .ap_cost = 1 });
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *enemy_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    enemy->skills = (slice_skill_t){ .begin = enemy_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, enemy);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+    render_frame(fb, GAME_TEST_FB_WIDTH, game);
+
+    assert_test(!test_tile_list_contains(game.pathing.attack_range_tiles, (position_t){4, 0}));
+    assert_test(test_tile_list_contains(game.pathing.los_blocked_tiles, (position_t){4, 0}));
+    assert_test(!test_tile_list_contains(game.pathing.attack_range_tiles, enemy->position));
+    assert_test(test_tile_list_contains(game.pathing.los_blocked_tiles, enemy->position));
+
+    rgba_t tint = { 120, 100, 90, 255 };
+    // COLOR_TILE_WALKABLE -- what a checkerboard "off" pixel falls back to
+    // when tint isn't drawn there. Neither tile is on an obstacle.
+    rgba_t tile_walkable = { 40, 40, 40, 255 };
+
+    // (4,0): in range, LOS-blocked, unoccupied -- solid tint fill.
+    assert_test(test_tile_fully_color(fb, GAME_TEST_FB_WIDTH, game.viewport, (position_t){4, 0}, tint));
+
+    // enemy's tile: same dithering proof as the attack-range test -- the
+    // top-left corner pixels must differ by checkerboard parity, not both
+    // equal tint (which a solid fill would produce).
+    int enemy_px, enemy_py;
+    grid_to_screen(game.viewport, enemy->position.x, enemy->position.y, &enemy_px, &enemy_py);
+    assert_test((enemy_px + enemy_py) % 2 == 0); // sanity: the pixel we check is the "on" one
+    rgba_t corner_on = SLICE_AT(fb, enemy_py * GAME_TEST_FB_WIDTH + enemy_px);
+    rgba_t corner_off = SLICE_AT(fb, enemy_py * GAME_TEST_FB_WIDTH + (enemy_px + 1));
+    assert_test(rgba_equals(corner_on, tint));
+    assert_test(rgba_equals(corner_off, tile_walkable));
+
+    game_deinit(allocator, game);
+    LINEAR_ALLOCATOR_POP(allocator, fb);
+    linear_allocator_pop(allocator, fb_align);
+}
+
 // F1-06: hovering a valid AoE impact tile draws the blast overlay
 // (dithered, like attack_range_tiles), layered on the still-visible
 // attack-range overlay, not replacing it. Not required by F1-08 (which
@@ -734,6 +810,7 @@ const test_case_t g_render_tests[] = {
     { TEST_NAME("render_dithered_rectangle_checkerboards_over_background"), test_render_dithered_rectangle_checkerboards_over_background },
     { TEST_NAME("render_attack_range_tile_occupied_by_enemy_is_dithered_not_solid"), test_render_attack_range_tile_occupied_by_enemy_is_dithered_not_solid },
     { TEST_NAME("render_attack_range_tile_occupied_by_ally_is_not_highlighted"), test_render_attack_range_tile_occupied_by_ally_is_not_highlighted },
+    { TEST_NAME("render_los_blocked_tile_occupied_by_enemy_is_dithered_not_solid"), test_render_los_blocked_tile_occupied_by_enemy_is_dithered_not_solid },
     { TEST_NAME("render_blast_tile_is_dithered_over_attack_range"), test_render_blast_tile_is_dithered_over_attack_range },
     { TEST_NAME("render_obstacle_tile_uses_obstacle_colors"), test_render_obstacle_tile_uses_obstacle_colors },
     { TEST_NAME("render_chasm_tile_uses_chasm_colors"), test_render_chasm_tile_uses_chasm_colors },
