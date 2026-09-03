@@ -121,11 +121,10 @@ PRIVATE int pathing_manhattan_distance(position_t a, position_t b) {
     return (dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy);
 }
 
-// True if the straight ray from `from` to `to` (`to` != `from`) is
-// unobstructed: every intermediate tile (endpoints excluded, so neither can
-// block sight to itself) is sight-clear and unoccupied.
-PRIVATE bool pathing_line_of_sight_clear(grid_t grid, slice_entity_t entities, position_t from, position_t to) {
-    geometry_line_iter_t it = geometry_line_iter_start(from, to);
+// True if every intermediate tile (endpoints excluded) of one Bresenham
+// ray from `from` to `to` is sight-clear and unoccupied.
+PRIVATE bool pathing_line_of_sight_ray_clear(grid_t grid, slice_entity_t entities, position_t from, position_t to, bool alt_tie_break) {
+    geometry_line_iter_t it = geometry_line_iter_start(from, to, alt_tie_break);
 
     position_t tile;
     while (geometry_line_iter_next(&it, to, &tile)) {
@@ -139,6 +138,15 @@ PRIVATE bool pathing_line_of_sight_clear(grid_t grid, slice_entity_t entities, p
     }
 
     return true;
+}
+
+// True if the straight ray from `from` to `to` (`to` != `from`) is
+// unobstructed. Tries both Bresenham tie-break variants and accepts either:
+// a diagonal tie can clip a corner tile that a real shot along the same
+// line would pass on the other side of, so a single path is too strict.
+PRIVATE bool pathing_line_of_sight_clear(grid_t grid, slice_entity_t entities, position_t from, position_t to) {
+    return pathing_line_of_sight_ray_clear(grid, entities, from, to, false)
+        || pathing_line_of_sight_ray_clear(grid, entities, from, to, true);
 }
 
 // LOS-only half of pathing_can_target (no range check): ray unobstructed,

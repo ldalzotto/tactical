@@ -160,20 +160,23 @@ PRIVATE void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
     }
 
     // Debug: visualizes geometry_line_iter_start/_next's walk from the
-    // active entity to the hovered cell -- recomputed every frame,
-    // tile-by-tile, straight into the framebuffer (no allocation, nothing
-    // stored).
+    // active entity to the hovered cell -- both tie-break variants (see
+    // pathing_line_of_sight_clear), so the "thick" pair of tiles a
+    // permissive LOS check accepts is visible together, tile-by-tile,
+    // straight into the framebuffer (no allocation, nothing stored).
     if (game.hover_valid) {
         position_t from = turn_active_entity(game.turn)->position;
         position_t to = game.hover;
         if (!position_equals(from, to)) {
-            geometry_line_iter_t it = geometry_line_iter_start(from, to);
-            position_t tile;
-            while (geometry_line_iter_next(&it, to, &tile)) {
-                int px, py;
-                grid_to_screen(game.viewport, tile.x, tile.y, &px, &py);
-                int ts = game.viewport.tile_size;
-                graphics_draw_rectangle(fb, fb_width, px, py, ts, ts, COLOR_DEBUG_LOS_LINE);
+            for (int alt = 0; alt < 2; alt++) {
+                geometry_line_iter_t it = geometry_line_iter_start(from, to, alt != 0);
+                position_t tile;
+                while (geometry_line_iter_next(&it, to, &tile)) {
+                    int px, py;
+                    grid_to_screen(game.viewport, tile.x, tile.y, &px, &py);
+                    int ts = game.viewport.tile_size;
+                    graphics_draw_rectangle(fb, fb_width, px, py, ts, ts, COLOR_DEBUG_LOS_LINE);
+                }
             }
         }
     }
