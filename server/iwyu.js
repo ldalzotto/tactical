@@ -1,15 +1,18 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
+const { ensureToolchain } = require('./setup-toolchain');
 
 const verbose = process.argv.includes('--verbose');
+
+ensureToolchain({ verbose });
 
 const BUILD_DIR = 'build';
 const COMPILE_COMMANDS = path.join(BUILD_DIR, 'compile_commands.json');
 
 // Must be the same LLVM toolchain used to compile app.wasm (CMakeLists.txt),
-// else it parses with a mismatched AST — require it on PATH explicitly
-// rather than falling back to a hardcoded version.
+// else it parses with a mismatched AST — ensureToolchain() above installs and
+// pins a matching version onto PATH when needed.
 function findIncludeCleaner() {
     const onPath = spawnSync('which', ['clang-include-cleaner'], { encoding: 'utf8' });
     if (onPath.status !== 0) {
