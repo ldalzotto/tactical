@@ -4,12 +4,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const { symbolicate } = require('./symbolicate');
+const { symbolicate, checkSymbolicationDetail } = require('./symbolicate');
 const { runWasmTests } = require('../web/wasm-shared');
 const { buildTextProfile } = require('./wasm-profile');
 const { printUncovered } = require('./coverage-missing');
 const { ensureToolchain } = require('./setup-toolchain');
-const { checkSymbolicationDetail } = require('./verify-symbolication');
 
 const ROOT = path.join(__dirname, '..');
 const WASM_PATH = path.join(ROOT, 'build', 'app.wasm');

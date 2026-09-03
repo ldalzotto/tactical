@@ -1,9 +1,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { symbolicate } = require('./symbolicate');
+const { symbolicate, checkSymbolicationDetail } = require('./symbolicate');
 const { runWasmTests } = require('../web/wasm-shared');
-const { checkSymbolicationDetail } = require('./verify-symbolication');
 const { ensureToolchain } = require('./setup-toolchain');
 
 const ROOT = path.join(__dirname, '..');
