@@ -22,12 +22,14 @@ PRIVATE void pathing_ranges_assert_layout(pathing_ranges_t ranges) {
 }
 
 // Adopts a caller-built walking_distances region, then re-pushes empty
-// attack_range_tiles/blast_tiles on top. Requires all three regions empty.
+// attack_range_tiles/los_blocked_tiles/blast_tiles on top. Requires all
+// three regions empty.
 PRIVATE void pathing_ranges_set_walking_distances(linear_allocator_t *scratch, pathing_ranges_t *ranges, slice_t walking_distances_align, pathing_state_t walking_distances) {
     ranges->walking_distances_align = walking_distances_align;
     ranges->walking_distances = walking_distances;
     ranges->attack_range_align = linear_allocator_push(scratch, 0);
     ranges->attack_range_tiles = LINEAR_ALLOCATOR_PUSH(scratch, ranges->attack_range_tiles, 0);
+    ranges->los_blocked_tiles = LINEAR_ALLOCATOR_PUSH(scratch, ranges->los_blocked_tiles, 0);
     ranges->blast_align = linear_allocator_push(scratch, 0);
     ranges->blast_tiles = LINEAR_ALLOCATOR_PUSH(scratch, ranges->blast_tiles, 0);
 
