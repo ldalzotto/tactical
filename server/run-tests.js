@@ -4,10 +4,16 @@ const path = require('node:path');
 const { symbolicate } = require('./symbolicate');
 const { runWasmTests } = require('../web/wasm-shared');
 const { checkSymbolicationDetail } = require('./verify-symbolication');
+const { ensureToolchain } = require('./setup-toolchain');
 
 const ROOT = path.join(__dirname, '..');
 const WASM_PATH = path.join(ROOT, 'build', 'app.wasm');
 const verbose = process.argv.includes('--verbose');
+// symbolicate() below shells out to llvm-symbolizer/wasm-objdump; build.js
+// already ran ensureToolchain() to build app.wasm, but that only primed
+// its own process's PATH, and this script always runs as a separate node
+// process afterward.
+ensureToolchain({ verbose });
 
 async function main() {
     const wasmBytes = fs.readFileSync(WASM_PATH);
