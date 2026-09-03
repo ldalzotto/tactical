@@ -133,7 +133,7 @@ async function runWasmTests({ wasmBytes, resolveFrames, onResult, onComplete, cr
             const isExpectedTrap = test_expect_trap_end();
             // Resolved even for an expected trap: this is the only place an
             // expected trap's stack is symbolicated, and callers use it to
-            // verify symbolication itself is working (see verify-symbolication.js).
+            // verify symbolication itself is working (see checkSymbolicationDetail in server/symbolicate.js).
             const { message, framesText } = await resolveFailureText(err, resolveFrames);
             const detail = framesText ? `${message}\n${framesText}` : message;
             if (isExpectedTrap) {
