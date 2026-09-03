@@ -133,22 +133,29 @@ PRIVATE bool pathing_line_of_sight_clear(grid_t grid, slice_entity_t entities, p
     return true;
 }
 
-PUBLIC bool pathing_can_target(grid_t grid, slice_entity_t entities, position_t from, position_t to, int max_range) {
-    if (pathing_manhattan_distance(from, to) > max_range) {
-        return false;
-    }
-
+// True if `to` has clear line of sight from `from`: the ray is unobstructed
+// (pathing_line_of_sight_clear) AND `to` itself isn't empty sight-blocking
+// ground (pathing_line_of_sight_clear skips `to` so a standing entity
+// doesn't occlude itself, but empty sight-blocking ground has nothing to
+// target). Range is checked separately by callers.
+PRIVATE bool pathing_los_target_ok(grid_t grid, slice_entity_t entities, position_t from, position_t to) {
     if (!pathing_line_of_sight_clear(grid, entities, from, to)) {
         return false;
     }
 
-    // pathing_line_of_sight_clear skips `to` (so a standing entity doesn't
-    // occlude itself), but empty sight-blocking ground has nothing to target.
     if (grid_blocks_sight(grid, to) && entity_find_at(entities, to) == 0) {
         return false;
     }
 
     return true;
+}
+
+PUBLIC bool pathing_can_target(grid_t grid, slice_entity_t entities, position_t from, position_t to, int max_range) {
+    if (pathing_manhattan_distance(from, to) > max_range) {
+        return false;
+    }
+
+    return pathing_los_target_ok(grid, entities, from, to);
 }
 
 PUBLIC int pathing_distance_at(pathing_state_t state, grid_t grid, position_t position) {
