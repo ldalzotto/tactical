@@ -7,10 +7,12 @@ on:
       - completed
   workflow_dispatch:
 
+# Deploys via a plain push to the gh-pages branch (peaceiris/actions-gh-pages),
+# not the actions/deploy-pages API -- so this only needs push access to the
+# repo, not the pages/id-token permissions that method requires. Repo Pages
+# source must be set to "Deploy from a branch: gh-pages / (root)".
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
@@ -20,6 +22,9 @@ jobs:
   build:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    outputs:
+      is_master_push: ${{ steps.branch.outputs.is_master_push }}
+      preview_dir: ${{ steps.branch.outputs.preview_dir }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -41,21 +46,64 @@ jobs:
         run: npm run build:pages
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
+          name: pages-dist
           path: dist
 
-  deploy:
-    if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_branch == 'master'
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      # Master's push build deploys to the site root; anything else (PR
+      # branches, other branch pushes) deploys to preview/<branch>/,
+      # alongside the live site instead of replacing it. Branch names are
+      # sanitized to [A-Za-z0-9-] so a crafted branch name can't escape the
+      # preview/ directory or inject path segments.
+      - name: Determine deploy target
+        id: branch
+        run: |
+          branch="${{ github.event.workflow_run.head_branch }}"
+          event="${{ github.event.workflow_run.event }}"
+          if [ "$event" = "push" ] && [ "$branch" = "master" ]; then
+            echo "is_master_push=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_master_push=false" >> "$GITHUB_OUTPUT"
+          fi
+          safe_branch=$(echo "$branch" | sed 's/[^A-Za-z0-9-]/-/g')
+          echo "preview_dir=preview/$safe_branch" >> "$GITHUB_OUTPUT"
+
+  deploy-production:
+    if: needs.build.outputs.is_master_push == 'true'
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: pages-dist
+          path: dist
+
+      - name: Deploy site root to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: dist
+          # Preserves preview/ subdirectories from other branches -- only
+          # files under dist/ are added/overwritten at the root.
+          keep_files: true
+
+  deploy-preview:
+    if: needs.build.outputs.is_master_push == 'false' && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: pages-dist
+          path: dist
+
+      - name: Deploy preview to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: dist
+          destination_dir: ${{ needs.build.outputs.preview_dir }}
+          keep_files: true
