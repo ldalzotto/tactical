@@ -7,13 +7,13 @@
 // missing from the toolchain -- instead of it only showing up as garbled
 // text in an unrelated test failure.
 const TARGET_TEST_NAME = 'panic_without_expect_panic_traps';
-// panic(false) is written on this exact line of test_runtime.c; the
-// resolved trace's file:line comes from DWARF's .debug_line table and has
-// been reliably accurate in testing. The resolved *function name* for that
-// frame, by contrast, comes from DWARF subprogram (.debug_info) lookup and
-// has been observed to be wrong in this toolchain (e.g. reporting a
-// different static test function than the one that actually panicked) even
-// when the file:line is correct -- so it isn't checked here.
+// panic(false) is written on this exact line of test_runtime.c, inside the
+// function that must show up as the resolved trace's outermost frame.
+// symbolicate.js takes that frame's function name from the wasm binary's
+// name section (via funcIndex) rather than from llvm-symbolizer's own
+// DWARF subprogram lookup, which has been observed to misattribute it to
+// an unrelated function even when the file:line it reports is correct.
+const EXPECTED_FUNCTION = 'test_panic_without_expect_panic_traps';
 const EXPECTED_FILE = 'test_runtime.c';
 const EXPECTED_LINE = ':45:';
 
@@ -27,8 +27,8 @@ function checkSymbolicationDetail(name, detail) {
     if (!detail || detail.includes('symbolication failed')) {
         return `expected a resolved stack trace for '${TARGET_TEST_NAME}', got: ${detail}`;
     }
-    if (!detail.includes(EXPECTED_FILE) || !detail.includes(EXPECTED_LINE)) {
-        return `expected the stack trace for '${TARGET_TEST_NAME}' to include a frame at ${EXPECTED_FILE}${EXPECTED_LINE}, got:\n${detail}`;
+    if (!detail.includes(EXPECTED_FUNCTION) || !detail.includes(EXPECTED_FILE) || !detail.includes(EXPECTED_LINE)) {
+        return `expected the stack trace for '${TARGET_TEST_NAME}' to include ${EXPECTED_FUNCTION} at ${EXPECTED_FILE}${EXPECTED_LINE}, got:\n${detail}`;
     }
     return null;
 }

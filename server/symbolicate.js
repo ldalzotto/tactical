@@ -128,18 +128,30 @@ async function needsCodeOffsetSubtraction({ objPath, frame, funcNames }) {
     return locationsMatchName(adjustedLocations, expectedName);
 }
 
-// Calibration result is a property of the (toolchain, wasm binary) pair, not
-// of any particular run, so it's cheap and safe to cache per object path.
+// Calibration result and the func-name table are properties of the
+// (toolchain, wasm binary) pair, not of any particular run, so both are
+// cheap and safe to cache per object path.
 const calibrationCache = new Map();
+const funcNamesCache = new Map();
+
+async function getCachedFuncNames({ objPath }) {
+    let funcNames = funcNamesCache.get(objPath);
+    if (!funcNames) {
+        funcNames = await getFuncNames({ objPath });
+        funcNamesCache.set(objPath, funcNames);
+    }
+    return funcNames;
+}
 
 async function symbolicate({ wasmPath, frames }) {
     if (frames.length === 0) {
         return [];
     }
 
+    const funcNames = await getCachedFuncNames({ objPath: wasmPath });
+
     let subtractOffset = calibrationCache.get(wasmPath);
     if (subtractOffset === undefined) {
-        const funcNames = await getFuncNames({ objPath: wasmPath });
         subtractOffset = await needsCodeOffsetSubtraction({ objPath: wasmPath, frame: frames[0], funcNames });
         calibrationCache.set(wasmPath, subtractOffset);
     }
@@ -160,8 +172,25 @@ async function symbolicate({ wasmPath, frames }) {
     return frames.map((frame, i) => ({
         funcIndex: frame.funcIndex,
         offset: frame.offset,
-        locations: resolvedLocations[i],
+        locations: patchOutermostFunctionName(resolvedLocations[i], funcNames.get(frame.funcIndex)),
     }));
+}
+
+// llvm-symbolizer's function-name resolution for wasm/DWARF has been
+// observed to misattribute the outermost (non-inlined) frame to an
+// unrelated function's name while still resolving that same frame's
+// file:line correctly (verified against the DWARF subprogram's own
+// low_pc). The wasm binary's name section, looked up by funcIndex, is
+// unambiguous ground truth for that outermost frame, so it overrides
+// whatever name llvm-symbolizer reported there. Inlined frames (every
+// location before the last) aren't touched: they describe logical
+// functions with no funcIndex of their own.
+function patchOutermostFunctionName(locations, groundTruthName) {
+    if (!groundTruthName || locations.length === 0) {
+        return locations;
+    }
+    const outermost = locations.length - 1;
+    return locations.map((loc, i) => (i === outermost ? { ...loc, function: groundTruthName } : loc));
 }
 
 module.exports = { symbolicate };
