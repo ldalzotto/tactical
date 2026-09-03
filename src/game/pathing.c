@@ -141,12 +141,11 @@ PRIVATE bool pathing_line_of_sight_ray_clear(grid_t grid, slice_entity_t entitie
 }
 
 // True if the straight ray from `from` to `to` (`to` != `from`) is
-// unobstructed. Tries both Bresenham tie-break variants and accepts either:
-// a diagonal tie can clip a corner tile that a real shot along the same
-// line would pass on the other side of, so a single path is too strict.
+// unobstructed. Requires both Bresenham tie-break variants to be clear:
+// either one hitting a blocker is enough to call the line of sight blocked.
 PRIVATE bool pathing_line_of_sight_clear(grid_t grid, slice_entity_t entities, position_t from, position_t to) {
     return pathing_line_of_sight_ray_clear(grid, entities, from, to, false)
-        || pathing_line_of_sight_ray_clear(grid, entities, from, to, true);
+        && pathing_line_of_sight_ray_clear(grid, entities, from, to, true);
 }
 
 // LOS-only half of pathing_can_target (no range check): ray unobstructed,
