@@ -3,6 +3,7 @@
 #include "../lib/assert.h"
 #include "game/entity.h"
 #include "game/game.h"
+#include "game/geometry.h"
 #include "game/grid.h"
 #include "game/layout.h"
 #include "game/pathing.h"
@@ -56,6 +57,9 @@ static const rgba_t COLOR_AP_PIP = { 60, 120, 255, 255 };
 static const rgba_t COLOR_MP_PIP = { 60, 200, 60, 255 };
 static const rgba_t COLOR_WIN = { 0, 200, 0, 255 };
 static const rgba_t COLOR_LOSE = { 200, 0, 0, 255 };
+// Debug-only: tiles walked by geometry_line_iter between the active entity
+// and the hovered cell.
+static const rgba_t COLOR_DEBUG_LOS_LINE = { 255, 0, 255, 255 };
 
 #define OUTLINE_THICKNESS 2
 // Small square, inset past the OUTLINE_THICKNESS-px selection outline.
@@ -153,6 +157,25 @@ PRIVATE void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
         grid_to_screen(game.viewport, game.hover.x, game.hover.y, &px, &py);
         int ts = game.viewport.tile_size;
         render_draw_outline(fb, fb_width, (rect_t){px, py, ts, ts}, COLOR_WHITE);
+    }
+
+    // Debug: visualizes geometry_line_iter_start/_next's walk from the
+    // active entity to the hovered cell -- recomputed every frame,
+    // tile-by-tile, straight into the framebuffer (no allocation, nothing
+    // stored).
+    if (game.hover_valid) {
+        position_t from = turn_active_entity(game.turn)->position;
+        position_t to = game.hover;
+        if (!position_equals(from, to)) {
+            geometry_line_iter_t it = geometry_line_iter_start(from, to);
+            position_t tile;
+            while (geometry_line_iter_next(&it, to, &tile)) {
+                int px, py;
+                grid_to_screen(game.viewport, tile.x, tile.y, &px, &py);
+                int ts = game.viewport.tile_size;
+                graphics_draw_rectangle(fb, fb_width, px, py, ts, ts, COLOR_DEBUG_LOS_LINE);
+            }
+        }
     }
 }
 
