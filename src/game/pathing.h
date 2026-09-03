@@ -54,10 +54,22 @@ PUBLIC int pathing_distance_at(pathing_state_t state, grid_t grid, position_t po
 // pathing_state_t).
 PUBLIC slice_position_t pathing_compute_blast_tiles(linear_allocator_t *allocator, grid_t grid, position_t center, int radius);
 
-// Every tile a skill with `max_range` can legally target from `from`
-// (pathing_can_target), excluding `from` itself (trivially in range but
-// never a valid target). Staged on `allocator` like pathing_compute_blast_tiles.
-PUBLIC slice_position_t pathing_compute_attack_range(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, position_t from, int max_range);
+// Result of pathing_compute_attack_range: attack_range_tiles and
+// los_blocked_tiles are one contiguous allocation (no gap), so callers
+// copy both at once. `align` marks the bottom of everything staged
+// (including internal partition scratch) -- pop the whole span via it,
+// not the two tile slices individually.
+typedef struct {
+    slice_t align;
+    slice_position_t attack_range_tiles;
+    slice_position_t los_blocked_tiles;
+} pathing_attack_range_t;
+
+// In-range tiles from `from` (excluding `from` itself), split into
+// attack_range_tiles (selectable) and los_blocked_tiles (in range but
+// LOS-blocked, shown dimmed instead of hidden). Ally-occupied tiles are
+// dropped entirely. Staged on `allocator` like pathing_compute_blast_tiles.
+PUBLIC pathing_attack_range_t pathing_compute_attack_range(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, position_t from, int max_range);
 
 #ifdef APP_UNITY_BUILD
 #include "pathing.c"

@@ -458,6 +458,79 @@ PRIVATE void test_game_ranged_attack_blocked_by_wall_on_diagonal_line(linear_all
     game_deinit(allocator, game);
 }
 
+// Excluded from attack_range_tiles but still shown (dimmed) via
+// los_blocked_tiles, unlike a hidden ally-occupied tile.
+PRIVATE void test_game_los_blocked_tile_visible_but_not_selectable(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 3, 3);
+    grid_set_walkable(grid, (position_t){1, 1}, false);
+    grid_set_blocks_sight(grid, (position_t){1, 1}, true);
+
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
+    entity_t* e = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){2, 2}, 10, 2, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, (skill_t){ .range = 4, .damage = 3, .ap_cost = 1 });
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *e_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e->skills = (slice_skill_t){ .begin = e_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, e);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+
+    assert_test(!test_tile_list_contains(game.pathing.attack_range_tiles, e->position));
+    assert_test(test_tile_list_contains(game.pathing.los_blocked_tiles, e->position));
+
+    game_deinit(allocator, game);
+}
+
+// Ally-occupied tiles are hidden entirely: excluded from both
+// attack_range_tiles and los_blocked_tiles.
+PRIVATE void test_game_ally_occupied_tile_excluded_from_both_lists(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 3, 1);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
+    entity_t* ally = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){1, 0}, 10, 2, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_RANGED);
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *ally_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    ally->skills = (slice_skill_t){ .begin = ally_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, ally);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+
+    assert_test(!test_tile_list_contains(game.pathing.attack_range_tiles, ally->position));
+    assert_test(!test_tile_list_contains(game.pathing.los_blocked_tiles, ally->position));
+
+    game_deinit(allocator, game);
+}
+
 // A non-walkable tile that doesn't block sight (chasm, low wall) must not
 // shrink attack range: range is Manhattan distance + LOS, not walking
 // distance, so a target in plain sight across it is still legal.
@@ -1055,6 +1128,8 @@ const test_case_t g_game_combat_tests[] = {
     { TEST_NAME("game_ranged_attack_still_blocked_by_ally_in_path"), test_game_ranged_attack_still_blocked_by_ally_in_path },
     { TEST_NAME("game_attack_range_tiles_include_occupied_but_not_beyond"), test_game_attack_range_tiles_include_occupied_but_not_beyond },
     { TEST_NAME("game_ranged_attack_blocked_by_wall_on_diagonal_line"), test_game_ranged_attack_blocked_by_wall_on_diagonal_line },
+    { TEST_NAME("game_los_blocked_tile_visible_but_not_selectable"), test_game_los_blocked_tile_visible_but_not_selectable },
+    { TEST_NAME("game_ally_occupied_tile_excluded_from_both_lists"), test_game_ally_occupied_tile_excluded_from_both_lists },
     { TEST_NAME("game_ranged_attack_not_blocked_by_non_walkable_sight_clear_tile"), test_game_ranged_attack_not_blocked_by_non_walkable_sight_clear_tile },
     { TEST_NAME("game_attack_range_excludes_empty_sight_blocking_tile"), test_game_attack_range_excludes_empty_sight_blocking_tile },
     { TEST_NAME("game_attack_range_includes_entity_on_sight_blocking_tile"), test_game_attack_range_includes_entity_on_sight_blocking_tile },

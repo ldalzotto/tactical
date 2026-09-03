@@ -29,6 +29,8 @@ static const rgba_t COLOR_TILE_CHASM = { 20, 30, 55, 255 };
 static const rgba_t COLOR_TILE_CHASM_INSET = { 30, 45, 80, 255 };
 static const rgba_t COLOR_REACHABLE_TINT = { 80, 140, 220, 255 };
 static const rgba_t COLOR_ATTACK_RANGE_TINT = { 230, 140, 60, 255 };
+// Dimmer than COLOR_ATTACK_RANGE_TINT: in range but not selectable (LOS-blocked).
+static const rgba_t COLOR_LOS_BLOCKED_TINT = { 120, 100, 90, 255 };
 // Distinct from COLOR_ATTACK_RANGE_TINT so "what this hit would do" (the
 // hovered blast footprint) reads differently from "where I can target".
 static const rgba_t COLOR_BLAST_PREVIEW_TINT = { 220, 40, 40, 255 };
@@ -117,6 +119,21 @@ PRIVATE void render_tiles(slice_rgba_t fb, int fb_width, game_state_t game) {
             graphics_draw_rectangle_dithered(fb, fb_width, px, py, ts, ts, COLOR_ATTACK_RANGE_TINT);
         } else {
             graphics_draw_rectangle(fb, fb_width, px, py, ts, ts, COLOR_ATTACK_RANGE_TINT);
+        }
+    }
+
+    // LOS-blocked tiles stay visible (dimmed), unlike hidden ally-occupied tiles.
+    for (SLICE_FOREACH(game.pathing.los_blocked_tiles, tile_s)) {
+        position_t tile = SLICE_DEREF(tile_s);
+        int px, py;
+        grid_to_screen(game.viewport, tile.x, tile.y, &px, &py);
+        int ts = game.viewport.tile_size;
+
+        bool occupied = entity_find_at(game.entities, tile) != 0;
+        if (occupied) {
+            graphics_draw_rectangle_dithered(fb, fb_width, px, py, ts, ts, COLOR_LOS_BLOCKED_TINT);
+        } else {
+            graphics_draw_rectangle(fb, fb_width, px, py, ts, ts, COLOR_LOS_BLOCKED_TINT);
         }
     }
 

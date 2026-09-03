@@ -125,12 +125,11 @@ PRIVATE ptrdiff_t game_set_mode(game_state_t *game, linear_allocator_t *allocato
 
         skill_t skill = SLICE_AT(active->skills, game->selected_skill);
 
-        slice_t temp_align = linear_allocator_push_alignment(allocator, _Alignof(position_t));
-        slice_position_t temp_tiles = pathing_compute_attack_range(allocator, game->grid, game->entities, active->position, skill.range);
+        pathing_attack_range_t temp = pathing_compute_attack_range(allocator, game->grid, game->entities, active->position, skill.range);
 
-        ptrdiff_t shift = pathing_ranges_push_attack_range(allocator, &game->scratch, &game->pathing, temp_align, temp_tiles);
+        ptrdiff_t shift = pathing_ranges_push_attack_range(allocator, &game->scratch, &game->pathing, temp);
         // Reset to zero for usage sanity
-        temp_align = (slice_t){0,0}; temp_tiles.slice = (slice_t){0,0};
+        temp = (pathing_attack_range_t){0};
 
         // Restage blast_tiles for the current hover: pushing attack_range
         // above reset it to empty, but a hover already valid shouldn't

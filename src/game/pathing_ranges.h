@@ -10,13 +10,17 @@
 // Range data for the currently selected entity: action.c reads it to
 // validate/resolve moves and attacks; render.c reads the same fields for
 // overlays. Backed by three stacked regions in `scratch`, in order:
-// walking_distances, attack_range_tiles, blast_tiles (topmost).
+// walking_distances, attack_range_tiles (+los_blocked_tiles), blast_tiles
+// (topmost).
 //
 // - walking_distances: raw BFS dist grid, valid only in GAME_MODE_MOVEMENT.
 //   Reachable iff distance >= 1 -- no separate reachable-tiles list.
 // - walking_distances vs. attack_range_tiles: mutually exclusive, matching
 //   the move/attack mode toggle -- each collapses to empty while the other
 //   is active.
+// - los_blocked_tiles: renderer-only. Always computed/cleared together
+//   with attack_range_tiles, sharing attack_range_align and living right
+//   after it (one physical allocation, no gap).
 // - blast_tiles: independent of the pair above, can coexist with
 //   attack_range_tiles (attack mode, AoE skill, valid hover). Synced to the
 //   current hover/impact tile; game_cast_attack_area resolves the cast
@@ -25,8 +29,9 @@
 typedef struct {
     slice_t walking_distances_align;   // marker: alignment padding, or empty-region marker
     pathing_state_t walking_distances; // BFS dist grid; valid only in GAME_MODE_MOVEMENT
-    slice_t attack_range_align;        // marker for attack_range_tiles
+    slice_t attack_range_align;        // marker for attack_range_tiles/los_blocked_tiles
     slice_position_t attack_range_tiles; // tiles in the selected skill's range, attack mode only
+    slice_position_t los_blocked_tiles;  // renderer-only: in-range LOS-blocked tiles, attack mode only
     slice_t blast_align;               // marker for blast_tiles
     slice_position_t blast_tiles;      // AoE footprint of the last-computed tile; shared by cast resolution and rendering
 } pathing_ranges_t;
@@ -52,10 +57,10 @@ PUBLIC void pathing_ranges_reset(linear_allocator_t *scratch, pathing_ranges_t *
 // anything else held above `scratch`, and `temp` is rebased in place.
 PUBLIC ptrdiff_t pathing_ranges_push_walking_distances(linear_allocator_t *allocator, linear_allocator_t *scratch, pathing_ranges_t *ranges, pathing_state_t *temp);
 
-// Same as pathing_ranges_push_walking_distances, but for attack_range_tiles
-// (staged by the caller as `temp_align`/`temp_tiles`); re-pushes an empty
-// blast_tiles on top.
-PUBLIC ptrdiff_t pathing_ranges_push_attack_range(linear_allocator_t *allocator, linear_allocator_t *scratch, pathing_ranges_t *ranges, slice_t temp_align, slice_position_t temp_tiles);
+// Same as pathing_ranges_push_walking_distances, but for
+// attack_range_tiles+los_blocked_tiles together (`temp` from
+// pathing_compute_attack_range); re-pushes empty blast_tiles on top.
+PUBLIC ptrdiff_t pathing_ranges_push_attack_range(linear_allocator_t *allocator, linear_allocator_t *scratch, pathing_ranges_t *ranges, pathing_attack_range_t temp);
 
 // Same as pathing_ranges_push_attack_range, but for blast_tiles (staged by
 // the caller, e.g. via pathing_compute_blast_tiles) -- this is what
