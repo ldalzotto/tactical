@@ -101,6 +101,19 @@ function ensureClangAndLld() {
     }
 }
 
+// wasm-objdump (used by symbolicate.js to read wasm function names/offsets
+// for calibrating DWARF address resolution) ships in WABT, a separate apt
+// package from the LLVM toolchain.
+function ensureWabt() {
+    if (commandExists('wasm-objdump')) return;
+    log('[setup-toolchain] wasm-objdump not found, installing wabt...');
+    apt(['update']);
+    if (apt(['install', '-y', 'wabt']).status !== 0) {
+        console.error('[setup-toolchain] Failed to install wabt. Install it manually and retry.');
+        process.exit(1);
+    }
+}
+
 // build.js compiles with `clang`, coverage.js reads the resulting profile
 // with `llvm-cov`/`llvm-profdata`, and iwyu.js parses with
 // `clang-include-cleaner` (must match `clang`'s AST). A version mismatch
@@ -189,6 +202,7 @@ function ensureToolchain({ verbose: verboseOpt = false } = {}) {
     verbose = verboseOpt;
     ensureCmake();
     ensureClangAndLld();
+    ensureWabt();
     if (pinnedToolchainReady()) {
         prependPinnedToolchainToPath();
     } else if (!llvmToolchainConsistent()) {
