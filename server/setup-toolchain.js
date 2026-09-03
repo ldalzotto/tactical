@@ -107,12 +107,14 @@ function ensureClangAndLld() {
 // `clang`/`llvm-cov`/`llvm-profdata` names to a newly apt-installed
 // versioned package, so checking PATH alone would otherwise reinstall
 // LLVM 22 (a slow, network-dependent no-op) on every single run.
-function pinnedToolchainReady() {
-    return ['clang', 'llvm-cov', 'llvm-profdata'].every((name) => {
+function pinnedToolchainReady(names) {
+    return names.every((name) => {
         const link = path.join(LLVM_BIN_DIR, name);
         return fs.existsSync(link) && majorVersion(link) === REQUIRED_LLVM_MAJOR;
     });
 }
+
+const CORE_TOOLS = ['clang', 'llvm-cov', 'llvm-profdata'];
 
 // build.js compiles with `clang` and coverage.js reads the resulting
 // profile with `llvm-cov`/`llvm-profdata`; a version mismatch between them
@@ -147,13 +149,15 @@ function installLlvm(major) {
 // Symlinks the versioned LLVM tool names (clang-22, llvm-cov-22, ...) to
 // their unversioned names in a dedicated directory so cmake/build.js/
 // coverage.js can resolve the pinned version instead of whatever else
-// update-alternatives has registered.
-function linkVersionedTools(major) {
-    const names = ['clang', 'llvm-cov', 'llvm-profdata'];
+// update-alternatives has registered. Missing optional tools (e.g.
+// clang-include-cleaner, only needed by iwyu.js) are skipped rather than
+// treated as a fatal error.
+function linkVersionedTools(major, names, { optional = [] } = {}) {
     fs.mkdirSync(LLVM_BIN_DIR, { recursive: true });
     for (const name of names) {
         const versioned = `/usr/bin/${name}-${major}`;
         if (!fs.existsSync(versioned)) {
+            if (optional.includes(name)) continue;
             console.error(`[setup-toolchain] Expected ${versioned} after installing LLVM ${major}.`);
             process.exit(1);
         }
@@ -167,22 +171,60 @@ function prependPinnedToolchainToPath() {
     process.env.PATH = `${LLVM_BIN_DIR}${path.delimiter}${process.env.PATH}`;
 }
 
+// clang-include-cleaner ships in the clang-tools package rather than the
+// core LLVM one, so it isn't guaranteed by ensureClangAndLld()/installLlvm()
+// alone even though `apt-get install ... all` normally pulls it in too.
+// iwyu.js requires it match the same LLVM major as clang (see its comment),
+// so pin/link it the same way as the other versioned tools.
+// Returns whether LLVM_BIN_DIR needs to be on PATH for the caller to find it.
+function ensureClangIncludeCleaner(major) {
+    if (pinnedToolchainReady(['clang-include-cleaner'])) return true;
+    if (commandExists('clang-include-cleaner') && majorVersion('clang-include-cleaner') === major) return false;
+
+    if (!fs.existsSync(`/usr/bin/clang-include-cleaner-${major}`)) {
+        log(`[setup-toolchain] clang-include-cleaner-${major} not found, installing clang-tools-${major}...`);
+        ensureAddAptRepositoryPython();
+        apt(['update']);
+        if (apt(['install', '-y', `clang-tools-${major}`]).status !== 0) {
+            console.error(`[setup-toolchain] Failed to install clang-tools-${major} (for clang-include-cleaner). Install it manually and retry.`);
+            process.exit(1);
+        }
+    }
+    if (!fs.existsSync(`/usr/bin/clang-include-cleaner-${major}`)) {
+        console.error(`[setup-toolchain] Expected /usr/bin/clang-include-cleaner-${major} after installing clang-tools-${major}.`);
+        process.exit(1);
+    }
+    linkVersionedTools(major, ['clang-include-cleaner']);
+    return true;
+}
+
 let toolchainReady = false;
 
-function ensureToolchain({ verbose: verboseOpt = false } = {}) {
-    if (toolchainReady) return;
+let pathPinned = false;
+
+function ensureToolchain({ verbose: verboseOpt = false, includeCleaner = false } = {}) {
     verbose = verboseOpt;
-    ensureCmake();
-    ensureClangAndLld();
-    const pinnedReady = pinnedToolchainReady();
-    if (!pinnedReady && !llvmToolchainConsistent()) {
-        installLlvm(REQUIRED_LLVM_MAJOR);
-        linkVersionedTools(REQUIRED_LLVM_MAJOR);
-        prependPinnedToolchainToPath();
-    } else if (pinnedReady) {
-        prependPinnedToolchainToPath();
+    let needsPinnedPath = false;
+    if (!toolchainReady) {
+        ensureCmake();
+        ensureClangAndLld();
+        const pinnedReady = pinnedToolchainReady(CORE_TOOLS);
+        if (!pinnedReady && !llvmToolchainConsistent()) {
+            installLlvm(REQUIRED_LLVM_MAJOR);
+            linkVersionedTools(REQUIRED_LLVM_MAJOR, CORE_TOOLS);
+            needsPinnedPath = true;
+        } else if (pinnedReady) {
+            needsPinnedPath = true;
+        }
+        toolchainReady = true;
     }
-    toolchainReady = true;
+    if (includeCleaner) {
+        needsPinnedPath = ensureClangIncludeCleaner(REQUIRED_LLVM_MAJOR) || needsPinnedPath;
+    }
+    if (needsPinnedPath && !pathPinned) {
+        prependPinnedToolchainToPath();
+        pathPinned = true;
+    }
 }
 
 module.exports = { ensureToolchain };
