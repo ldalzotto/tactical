@@ -110,6 +110,40 @@ function buildImportObject({ createWindow, presentWindow, printLine, reportPanic
     return { memory, importObject, pushInputEvent };
 }
 
+// Called once per test as runWasmTests goes. Returns an error string if the
+// named test's resolved stack trace doesn't look right, or null if there's
+// nothing to check (wrong test, or nothing went wrong).
+function checkSymbolicationDetail(name, detail) {
+    // panic_without_expect_panic_traps (src/test_runtime.c) deterministically
+    // traps via panic(false), giving runWasmTests a real wasm stack to
+    // symbolicate every run. Checking its resolved detail here is what
+    // catches symbolication silently degrading -- e.g. wasm-objdump/
+    // llvm-symbolizer missing from the toolchain -- instead of it only
+    // showing up as garbled text in an unrelated test failure.
+    const TEST_NAME = 'panic_without_expect_panic_traps';
+    // panic(false) is written on this exact line of test_runtime.c, inside
+    // the function that must show up as the resolved trace's outermost
+    // frame. symbolicate.js takes that frame's function name from the wasm
+    // binary's name section (via funcIndex) rather than from
+    // llvm-symbolizer's own DWARF subprogram lookup, which has been
+    // observed to misattribute it to an unrelated function even when the
+    // file:line it reports is correct.
+    const EXPECTED_FUNCTION = 'test_panic_without_expect_panic_traps';
+    const EXPECTED_FILE = 'test_runtime.c';
+    const EXPECTED_LINE = ':45:';
+
+    if (name !== TEST_NAME) {
+        return null;
+    }
+    if (!detail || detail.includes('symbolication failed')) {
+        return `expected a resolved stack trace for '${TEST_NAME}', got: ${detail}`;
+    }
+    if (!detail.includes(EXPECTED_FUNCTION) || !detail.includes(EXPECTED_FILE) || !detail.includes(EXPECTED_LINE)) {
+        return `expected the stack trace for '${TEST_NAME}' to include ${EXPECTED_FUNCTION} at ${EXPECTED_FILE}${EXPECTED_LINE}, got:\n${detail}`;
+    }
+    return null;
+}
+
 async function runWasmTests({ wasmBytes, resolveFrames, onResult, onComplete, createWindow, presentWindow, printLine }) {
     const { memory, importObject } = buildImportObject({ createWindow, presentWindow, printLine });
     const { instance } = await WebAssembly.instantiate(wasmBytes, importObject);
@@ -118,6 +152,7 @@ async function runWasmTests({ wasmBytes, resolveFrames, onResult, onComplete, cr
 
     let passed = 0;
     let failed = 0;
+    let symbolicationError = null;
 
     for (let i = 0; i < count; i++) {
         const beginPtr = test_discovery_name_begin(i);
@@ -128,22 +163,28 @@ async function runWasmTests({ wasmBytes, resolveFrames, onResult, onComplete, cr
         try {
             test_run(fn, memory.buffer.byteLength);
             passed++;
+            symbolicationError ??= checkSymbolicationDetail(name, undefined);
             onResult({ name, passed: true });
         } catch (err) {
-            if (test_expect_trap_end()) {
+            const isExpectedTrap = test_expect_trap_end();
+            // Resolved even for an expected trap: this is the only place an
+            // expected trap's stack is symbolicated, which is what lets
+            // checkSymbolicationDetail verify symbolication itself is working.
+            const { message, framesText } = await resolveFailureText(err, resolveFrames);
+            const detail = framesText ? `${message}\n${framesText}` : message;
+            symbolicationError ??= checkSymbolicationDetail(name, detail);
+            if (isExpectedTrap) {
                 passed++;
-                onResult({ name, passed: true });
+                onResult({ name, passed: true, detail });
                 continue;
             }
             failed++;
-            const { message, framesText } = await resolveFailureText(err, resolveFrames);
-            const detail = framesText ? `${message}\n${framesText}` : message;
             onResult({ name, passed: false, detail });
         }
     }
 
-    onComplete({ passed, failed, count });
-    return { passed, failed, count, memory, instance };
+    onComplete({ passed, failed, count, symbolicationError });
+    return { passed, failed, count, memory, instance, symbolicationError };
 }
 
 async function runApp({ wasmBytes, now, createWindow, presentWindow, printLine, reportPanic }) {

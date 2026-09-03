@@ -115,11 +115,15 @@ function ensureWabt() {
 }
 
 // build.js compiles with `clang`, coverage.js reads the resulting profile
-// with `llvm-cov`/`llvm-profdata`, and iwyu.js parses with
-// `clang-include-cleaner` (must match `clang`'s AST). A version mismatch
-// between them makes coverage.js report "no coverage data found" or makes
-// iwyu.js misbehave, so all four are always kept on the same LLVM major.
-const ALL_TOOLS = ['clang', 'llvm-cov', 'llvm-profdata', 'clang-include-cleaner'];
+// with `llvm-cov`/`llvm-profdata`, iwyu.js parses with
+// `clang-include-cleaner` (must match `clang`'s AST), and symbolicate.js
+// resolves wasm stack traces with `llvm-symbolizer` (must match the DWARF
+// `clang` emitted -- a version mismatch there has been observed to
+// misattribute resolved function names, not just fail outright). A version
+// mismatch among any of these makes coverage.js report "no coverage data
+// found", makes iwyu.js misbehave, or corrupts symbolicated traces, so all
+// five are always kept on the same LLVM major.
+const ALL_TOOLS = ['clang', 'llvm-cov', 'llvm-profdata', 'clang-include-cleaner', 'llvm-symbolizer'];
 
 // A previous run of this script may have already pinned LLVM 22 into
 // LLVM_BIN_DIR (see linkVersionedTools). Trust those symlinks without

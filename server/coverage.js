@@ -32,7 +32,7 @@ async function main() {
     const wasmBytes = fs.readFileSync(WASM_PATH);
     const resolveFrames = (frames) => symbolicate({ wasmPath: WASM_PATH, frames });
 
-    const { failed, memory } = await runWasmTests({
+    const { failed, memory, symbolicationError } = await runWasmTests({
         wasmBytes,
         resolveFrames,
         printLine: verbose ? console.log : () => {},
@@ -46,6 +46,12 @@ async function main() {
             console.log(`\nTests: ${passed}/${count} passed, ${failed} failed`);
         },
     });
+
+    if (symbolicationError) {
+        console.log(`\nFAIL  symbolication check: ${symbolicationError}`);
+        process.exitCode = 1;
+        return;
+    }
 
     if (failed > 0) {
         process.exitCode = 1;
