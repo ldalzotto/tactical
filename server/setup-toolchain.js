@@ -1,10 +1,11 @@
 'use strict';
 
-// Ensures the native toolchain (cmake, clang, lld, and matching
-// llvm-cov/llvm-profdata) is available before build.js/coverage.js shell
-// out to it. Installs missing pieces via apt when possible (CI runners),
-// and is a fast no-op when a working, version-consistent toolchain is
-// already on PATH (e.g. this sandbox, or a dev machine).
+// Ensures the native toolchain (cmake, clang, lld, matching
+// llvm-cov/llvm-profdata, and clang-include-cleaner) is available before
+// build.js/coverage.js/iwyu.js shell out to it. Installs missing pieces via
+// apt when possible (CI runners), and is a fast no-op when a working,
+// version-consistent toolchain is already on PATH (e.g. this sandbox, or a
+// dev machine).
 
 const fs = require('node:fs');
 const os = require('node:os');
@@ -148,16 +149,14 @@ function installLlvm(major) {
 
 // Symlinks the versioned LLVM tool names (clang-22, llvm-cov-22, ...) to
 // their unversioned names in a dedicated directory so cmake/build.js/
-// coverage.js can resolve the pinned version instead of whatever else
-// update-alternatives has registered. Missing optional tools (e.g.
-// clang-include-cleaner, only needed by iwyu.js) are skipped rather than
-// treated as a fatal error.
-function linkVersionedTools(major, names, { optional = [] } = {}) {
+// coverage.js/iwyu.js can resolve the pinned version instead of whatever
+// else update-alternatives has registered. Callers must confirm the
+// versioned binary exists before calling.
+function linkVersionedTools(major, names) {
     fs.mkdirSync(LLVM_BIN_DIR, { recursive: true });
     for (const name of names) {
         const versioned = `/usr/bin/${name}-${major}`;
         if (!fs.existsSync(versioned)) {
-            if (optional.includes(name)) continue;
             console.error(`[setup-toolchain] Expected ${versioned} after installing LLVM ${major}.`);
             process.exit(1);
         }
@@ -202,7 +201,7 @@ let toolchainReady = false;
 
 let pathPinned = false;
 
-function ensureToolchain({ verbose: verboseOpt = false, includeCleaner = false } = {}) {
+function ensureToolchain({ verbose: verboseOpt = false } = {}) {
     verbose = verboseOpt;
     let needsPinnedPath = false;
     if (!toolchainReady) {
@@ -218,9 +217,7 @@ function ensureToolchain({ verbose: verboseOpt = false, includeCleaner = false }
         }
         toolchainReady = true;
     }
-    if (includeCleaner) {
-        needsPinnedPath = ensureClangIncludeCleaner(REQUIRED_LLVM_MAJOR) || needsPinnedPath;
-    }
+    needsPinnedPath = ensureClangIncludeCleaner(REQUIRED_LLVM_MAJOR) || needsPinnedPath;
     if (needsPinnedPath && !pathPinned) {
         prependPinnedToolchainToPath();
         pathPinned = true;

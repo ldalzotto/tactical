@@ -5,7 +5,7 @@ const { ensureToolchain } = require('./setup-toolchain');
 
 const verbose = process.argv.includes('--verbose');
 
-ensureToolchain({ verbose, includeCleaner: true });
+ensureToolchain({ verbose });
 
 const BUILD_DIR = 'build';
 const COMPILE_COMMANDS = path.join(BUILD_DIR, 'compile_commands.json');
