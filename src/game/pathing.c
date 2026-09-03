@@ -212,9 +212,6 @@ PUBLIC pathing_attack_range_t pathing_compute_attack_range(linear_allocator_t *a
     slice_pathing_attack_range_entry_t pairs;
     pairs = LINEAR_ALLOCATOR_PUSH(allocator, pairs, 0);
 
-    int attack_count = 0;
-    int blocked_count = 0;
-
     for (int ty = 0; ty < grid.height; ty++) {
         for (int tx = 0; tx < grid.width; tx++) {
             position_t position = { tx, ty };
@@ -239,36 +236,40 @@ PUBLIC pathing_attack_range_t pathing_compute_attack_range(linear_allocator_t *a
             slice_pathing_attack_range_entry_t entry = LINEAR_ALLOCATOR_PUSH(allocator, pairs, 1);
             SLICE_DEREF(entry) = (pathing_attack_range_entry_t){ .position = position, .blocked = blocked };
             pairs.end = entry.end;
-
-            if (blocked) {
-                blocked_count++;
-            } else {
-                attack_count++;
-            }
         }
     }
 
     // Partition into one contiguous buffer: selectable tiles first, then
-    // LOS-blocked tiles -- a single pass over `pairs`, write cursors
-    // pre-seeded from the counts tallied above.
+    // LOS-blocked tiles -- two passes over `pairs` (cheap, no LOS/grid work
+    // left to redo), each growing `tiles` on the go like the single-list
+    // version used to. attack_range_tiles is just wherever `tiles` ended
+    // after the first pass.
     linear_allocator_push_alignment(allocator, _Alignof(position_t));
     slice_position_t tiles;
-    tiles = LINEAR_ALLOCATOR_PUSH(allocator, tiles, (size_t)(attack_count + blocked_count));
+    tiles = LINEAR_ALLOCATOR_PUSH(allocator, tiles, 0);
 
-    int a = 0;
-    int b = attack_count;
     for (SLICE_FOREACH(pairs, entry_s)) {
         pathing_attack_range_entry_t entry = SLICE_DEREF(entry_s);
         if (entry.blocked) {
-            SLICE_AT(tiles, b) = entry.position;
-            b++;
-        } else {
-            SLICE_AT(tiles, a) = entry.position;
-            a++;
+            continue;
         }
+        slice_position_t tile = LINEAR_ALLOCATOR_PUSH(allocator, tiles, 1);
+        SLICE_DEREF(tile) = entry.position;
+        tiles.end = tile.end;
     }
 
-    slice_position_t attack_range_tiles = { .begin = tiles.begin, .end = tiles.begin + attack_count };
+    slice_position_t attack_range_tiles = tiles;
+
+    for (SLICE_FOREACH(pairs, entry_s)) {
+        pathing_attack_range_entry_t entry = SLICE_DEREF(entry_s);
+        if (!entry.blocked) {
+            continue;
+        }
+        slice_position_t tile = LINEAR_ALLOCATOR_PUSH(allocator, tiles, 1);
+        SLICE_DEREF(tile) = entry.position;
+        tiles.end = tile.end;
+    }
+
     slice_position_t los_blocked_tiles = { .begin = attack_range_tiles.end, .end = tiles.end };
 
     return (pathing_attack_range_t) {
