@@ -107,6 +107,15 @@ PUBLIC pathing_state_t pathing_compute_walking_distances(linear_allocator_t *all
     return pathing_bfs(allocator, grid, entities, from, max_steps);
 }
 
+// One grid tile's classification during pathing_compute_attack_range's
+// single scan, before it's partitioned into the final attack_range_tiles/
+// los_blocked_tiles split. Never exposed outside this file.
+typedef struct {
+    position_t position;
+    bool blocked; // true: in range but LOS-blocked; false: selectable
+} pathing_attack_range_entry_t;
+SLICE_DEFINE(pathing_attack_range_entry_t);
+
 PRIVATE int pathing_manhattan_distance(position_t a, position_t b) {
     int dx = a.x - b.x;
     int dy = a.y - b.y;
@@ -184,15 +193,27 @@ PUBLIC slice_position_t pathing_compute_blast_tiles(linear_allocator_t *allocato
     return tiles;
 }
 
-PUBLIC slice_position_t pathing_compute_attack_range(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, position_t from, int max_range) {
-    slice_position_t tiles;
-    tiles = LINEAR_ALLOCATOR_PUSH(allocator, tiles, 0);
+PUBLIC pathing_attack_range_t pathing_compute_attack_range(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, position_t from, int max_range) {
+    // Bottom marker for everything this function stages on `allocator`
+    // (the pairs scratch below plus the final tiles) -- popped as one span
+    // by pathing_ranges_push_attack_range, not layer by layer.
+    slice_t align = linear_allocator_push(allocator, 0);
 
     // A tile occupied by the attacker's own team is never a valid target or
     // AoE impact, even if in range/LOS. `from` is the attacker's own
     // position, so it's always occupied.
     entity_t *self = entity_find_at(entities, from);
     assert_debug(self != 0);
+
+    // Single grid scan: classify every in-range tile as selectable or
+    // LOS-blocked (ally-occupied tiles are dropped entirely -- they stay
+    // hidden). Ally occupancy doesn't matter for the LOS-blocked bucket.
+    linear_allocator_push_alignment(allocator, _Alignof(pathing_attack_range_entry_t));
+    slice_pathing_attack_range_entry_t pairs;
+    pairs = LINEAR_ALLOCATOR_PUSH(allocator, pairs, 0);
+
+    int attack_count = 0;
+    int blocked_count = 0;
 
     for (int ty = 0; ty < grid.height; ty++) {
         for (int tx = 0; tx < grid.width; tx++) {
@@ -202,20 +223,57 @@ PUBLIC slice_position_t pathing_compute_attack_range(linear_allocator_t *allocat
                 continue;
             }
 
-            if (!pathing_can_target(grid, entities, from, position, max_range)) {
+            if (pathing_manhattan_distance(from, position) > max_range) {
                 continue;
             }
 
-            entity_t *occupant = entity_find_at(entities, position);
-            if (occupant != 0 && occupant->team == self->team) {
-                continue;
+            bool blocked = !pathing_los_target_ok(grid, entities, from, position);
+
+            if (!blocked) {
+                entity_t *occupant = entity_find_at(entities, position);
+                if (occupant != 0 && occupant->team == self->team) {
+                    continue;
+                }
             }
 
-            slice_position_t entry = LINEAR_ALLOCATOR_PUSH(allocator, tiles, 1);
-            SLICE_DEREF(entry) = position;
-            tiles.end = entry.end;
+            slice_pathing_attack_range_entry_t entry = LINEAR_ALLOCATOR_PUSH(allocator, pairs, 1);
+            SLICE_DEREF(entry) = (pathing_attack_range_entry_t){ .position = position, .blocked = blocked };
+            pairs.end = entry.end;
+
+            if (blocked) {
+                blocked_count++;
+            } else {
+                attack_count++;
+            }
         }
     }
 
-    return tiles;
+    // Partition into one contiguous buffer: selectable tiles first, then
+    // LOS-blocked tiles -- a single pass over `pairs`, write cursors
+    // pre-seeded from the counts tallied above.
+    linear_allocator_push_alignment(allocator, _Alignof(position_t));
+    slice_position_t tiles;
+    tiles = LINEAR_ALLOCATOR_PUSH(allocator, tiles, (size_t)(attack_count + blocked_count));
+
+    int a = 0;
+    int b = attack_count;
+    for (SLICE_FOREACH(pairs, entry_s)) {
+        pathing_attack_range_entry_t entry = SLICE_DEREF(entry_s);
+        if (entry.blocked) {
+            SLICE_AT(tiles, b) = entry.position;
+            b++;
+        } else {
+            SLICE_AT(tiles, a) = entry.position;
+            a++;
+        }
+    }
+
+    slice_position_t attack_range_tiles = { .begin = tiles.begin, .end = tiles.begin + attack_count };
+    slice_position_t los_blocked_tiles = { .begin = attack_range_tiles.end, .end = tiles.end };
+
+    return (pathing_attack_range_t) {
+        .align = align,
+        .attack_range_tiles = attack_range_tiles,
+        .los_blocked_tiles = los_blocked_tiles,
+    };
 }
