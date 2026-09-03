@@ -5,6 +5,7 @@ on:
     workflows: ["Test"]
     types:
       - completed
+  pull_request:
   workflow_dispatch:
 
 # Deploys via a plain push to the gh-pages branch (peaceiris/actions-gh-pages),
@@ -20,18 +21,23 @@ concurrency:
 
 jobs:
   build:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    # Production deploys wait for workflow_run (Test succeeding on
+    # master); PR previews build straight off pull_request instead, since
+    # workflow_run ALWAYS runs the workflow file from the default branch,
+    # never the PR's -- a preview-deploy change made only on a PR branch
+    # would never take effect for that PR's own preview otherwise.
+    if: >
+      github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    outputs:
-      is_master_push: ${{ steps.branch.outputs.is_master_push }}
-      preview_dir: ${{ steps.branch.outputs.preview_dir }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          # workflow_run always checks out the workflow file's own ref (the
-          # default branch) by default -- pin to the commit Test actually
-          # ran against so a PR's Pages build reflects that PR, not master.
+          # workflow_run checks out the default branch by default -- pin to
+          # the commit Test actually ran against. pull_request already
+          # checks out the PR's own merge ref.
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup Node.js
@@ -51,26 +57,11 @@ jobs:
           name: pages-dist
           path: dist
 
-      # Master's push build deploys to the site root; anything else (PR
-      # branches, other branch pushes) deploys to preview/<branch>/,
-      # alongside the live site instead of replacing it. Branch names are
-      # sanitized to [A-Za-z0-9-] so a crafted branch name can't escape the
-      # preview/ directory or inject path segments.
-      - name: Determine deploy target
-        id: branch
-        run: |
-          branch="${{ github.event.workflow_run.head_branch }}"
-          event="${{ github.event.workflow_run.event }}"
-          if [ "$event" = "push" ] && [ "$branch" = "master" ]; then
-            echo "is_master_push=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "is_master_push=false" >> "$GITHUB_OUTPUT"
-          fi
-          safe_branch=$(echo "$branch" | sed 's/[^A-Za-z0-9-]/-/g')
-          echo "preview_dir=preview/$safe_branch" >> "$GITHUB_OUTPUT"
-
   deploy-production:
-    if: needs.build.outputs.is_master_push == 'true'
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'master'
     runs-on: ubuntu-latest
     needs: build
     steps:
@@ -85,12 +76,15 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: dist
-          # Preserves preview/ subdirectories from other branches -- only
-          # files under dist/ are added/overwritten at the root.
+          # Preserves preview/ subdirectories from open PRs -- only files
+          # under dist/ are added/overwritten at the root.
           keep_files: true
 
   deploy-preview:
-    if: needs.build.outputs.is_master_push == 'false' && github.event.workflow_run.conclusion == 'success'
+    # Every push to an open PR rebuilds and overwrites its own preview/
+    # folder. Not gated on the separate Test workflow -- previews are for
+    # visual review, not a merge gate.
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     needs: build
     steps:
@@ -100,10 +94,18 @@ jobs:
           name: pages-dist
           path: dist
 
+      # Branch names are sanitized to [A-Za-z0-9-] so a crafted branch name
+      # can't escape the preview/ directory or inject path segments.
+      - name: Compute preview path
+        id: branch
+        run: |
+          safe_branch=$(echo "${{ github.head_ref }}" | sed 's/[^A-Za-z0-9-]/-/g')
+          echo "dir=preview/$safe_branch" >> "$GITHUB_OUTPUT"
+
       - name: Deploy preview to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: dist
-          destination_dir: ${{ needs.build.outputs.preview_dir }}
+          destination_dir: ${{ steps.branch.outputs.dir }}
           keep_files: true
