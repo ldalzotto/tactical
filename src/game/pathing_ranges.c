@@ -14,8 +14,11 @@
 PRIVATE void pathing_ranges_assert_layout(pathing_ranges_t ranges) {
     assert_debug(ranges.attack_range_align.begin >= ranges.walking_distances.dist.slice.end);
     assert_debug((void*)ranges.attack_range_tiles.begin >= ranges.walking_distances.dist.slice.end);
-    assert_debug(ranges.blast_align.begin >= ranges.attack_range_tiles.slice.end);
-    assert_debug((void*)ranges.blast_tiles.begin >= ranges.attack_range_tiles.slice.end);
+    // attack_range_tiles/los_blocked_tiles are one physical allocation
+    // (see pathing_attack_range_t) -- no gap between them.
+    assert_debug(ranges.los_blocked_tiles.begin == ranges.attack_range_tiles.end);
+    assert_debug(ranges.blast_align.begin >= ranges.los_blocked_tiles.slice.end);
+    assert_debug((void*)ranges.blast_tiles.begin >= ranges.los_blocked_tiles.slice.end);
 }
 
 // Adopts a caller-built walking_distances region, then re-pushes empty
@@ -31,11 +34,12 @@ PRIVATE void pathing_ranges_set_walking_distances(linear_allocator_t *scratch, p
     pathing_ranges_assert_layout(*ranges);
 }
 
-// Adopts a caller-built attack_range_tiles region, then re-pushes an empty
-// blast_tiles on top.
-PRIVATE void pathing_ranges_set_attack_range(linear_allocator_t *scratch, pathing_ranges_t *ranges, slice_t attack_range_align, slice_position_t attack_range_tiles) {
+// Adopts a caller-built attack_range_tiles/los_blocked_tiles region, then
+// re-pushes an empty blast_tiles on top.
+PRIVATE void pathing_ranges_set_attack_range(linear_allocator_t *scratch, pathing_ranges_t *ranges, slice_t attack_range_align, slice_position_t attack_range_tiles, slice_position_t los_blocked_tiles) {
     ranges->attack_range_align = attack_range_align;
     ranges->attack_range_tiles = attack_range_tiles;
+    ranges->los_blocked_tiles = los_blocked_tiles;
     ranges->blast_align = linear_allocator_push(scratch, 0);
     ranges->blast_tiles = LINEAR_ALLOCATOR_PUSH(scratch, ranges->blast_tiles, 0);
 
@@ -61,6 +65,7 @@ PUBLIC pathing_ranges_t pathing_ranges_init(linear_allocator_t *scratch) {
     };
     slice_t attack_range_align = linear_allocator_push(scratch, 0);
     slice_position_t attack_range_tiles = LINEAR_ALLOCATOR_PUSH(scratch, attack_range_tiles, 0);
+    slice_position_t los_blocked_tiles = LINEAR_ALLOCATOR_PUSH(scratch, los_blocked_tiles, 0);
     slice_t blast_align = linear_allocator_push(scratch, 0);
     slice_position_t blast_tiles = LINEAR_ALLOCATOR_PUSH(scratch, blast_tiles, 0);
 
@@ -69,6 +74,7 @@ PUBLIC pathing_ranges_t pathing_ranges_init(linear_allocator_t *scratch) {
         .walking_distances = walking_distances,
         .attack_range_align = attack_range_align,
         .attack_range_tiles = attack_range_tiles,
+        .los_blocked_tiles = los_blocked_tiles,
         .blast_align = blast_align,
         .blast_tiles = blast_tiles,
     };
@@ -81,6 +87,7 @@ PUBLIC pathing_ranges_t pathing_ranges_init(linear_allocator_t *scratch) {
 PUBLIC void pathing_ranges_deinit(linear_allocator_t *scratch, pathing_ranges_t ranges) {
     LINEAR_ALLOCATOR_POP(scratch, ranges.blast_tiles);
     linear_allocator_pop(scratch, ranges.blast_align);
+    LINEAR_ALLOCATOR_POP(scratch, ranges.los_blocked_tiles);
     LINEAR_ALLOCATOR_POP(scratch, ranges.attack_range_tiles);
     linear_allocator_pop(scratch, ranges.attack_range_align);
     LINEAR_ALLOCATOR_POP(scratch, ranges.walking_distances.dist);
@@ -175,12 +182,58 @@ PUBLIC ptrdiff_t pathing_ranges_push_walking_distances(linear_allocator_t *alloc
     return shift;
 }
 
-PUBLIC ptrdiff_t pathing_ranges_push_attack_range(linear_allocator_t *allocator, linear_allocator_t *scratch, pathing_ranges_t *ranges, slice_t temp_align, slice_position_t temp_tiles) {
+// Grows `scratch` in place if needed for `temp`'s combined
+// attack_range_tiles+los_blocked_tiles span (one contiguous allocation --
+// see pathing_attack_range_t), copies it in as `out_attack_range_tiles`/
+// `out_los_blocked_tiles` sharing `out_align`, and pops `temp`'s ENTIRE
+// staged region off `allocator` in one shot -- wider than just the tiles,
+// since pathing_compute_attack_range leaves its partition scratch behind
+// between `temp.align` and the tiles. Returns the shift applied (0 if it
+// already fit); callers must propagate it to anything else held above
+// `scratch`.
+PRIVATE ptrdiff_t pathing_ranges_push_attack_range_tiles(linear_allocator_t *allocator, linear_allocator_t *scratch,
+        pathing_attack_range_t temp,
+        slice_t *out_align, slice_position_t *out_attack_range_tiles, slice_position_t *out_los_blocked_tiles) {
+    ptrdiff_t attack_count = temp.attack_range_tiles.end - temp.attack_range_tiles.begin;
+    slice_position_t combined_temp = { .begin = temp.attack_range_tiles.begin, .end = temp.los_blocked_tiles.end };
+
+    size_t needed = (size_t)SLICE_BYTESIZE(combined_temp);
+    size_t worst_case_padding = _Alignof(position_t) - 1;
+    size_t available = (size_t)bytesize(scratch->cursor, scratch->data.end);
+    size_t required = needed + worst_case_padding;
+
+    ptrdiff_t shift = 0;
+    if (required > available) {
+        ptrdiff_t extra = (ptrdiff_t)(required - available);
+        linear_allocator_insert(allocator, scratch->data.end, (size_t)extra);
+        scratch->data.end = byteoffset(scratch->data.end, extra);
+
+        temp.align = slice_shift(temp.align, extra);
+        combined_temp.slice = slice_shift(combined_temp.slice, extra);
+
+        shift = extra;
+    }
+
+    *out_align = linear_allocator_push_alignment(scratch, _Alignof(position_t));
+    slice_position_t combined;
+    combined = LINEAR_ALLOCATOR_PUSH(scratch, combined, SLICE_TYPESIZE(combined_temp));
+    linear_allocator_copy(scratch, combined_temp.slice, combined.slice);
+
+    linear_allocator_pop(allocator, (slice_t){ .begin = temp.align.begin, .end = combined_temp.slice.end });
+
+    *out_attack_range_tiles = (slice_position_t){ .begin = combined.begin, .end = combined.begin + attack_count };
+    *out_los_blocked_tiles = (slice_position_t){ .begin = out_attack_range_tiles->end, .end = combined.end };
+
+    return shift;
+}
+
+PUBLIC ptrdiff_t pathing_ranges_push_attack_range(linear_allocator_t *allocator, linear_allocator_t *scratch, pathing_ranges_t *ranges, pathing_attack_range_t temp) {
     slice_t attack_range_align;
     slice_position_t attack_range_tiles;
-    ptrdiff_t shift = pathing_ranges_push_tiles(allocator, scratch, temp_align, temp_tiles, &attack_range_align, &attack_range_tiles);
+    slice_position_t los_blocked_tiles;
+    ptrdiff_t shift = pathing_ranges_push_attack_range_tiles(allocator, scratch, temp, &attack_range_align, &attack_range_tiles, &los_blocked_tiles);
 
-    pathing_ranges_set_attack_range(scratch, ranges, attack_range_align, attack_range_tiles);
+    pathing_ranges_set_attack_range(scratch, ranges, attack_range_align, attack_range_tiles, los_blocked_tiles);
 
     return shift;
 }
