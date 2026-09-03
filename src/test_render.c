@@ -229,13 +229,9 @@ PRIVATE void test_render_attack_range_tile_occupied_by_enemy_is_dithered_not_sol
     linear_allocator_pop(allocator, fb_align);
 }
 
-// los_blocked_tiles: in-range but LOS-blocked tiles stay visible (dimmed),
-// with the same occupied-dithering treatment as attack_range_tiles.
-// Mirrors the enemy-occupied attack-range test above, but for the
-// LOS-blocked overlay: an unoccupied blocked tile ((4,0), blocked by a
-// wall directly on the straight ray) is a solid fill, while an occupied
-// one (enemy standing at (2,2), blocked by a wall on the diagonal ray)
-// dithers.
+// Mirrors the attack-range dithering test above, for los_blocked_tiles:
+// an unoccupied blocked tile ((4,0), wall on the straight ray) is a solid
+// fill; an occupied one (enemy at (2,2), wall on the diagonal ray) dithers.
 PRIVATE void test_render_los_blocked_tile_occupied_by_enemy_is_dithered_not_solid(linear_allocator_t *allocator) {
     slice_t fb_align = linear_allocator_push_alignment(allocator, _Alignof(rgba_t));
     slice_rgba_t fb;
@@ -289,9 +285,8 @@ PRIVATE void test_render_los_blocked_tile_occupied_by_enemy_is_dithered_not_soli
     // (4,0): in range, LOS-blocked, unoccupied -- solid tint fill.
     assert_test(test_tile_fully_color(fb, GAME_TEST_FB_WIDTH, game.viewport, (position_t){4, 0}, tint));
 
-    // enemy's tile: same dithering proof as the attack-range test -- the
-    // top-left corner pixels must differ by checkerboard parity, not both
-    // equal tint (which a solid fill would produce).
+    // Same dithering proof as the attack-range test: corner pixels must
+    // differ by checkerboard parity, not both equal tint.
     int enemy_px, enemy_py;
     grid_to_screen(game.viewport, enemy->position.x, enemy->position.y, &enemy_px, &enemy_py);
     assert_test((enemy_px + enemy_py) % 2 == 0); // sanity: the pixel we check is the "on" one

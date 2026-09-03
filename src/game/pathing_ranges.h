@@ -18,11 +18,9 @@
 // - walking_distances vs. attack_range_tiles: mutually exclusive, matching
 //   the move/attack mode toggle -- each collapses to empty while the other
 //   is active.
-// - los_blocked_tiles: renderer-only, never read by action.c. Always
-//   computed and cleared together with attack_range_tiles (see
-//   pathing_compute_attack_range/pathing_ranges_push_attack_range), so it
-//   shares attack_range_align and lives immediately after
-//   attack_range_tiles with no gap -- the two are one physical allocation.
+// - los_blocked_tiles: renderer-only. Always computed/cleared together
+//   with attack_range_tiles, sharing attack_range_align and living right
+//   after it (one physical allocation, no gap).
 // - blast_tiles: independent of the pair above, can coexist with
 //   attack_range_tiles (attack mode, AoE skill, valid hover). Synced to the
 //   current hover/impact tile; game_cast_attack_area resolves the cast
@@ -33,7 +31,7 @@ typedef struct {
     pathing_state_t walking_distances; // BFS dist grid; valid only in GAME_MODE_MOVEMENT
     slice_t attack_range_align;        // marker for attack_range_tiles/los_blocked_tiles
     slice_position_t attack_range_tiles; // tiles in the selected skill's range, attack mode only
-    slice_position_t los_blocked_tiles;  // in range but LOS-blocked, attack mode only; renderer-only, contiguous right after attack_range_tiles
+    slice_position_t los_blocked_tiles;  // renderer-only: in-range LOS-blocked tiles, attack mode only
     slice_t blast_align;               // marker for blast_tiles
     slice_position_t blast_tiles;      // AoE footprint of the last-computed tile; shared by cast resolution and rendering
 } pathing_ranges_t;
@@ -60,9 +58,8 @@ PUBLIC void pathing_ranges_reset(linear_allocator_t *scratch, pathing_ranges_t *
 PUBLIC ptrdiff_t pathing_ranges_push_walking_distances(linear_allocator_t *allocator, linear_allocator_t *scratch, pathing_ranges_t *ranges, pathing_state_t *temp);
 
 // Same as pathing_ranges_push_walking_distances, but for
-// attack_range_tiles/los_blocked_tiles together (staged by the caller as
-// `temp`, from pathing_compute_attack_range); re-pushes an empty
-// blast_tiles on top.
+// attack_range_tiles+los_blocked_tiles together (`temp` from
+// pathing_compute_attack_range); re-pushes empty blast_tiles on top.
 PUBLIC ptrdiff_t pathing_ranges_push_attack_range(linear_allocator_t *allocator, linear_allocator_t *scratch, pathing_ranges_t *ranges, pathing_attack_range_t temp);
 
 // Same as pathing_ranges_push_attack_range, but for blast_tiles (staged by

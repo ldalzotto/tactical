@@ -14,8 +14,7 @@
 PRIVATE void pathing_ranges_assert_layout(pathing_ranges_t ranges) {
     assert_debug(ranges.attack_range_align.begin >= ranges.walking_distances.dist.slice.end);
     assert_debug((void*)ranges.attack_range_tiles.begin >= ranges.walking_distances.dist.slice.end);
-    // attack_range_tiles/los_blocked_tiles are one physical allocation
-    // (see pathing_attack_range_t) -- no gap between them.
+    // One allocation, no gap (see pathing_attack_range_t).
     assert_debug(ranges.los_blocked_tiles.begin == ranges.attack_range_tiles.end);
     assert_debug(ranges.blast_align.begin >= ranges.los_blocked_tiles.slice.end);
     assert_debug((void*)ranges.blast_tiles.begin >= ranges.los_blocked_tiles.slice.end);
@@ -23,7 +22,7 @@ PRIVATE void pathing_ranges_assert_layout(pathing_ranges_t ranges) {
 
 // Adopts a caller-built walking_distances region, then re-pushes empty
 // attack_range_tiles/los_blocked_tiles/blast_tiles on top. Requires all
-// three regions empty.
+// three empty.
 PRIVATE void pathing_ranges_set_walking_distances(linear_allocator_t *scratch, pathing_ranges_t *ranges, slice_t walking_distances_align, pathing_state_t walking_distances) {
     ranges->walking_distances_align = walking_distances_align;
     ranges->walking_distances = walking_distances;
@@ -184,15 +183,13 @@ PUBLIC ptrdiff_t pathing_ranges_push_walking_distances(linear_allocator_t *alloc
     return shift;
 }
 
-// Grows `scratch` in place if needed for `temp`'s combined
-// attack_range_tiles+los_blocked_tiles span (one contiguous allocation --
-// see pathing_attack_range_t), copies it in as `out_attack_range_tiles`/
-// `out_los_blocked_tiles` sharing `out_align`, and pops `temp`'s ENTIRE
-// staged region off `allocator` in one shot -- wider than just the tiles,
-// since pathing_compute_attack_range leaves its partition scratch behind
-// between `temp.align` and the tiles. Returns the shift applied (0 if it
-// already fit); callers must propagate it to anything else held above
-// `scratch`.
+// Grows `scratch` for temp's combined attack_range_tiles+los_blocked_tiles
+// span, copies it in as out_attack_range_tiles/out_los_blocked_tiles
+// (sharing out_align), then frees temp's whole staged region off
+// `allocator` in one pop -- wider than just the tiles, since
+// pathing_compute_attack_range leaves its partition scratch behind.
+// Returns the shift applied (0 if it already fit); propagate to anything
+// else held above `scratch`.
 PRIVATE ptrdiff_t pathing_ranges_push_attack_range_tiles(linear_allocator_t *allocator, linear_allocator_t *scratch,
         pathing_attack_range_t temp,
         slice_t *out_align, slice_position_t *out_attack_range_tiles, slice_position_t *out_los_blocked_tiles) {

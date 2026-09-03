@@ -458,9 +458,8 @@ PRIVATE void test_game_ranged_attack_blocked_by_wall_on_diagonal_line(linear_all
     game_deinit(allocator, game);
 }
 
-// The same LOS-blocked tile that's excluded from attack_range_tiles must
-// still show up in los_blocked_tiles -- it's meant to stay visible
-// (dimmed) to the player, not hidden like an ally-occupied tile.
+// Excluded from attack_range_tiles but still shown (dimmed) via
+// los_blocked_tiles, unlike a hidden ally-occupied tile.
 PRIVATE void test_game_los_blocked_tile_visible_but_not_selectable(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 3, 3);
@@ -497,9 +496,8 @@ PRIVATE void test_game_los_blocked_tile_visible_but_not_selectable(linear_alloca
     game_deinit(allocator, game);
 }
 
-// Ally-occupied tiles stay hidden entirely: neither selectable
-// (attack_range_tiles) nor shown-but-blocked (los_blocked_tiles), since
-// there's nothing LOS-related stopping the player from targeting them.
+// Ally-occupied tiles are hidden entirely: excluded from both
+// attack_range_tiles and los_blocked_tiles.
 PRIVATE void test_game_ally_occupied_tile_excluded_from_both_lists(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 3, 1);

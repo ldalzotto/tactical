@@ -107,9 +107,8 @@ PUBLIC pathing_state_t pathing_compute_walking_distances(linear_allocator_t *all
     return pathing_bfs(allocator, grid, entities, from, max_steps);
 }
 
-// One grid tile's classification during pathing_compute_attack_range's
-// single scan, before it's partitioned into the final attack_range_tiles/
-// los_blocked_tiles split. Never exposed outside this file.
+// Tile classification used only inside pathing_compute_attack_range's
+// scan/partition; not exposed elsewhere.
 typedef struct {
     position_t position;
     bool blocked; // true: in range but LOS-blocked; false: selectable
@@ -142,11 +141,8 @@ PRIVATE bool pathing_line_of_sight_clear(grid_t grid, slice_entity_t entities, p
     return true;
 }
 
-// True if `to` has clear line of sight from `from`: the ray is unobstructed
-// (pathing_line_of_sight_clear) AND `to` itself isn't empty sight-blocking
-// ground (pathing_line_of_sight_clear skips `to` so a standing entity
-// doesn't occlude itself, but empty sight-blocking ground has nothing to
-// target). Range is checked separately by callers.
+// LOS-only half of pathing_can_target (no range check): ray unobstructed,
+// and `to` isn't empty sight-blocking ground (nothing to target).
 PRIVATE bool pathing_los_target_ok(grid_t grid, slice_entity_t entities, position_t from, position_t to) {
     if (!pathing_line_of_sight_clear(grid, entities, from, to)) {
         return false;
@@ -194,9 +190,8 @@ PUBLIC slice_position_t pathing_compute_blast_tiles(linear_allocator_t *allocato
 }
 
 PUBLIC pathing_attack_range_t pathing_compute_attack_range(linear_allocator_t *allocator, grid_t grid, slice_entity_t entities, position_t from, int max_range) {
-    // Bottom marker for everything this function stages on `allocator`
-    // (the pairs scratch below plus the final tiles) -- popped as one span
-    // by pathing_ranges_push_attack_range, not layer by layer.
+    // Marks the bottom of everything staged below (pairs + final tiles);
+    // popped as one span by pathing_ranges_push_attack_range.
     slice_t align = linear_allocator_push(allocator, 0);
 
     // A tile occupied by the attacker's own team is never a valid target or
@@ -205,9 +200,8 @@ PUBLIC pathing_attack_range_t pathing_compute_attack_range(linear_allocator_t *a
     entity_t *self = entity_find_at(entities, from);
     assert_debug(self != 0);
 
-    // Single grid scan: classify every in-range tile as selectable or
-    // LOS-blocked (ally-occupied tiles are dropped entirely -- they stay
-    // hidden). Ally occupancy doesn't matter for the LOS-blocked bucket.
+    // Classify every in-range tile as selectable or LOS-blocked;
+    // ally-occupied tiles are dropped entirely (stay hidden).
     linear_allocator_push_alignment(allocator, _Alignof(pathing_attack_range_entry_t));
     slice_pathing_attack_range_entry_t pairs;
     pairs = LINEAR_ALLOCATOR_PUSH(allocator, pairs, 0);
@@ -239,11 +233,9 @@ PUBLIC pathing_attack_range_t pathing_compute_attack_range(linear_allocator_t *a
         }
     }
 
-    // Partition into one contiguous buffer: selectable tiles first, then
-    // LOS-blocked tiles -- two passes over `pairs` (cheap, no LOS/grid work
-    // left to redo), each growing `tiles` on the go like the single-list
-    // version used to. attack_range_tiles is just wherever `tiles` ended
-    // after the first pass.
+    // Two cheap passes over `pairs` (no LOS/grid work to redo) partition
+    // into one buffer: selectable tiles, then LOS-blocked. attack_range_tiles
+    // ends where the first pass stops.
     linear_allocator_push_alignment(allocator, _Alignof(position_t));
     slice_position_t tiles;
     tiles = LINEAR_ALLOCATOR_PUSH(allocator, tiles, 0);
