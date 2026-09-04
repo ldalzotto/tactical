@@ -123,8 +123,8 @@ PRIVATE int pathing_manhattan_distance(position_t a, position_t b) {
 
 // True if every intermediate tile (endpoints excluded) of one Bresenham
 // ray from `from` to `to` is sight-clear and unoccupied.
-PRIVATE bool pathing_line_of_sight_ray_clear(grid_t grid, slice_entity_t entities, position_t from, position_t to, bool alt_tie_break) {
-    geometry_line_iter_t it = geometry_line_iter_start(from, to, alt_tie_break);
+PRIVATE bool pathing_line_of_sight_ray_clear(grid_t grid, slice_entity_t entities, position_t from, position_t to, bool prefer_y_step) {
+    geometry_line_iter_t it = geometry_line_iter_start(from, to, prefer_y_step);
 
     position_t tile;
     while (geometry_line_iter_next(&it, to, &tile)) {
