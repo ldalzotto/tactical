@@ -458,6 +458,96 @@ PRIVATE void test_game_ranged_attack_blocked_by_wall_on_diagonal_line(linear_all
     game_deinit(allocator, game);
 }
 
+// The line from (0,0) to (2,1) hits a genuine Bresenham diagonal tie at
+// x=1: the standard path steps through (1,0), but the other tile the
+// continuous ray grazes at that tie is (1,1) -- geometry_line_iter_start's
+// prefer_y_step path. A wall at (1,1) alone doesn't sit on the standard
+// path, so checking only that path (the old behavior) would call this
+// shot clear; requiring both tie-break paths to be clear catches it.
+PRIVATE void test_game_ranged_attack_blocked_by_wall_on_tie_break_path_only(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 3, 2);
+    grid_set_walkable(grid, (position_t){1, 1}, false);
+    grid_set_blocks_sight(grid, (position_t){1, 1}, true);
+
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
+    entity_t* e = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){2, 1}, 10, 2, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, (skill_t){ .range = 3, .damage = 3, .ap_cost = 1 });
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *e_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e->skills = (slice_skill_t){ .begin = e_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, e);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+
+    assert_test(!test_tile_list_contains(game.pathing.attack_range_tiles, e->position));
+    test_click_tile(&game, allocator, e->position);
+
+    assert_test(e->hp == 10);
+    assert_test(p->ap == 2);
+
+    game_deinit(allocator, game);
+}
+
+// Mirror of the above along the same physical line, attacking the other
+// way: (2,1) -> (0,0) swaps which tile is on the standard path vs. the
+// tie-break alternate (standard now hits (1,1), alt hits (1,0)), so a
+// wall at (1,0) alone is only caught via the tie-break path here too.
+// Confirms the fix isn't direction-dependent -- before it, LOS could be
+// clear from A to B but blocked from B to A along the identical line.
+PRIVATE void test_game_ranged_attack_blocked_by_wall_on_tie_break_path_only_reverse_direction(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 3, 2);
+    grid_set_walkable(grid, (position_t){1, 0}, false);
+    grid_set_blocks_sight(grid, (position_t){1, 0}, true);
+
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){2, 1}, 10, 2, 3);
+    entity_t* e = entity_spawn(allocator, &entities, ENTITY_TEAM_ENEMY, (position_t){0, 0}, 10, 2, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, (skill_t){ .range = 3, .damage = 3, .ap_cost = 1 });
+    p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
+    skill_t *e_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    e->skills = (slice_skill_t){ .begin = e_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p);
+    turn_order_add(allocator, &order, e);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
+
+    test_click_tile(&game, allocator, p->position);
+    test_click_attack_toggle(&game, allocator);
+
+    assert_test(!test_tile_list_contains(game.pathing.attack_range_tiles, e->position));
+    test_click_tile(&game, allocator, e->position);
+
+    assert_test(e->hp == 10);
+    assert_test(p->ap == 2);
+
+    game_deinit(allocator, game);
+}
+
 // Excluded from attack_range_tiles but still shown (dimmed) via
 // los_blocked_tiles, unlike a hidden ally-occupied tile.
 PRIVATE void test_game_los_blocked_tile_visible_but_not_selectable(linear_allocator_t *allocator) {
@@ -1128,6 +1218,8 @@ const test_case_t g_game_combat_tests[] = {
     { TEST_NAME("game_ranged_attack_still_blocked_by_ally_in_path"), test_game_ranged_attack_still_blocked_by_ally_in_path },
     { TEST_NAME("game_attack_range_tiles_include_occupied_but_not_beyond"), test_game_attack_range_tiles_include_occupied_but_not_beyond },
     { TEST_NAME("game_ranged_attack_blocked_by_wall_on_diagonal_line"), test_game_ranged_attack_blocked_by_wall_on_diagonal_line },
+    { TEST_NAME("game_ranged_attack_blocked_by_wall_on_tie_break_path_only"), test_game_ranged_attack_blocked_by_wall_on_tie_break_path_only },
+    { TEST_NAME("game_ranged_attack_blocked_by_wall_on_tie_break_path_only_reverse_direction"), test_game_ranged_attack_blocked_by_wall_on_tie_break_path_only_reverse_direction },
     { TEST_NAME("game_los_blocked_tile_visible_but_not_selectable"), test_game_los_blocked_tile_visible_but_not_selectable },
     { TEST_NAME("game_ally_occupied_tile_excluded_from_both_lists"), test_game_ally_occupied_tile_excluded_from_both_lists },
     { TEST_NAME("game_ranged_attack_not_blocked_by_non_walkable_sight_clear_tile"), test_game_ranged_attack_not_blocked_by_non_walkable_sight_clear_tile },
