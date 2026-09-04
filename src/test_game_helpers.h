@@ -61,6 +61,14 @@ static inline void test_click_skill_button(game_state_t *game, linear_allocator_
     assert_game_invariants(game);
 }
 
+// `key` is the raw char pushed in event.x (see INPUT_EVENT_KEY_DOWN); pass
+// '1'..'9' for skill selection, or any other char to exercise the no-op path.
+static inline void test_press_key(game_state_t *game, linear_allocator_t *allocator, char key) {
+    input_event_t press = { .type = INPUT_EVENT_KEY_DOWN, .x = (int32_t)key, .y = 0 };
+    game_on_input_event(game, allocator, press);
+    assert_game_invariants(game);
+}
+
 static inline bool test_tile_list_contains(slice_position_t tiles, position_t target) {
     for (SLICE_FOREACH(tiles, tile_s)) {
         if (position_equals(SLICE_DEREF(tile_s), target)) {
