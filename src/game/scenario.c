@@ -35,9 +35,8 @@ PUBLIC game_state_t scenario_setup_default(linear_allocator_t* allocator, int gr
     slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
     slice_skill_t skills = skill_list_init(allocator);
 
-    // p1 gets SKILL_FIREBALL instead of SKILL_MELEE: VIEWPORT_MAX_SKILL_BUTTONS
-    // caps the button row at 2, so this keeps SKILL_FIREBALL clickable in
-    // the real game rather than stuck behind a 3rd slot.
+    // p1 gets SKILL_FIREBALL instead of SKILL_MELEE, keeping an AoE skill
+    // in play for the default scenario.
     skill_t *p1_skills_begin = skills.end;
     skill_list_add(allocator, &skills, SKILL_RANGED);
     skill_list_add(allocator, &skills, SKILL_FIREBALL);

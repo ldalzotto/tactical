@@ -441,7 +441,10 @@ PRIVATE void test_game_mouse_move_updates_hover(linear_allocator_t *allocator) {
     game_deinit(allocator, game);
 }
 
-PRIVATE void test_game_skill_button_hit_test_clamps_more_than_two_skills(linear_allocator_t *allocator) {
+// A3 regression: a 3rd (and 4th) skill used to be permanently unreachable
+// behind VIEWPORT_MAX_SKILL_BUTTONS. There is no cap now -- every skill
+// gets a button, buttons just shrink to fit (see layout_skill_button_rect).
+PRIVATE void test_game_skill_button_hit_test_reaches_more_than_two_skills(linear_allocator_t *allocator) {
     slice_t grid_padding = grid_align(allocator);
     grid_t grid = grid_init(allocator, 4, 1);
     slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
@@ -454,6 +457,7 @@ PRIVATE void test_game_skill_button_hit_test_clamps_more_than_two_skills(linear_
     skill_list_add(allocator, &skills, SKILL_MELEE);
     skill_list_add(allocator, &skills, SKILL_RANGED);
     skill_list_add(allocator, &skills, SKILL_MELEE);
+    skill_list_add(allocator, &skills, SKILL_RANGED);
     p->skills = (slice_skill_t){ .begin = p_skills_begin, .end = skills.end };
 
     slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
@@ -464,13 +468,15 @@ PRIVATE void test_game_skill_button_hit_test_clamps_more_than_two_skills(linear_
 
     test_click_tile(&game, allocator, p->position);
     assert_test(game.mode == GAME_MODE_MOVEMENT);
+    assert_test(entity_skill_count(p) == 4);
 
-    // With 3 skills, the hit-test gate must clamp to
-    // VIEWPORT_MAX_SKILL_BUTTONS (2); re-clicking the active entity
-    // re-enters movement mode without a crash or skill change.
-    test_click_tile(&game, allocator, p->position);
-    assert_test(game.mode == GAME_MODE_MOVEMENT);
-    assert_test(game.selected_skill == 0);
+    // 3rd and 4th skills (index 2, 3) are both reachable -- neither one
+    // was drawable/clickable under the old fixed 2-button cap.
+    test_click_skill_button(&game, allocator, 2, 4);
+    assert_test(game.selected_skill == 2);
+
+    test_click_skill_button(&game, allocator, 3, 4);
+    assert_test(game.selected_skill == 3);
 
     game_deinit(allocator, game);
 }
@@ -615,7 +621,7 @@ const test_case_t g_game_selection_tests[] = {
     { TEST_NAME("game_attack_toggle_mode_none_noops"), test_game_attack_toggle_mode_none_noops },
     { TEST_NAME("game_end_turn_enemy_active_noops"), test_game_end_turn_enemy_active_noops },
     { TEST_NAME("game_mouse_move_updates_hover"), test_game_mouse_move_updates_hover },
-    { TEST_NAME("game_skill_button_hit_test_clamps_more_than_two_skills"), test_game_skill_button_hit_test_clamps_more_than_two_skills },
+    { TEST_NAME("game_skill_button_hit_test_reaches_more_than_two_skills"), test_game_skill_button_hit_test_reaches_more_than_two_skills },
     { TEST_NAME("game_key_down_selects_visible_skill"), test_game_key_down_selects_visible_skill },
     { TEST_NAME("game_key_down_out_of_range_digit_noops"), test_game_key_down_out_of_range_digit_noops },
     { TEST_NAME("game_key_down_enemy_active_noops"), test_game_key_down_enemy_active_noops },

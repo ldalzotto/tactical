@@ -263,7 +263,7 @@ PRIVATE void render_hud(slice_rgba_t fb, int fb_width, game_state_t game) {
     // game_on_input_event).
     int button_count = layout_visible_skill_button_count(active->team == ENTITY_TEAM_PLAYER, game.mode != GAME_MODE_NONE, entity_skill_count(active));
     for (int i = 0; i < button_count; i++) {
-        rect_t skill_button = SLICE_AT(viewport_skill_buttons(&game.viewport), i);
+        rect_t skill_button = layout_skill_button_rect(game.viewport, i, button_count);
         rgba_t skill_button_color = (i == game.selected_skill) ? COLOR_SKILL_BUTTON_SELECTED : COLOR_SKILL_BUTTON_AVAILABLE;
         graphics_draw_rectangle(fb, fb_width, skill_button.x, skill_button.y, skill_button.width, skill_button.height, skill_button_color);
     }

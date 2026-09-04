@@ -360,7 +360,7 @@ PRIVATE ptrdiff_t game_on_mouse_click(game_state_t *game, linear_allocator_t *al
 
     int button_count = game_visible_skill_button_count(game);
     for (int i = 0; i < button_count; i++) {
-        if (point_in_rect(SLICE_AT(viewport_skill_buttons(&game->viewport), i), event.x, event.y)) {
+        if (point_in_rect(layout_skill_button_rect(game->viewport, i, button_count), event.x, event.y)) {
             return game_on_skill_button_pressed(game, allocator, i);
         }
     }

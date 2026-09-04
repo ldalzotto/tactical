@@ -54,8 +54,11 @@ static inline void test_click_attack_toggle(game_state_t *game, linear_allocator
     assert_game_invariants(game);
 }
 
-static inline void test_click_skill_button(game_state_t *game, linear_allocator_t *allocator, int index) {
-    rect_t button = SLICE_AT(viewport_skill_buttons(&game->viewport), index);
+// `visible_count` is the number of skill buttons currently drawn (see
+// layout_visible_skill_button_count) -- callers know it from the entity
+// they set up, since it's no longer implicit in a fixed-size viewport array.
+static inline void test_click_skill_button(game_state_t *game, linear_allocator_t *allocator, int index, int visible_count) {
+    rect_t button = layout_skill_button_rect(game->viewport, index, visible_count);
     input_event_t click = { .type = INPUT_EVENT_MOUSE_CLICK, .x = button.x + 1, .y = button.y + 1 };
     game_on_input_event(game, allocator, click);
     assert_game_invariants(game);
