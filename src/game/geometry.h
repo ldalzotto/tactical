@@ -17,9 +17,15 @@ typedef struct {
     int x;
     int y;
     int error;
+    bool alt_tie_break;
 } geometry_line_iter_t;
 
-PUBLIC geometry_line_iter_t geometry_line_iter_start(position_t from, position_t to);
+// `alt_tie_break` picks which of the two adjacent tiles a diagonal tie
+// steps through (err2 landing exactly on -abs_dy or abs_dx): false takes
+// the standard Bresenham path, true takes the other one. Same endpoints,
+// different tiles in between -- e.g. pathing.c ORs both to make line-of-sight
+// permissive about corners a single path would clip.
+PUBLIC geometry_line_iter_t geometry_line_iter_start(position_t from, position_t to, bool alt_tie_break);
 
 // Advances the iterator to the next tile on the ray and writes it to
 // `out_tile`. Returns false once `to` is reached, without writing `to`
