@@ -58,7 +58,7 @@ PRIVATE void test_fuzz_actions(linear_allocator_t *allocator, uint32_t seed) {
             test_click_attack_toggle(&game, allocator);
         } else {
             int skill_count = entity_skill_count(turn_active_entity(game.turn));
-            test_click_skill_button(&game, allocator, (int)(seed % (uint32_t)skill_count));
+            test_click_skill_button(&game, allocator, (int)(seed % (uint32_t)skill_count), skill_count);
         }
     }
 

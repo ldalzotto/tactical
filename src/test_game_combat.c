@@ -936,7 +936,7 @@ PRIVATE void test_game_skill_button_switches_attack_range_to_selected_skill(line
     assert_test(test_tile_list_contains(game.pathing.attack_range_tiles, (position_t){1, 0}));
     assert_test(!test_tile_list_contains(game.pathing.attack_range_tiles, (position_t){3, 0}));
 
-    test_click_skill_button(&game, allocator, 1);
+    test_click_skill_button(&game, allocator, 1, 2);
 
     // skills[1] (SKILL_RANGED) now selected: range extends.
     assert_test(game.selected_skill == 1);
@@ -989,7 +989,7 @@ PRIVATE void test_game_skill_button_pressed_noop_outside_valid_conditions(linear
     // e is active first and isn't player-controlled: click is a no-op
     // regardless of multiple skills.
     assert_test(turn_active_entity(game.turn) == e);
-    test_click_skill_button(&game, allocator, 1);
+    test_click_skill_button(&game, allocator, 1, 2);
     assert_test(game.selected_skill == 0);
     assert_test(turn_active_entity(game.turn) == e);
 
@@ -1024,7 +1024,7 @@ PRIVATE void test_game_skill_button_pressed_noop_when_mode_none_or_index_out_of_
     game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, 320, 240, 40);
 
     // GAME_MODE_NONE: nothing selected, click is a no-op.
-    test_click_skill_button(&game, allocator, 1);
+    test_click_skill_button(&game, allocator, 1, 2);
     assert_test(game.selected_skill == 0);
 
     test_click_end_turn(&game, allocator); // p -> p2, no attack toggle pressed
@@ -1032,7 +1032,7 @@ PRIVATE void test_game_skill_button_pressed_noop_when_mode_none_or_index_out_of_
     test_click_tile(&game, allocator, p2->position);
     assert_test(game.mode == GAME_MODE_MOVEMENT);
 
-    test_click_skill_button(&game, allocator, 1); // entity_skill_count(p2) == 1: index 1 is out of range
+    test_click_skill_button(&game, allocator, 1, 1); // entity_skill_count(p2) == 1: index 1 is out of range
     assert_test(game.selected_skill == 0);
 
     game_deinit(allocator, game);
@@ -1074,7 +1074,7 @@ PRIVATE void test_game_attack_after_skill_switch_uses_new_skill_damage_and_ap_co
     assert_test(e->hp == 10);
     assert_test(p->ap == 1);
 
-    test_click_skill_button(&game, allocator, 1); // switch to SKILL_RANGED
+    test_click_skill_button(&game, allocator, 1, 2); // switch to SKILL_RANGED
     test_click_tile(&game, allocator, e->position);
 
     assert_test(e->hp == 10 - SKILL_RANGED.damage);

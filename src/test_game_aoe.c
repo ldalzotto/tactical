@@ -567,7 +567,7 @@ PRIVATE void test_aoe_ignores_already_dead_entities_within_radius(linear_allocat
     // Cast SKILL_FIREBALL on (3,1): corpse (1,1) is in radius but already
     // dead; e_live (5,1) is also in radius and alive, takes damage.
     test_click_attack_toggle(&game, allocator);
-    test_click_skill_button(&game, allocator, 1);
+    test_click_skill_button(&game, allocator, 1, 2);
     test_click_tile(&game, allocator, (position_t){3, 1});
 
     assert_test(corpse->hp == 0);
@@ -745,7 +745,7 @@ PRIVATE void test_aoe_preview_clears_on_skill_switch_to_non_aoe(linear_allocator
     test_move_tile(&game, allocator, (position_t){3, 1});
     assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) > 0);
 
-    test_click_skill_button(&game, allocator, 1);
+    test_click_skill_button(&game, allocator, 1, 2);
     assert_test(game.selected_skill == 1);
     assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) == 0);
 
@@ -899,7 +899,7 @@ PRIVATE void test_aoe_reselecting_skill_button_stages_preview_for_in_range_hover
     // Re-clicking skill button 0 re-selects SKILL_FIREBALL (already active)
     // while hover is still valid and in range: game_on_skill_button_pressed
     // must restage the preview itself, not just rely on the prior hover.
-    test_click_skill_button(&game, allocator, 0);
+    test_click_skill_button(&game, allocator, 0, 2);
 
     assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) > 0);
     assert_test(test_tile_list_contains(game.pathing.blast_tiles, (position_t){3, 1}));
@@ -939,7 +939,7 @@ PRIVATE void test_aoe_reselecting_skill_button_leaves_preview_empty_for_out_of_r
     assert_test(game.hover_valid);
     assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) == 0);
 
-    test_click_skill_button(&game, allocator, 0);
+    test_click_skill_button(&game, allocator, 0, 2);
 
     assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) == 0);
 
@@ -978,7 +978,7 @@ PRIVATE void test_aoe_skill_button_in_movement_mode_does_not_stage_preview(linea
 
     // Skill buttons are visible whenever mode != GAME_MODE_NONE (and
     // skill_count > 1), so clickable in movement mode too.
-    test_click_skill_button(&game, allocator, 0);
+    test_click_skill_button(&game, allocator, 0, 2);
 
     assert_test(game.mode == GAME_MODE_MOVEMENT);
     assert_test(SLICE_TYPESIZE(game.pathing.blast_tiles) == 0);

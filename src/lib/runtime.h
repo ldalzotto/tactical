@@ -10,6 +10,9 @@ typedef uint32_t window_handle_t;
 typedef enum {
     INPUT_EVENT_MOUSE_MOVE = 0,
     INPUT_EVENT_MOUSE_CLICK = 1,
+    // `x` carries the raw key char code (e.g. '1'..'9'), mirroring how
+    // MOUSE_CLICK carries raw pixel coords in x/y; `y` is unused.
+    INPUT_EVENT_KEY_DOWN = 2,
 } input_event_type_t;
 
 typedef struct {

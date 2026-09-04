@@ -762,8 +762,8 @@ PRIVATE void test_render_attack_range_tile_occupied_by_ally_is_not_highlighted(l
     linear_allocator_pop(allocator, fb_align);
 }
 
-// With exactly two skills, render_hud's skill-button loop must draw
-// without the VIEWPORT_MAX_SKILL_BUTTONS clamp (button_count > 2 false).
+// With exactly two skills, render_hud's skill-button loop must draw both
+// buttons without error (button_count == 2, the reference row width).
 PRIVATE void test_render_skill_buttons_two_skills_do_not_clamp(linear_allocator_t *allocator) {
     slice_t fb_align = linear_allocator_push_alignment(allocator, _Alignof(rgba_t));
     slice_rgba_t fb;

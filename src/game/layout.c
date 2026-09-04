@@ -1,7 +1,6 @@
 #include "layout.h"
 #include "game/ui.h"
 #include "lib/linkage.h"
-#include "lib/memory.h"
 
 PRIVATE int layout_min(int a, int b) {
     return a < b ? a : b;
@@ -35,11 +34,15 @@ PUBLIC viewport_t layout_compute(int fb_width, int fb_height, int grid_width, in
         .height = hud_rect.height - 2 * hud_padding,
     };
 
+    // Reserves SKILL_BAR_WIDTH_BUDGET_SLOTS' worth of width for the skill
+    // row regardless of how many buttons end up drawn there -- see
+    // layout_skill_button_rect, which shrinks button width to stay inside
+    // this same budget instead of growing the row.
     rect_t timeline_rect = {
         .x = hud_rect.x + hud_padding,
         .y = hud_rect.y + hud_padding / 10,
         .width = hud_rect.width - end_turn_button.width - attack_button.width
-            - VIEWPORT_MAX_SKILL_BUTTONS * (button_width + hud_padding) - 3 * hud_padding,
+            - SKILL_BAR_WIDTH_BUDGET_SLOTS * (button_width + hud_padding) - 3 * hud_padding,
         .height = hud_rect.height / 8,
     };
 
@@ -55,24 +58,28 @@ PUBLIC viewport_t layout_compute(int fb_width, int fb_height, int grid_width, in
         .timeline_rect = timeline_rect,
     };
 
-    // Skill buttons: row of VIEWPORT_MAX_SKILL_BUTTONS, same size as
-    // attack_button, extending the button strip to its left.
-    int i = 0;
-    for (SLICE_FOREACH(viewport_skill_buttons(&viewport), sb)) {
-        SLICE_DEREF(sb) = (rect_t){
-            .x = attack_button.x - (i + 1) * (button_width + hud_padding),
-            .y = hud_rect.y + hud_padding,
-            .width = button_width,
-            .height = hud_rect.height - 2 * hud_padding,
-        };
-        i++;
-    }
-
     return viewport;
 }
 
-PUBLIC slice_rect_t viewport_skill_buttons(viewport_t *v) {
-    return (slice_rect_t){ .begin = v->skill_buttons, .end = v->skill_buttons + VIEWPORT_MAX_SKILL_BUTTONS };
+PRIVATE int layout_max(int a, int b) {
+    return a > b ? a : b;
+}
+
+PUBLIC rect_t layout_skill_button_rect(viewport_t v, int index, int visible_count) {
+    int hud_padding = v.hud_rect.height / 4;
+    int reference_button_width = v.hud_rect.height * 3 / 2;
+
+    // Total pixel budget the row has to work with, however many buttons
+    // are actually visible -- see SKILL_BAR_WIDTH_BUDGET_SLOTS.
+    int skill_bar_width = SKILL_BAR_WIDTH_BUDGET_SLOTS * (reference_button_width + hud_padding) - hud_padding;
+    int button_width = layout_max(SKILL_BUTTON_MIN_WIDTH, (skill_bar_width - (visible_count - 1) * hud_padding) / visible_count);
+
+    return (rect_t){
+        .x = v.attack_button.x - (index + 1) * (button_width + hud_padding),
+        .y = v.hud_rect.y + hud_padding,
+        .width = button_width,
+        .height = v.hud_rect.height - 2 * hud_padding,
+    };
 }
 
 PUBLIC bool screen_to_grid(viewport_t v, int screen_x, int screen_y, int *out_tx, int *out_ty) {
@@ -97,5 +104,5 @@ PUBLIC int layout_visible_skill_button_count(bool player_active, bool mode_activ
     if (!player_active || !mode_active || skill_count <= 1) {
         return 0;
     }
-    return skill_count > VIEWPORT_MAX_SKILL_BUTTONS ? VIEWPORT_MAX_SKILL_BUTTONS : skill_count;
+    return skill_count;
 }
