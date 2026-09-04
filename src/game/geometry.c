@@ -2,7 +2,7 @@
 #include "game/position.h"
 #include "lib/linkage.h"
 
-PUBLIC geometry_line_iter_t geometry_line_iter_start(position_t from, position_t to) {
+PUBLIC geometry_line_iter_t geometry_line_iter_start(position_t from, position_t to, bool prefer_y_step) {
     int dx = to.x - from.x;
     int dy = to.y - from.y;
 
@@ -14,16 +14,23 @@ PUBLIC geometry_line_iter_t geometry_line_iter_start(position_t from, position_t
         .x = from.x,
         .y = from.y,
         .error = (dx < 0 ? -dx : dx) - (dy < 0 ? -dy : dy),
+        .prefer_y_step = prefer_y_step,
     };
 }
 
 PUBLIC bool geometry_line_iter_next(geometry_line_iter_t *it, position_t to, position_t *out_tile) {
     int err2 = it->error * 2;
-    if (err2 > -it->abs_dy) {
+    // On an exact tie (err2 == -abs_dy or == abs_dx), prefer_y_step flips
+    // the strict comparison to non-strict, stepping the other axis too --
+    // see geometry_line_iter_t's prefer_y_step doc.
+    bool step_x = it->prefer_y_step ? (err2 >= -it->abs_dy) : (err2 > -it->abs_dy);
+    bool step_y = it->prefer_y_step ? (err2 <= it->abs_dx) : (err2 < it->abs_dx);
+
+    if (step_x) {
         it->error -= it->abs_dy;
         it->x += it->step_x;
     }
-    if (err2 < it->abs_dx) {
+    if (step_y) {
         it->error += it->abs_dx;
         it->y += it->step_y;
     }
