@@ -123,6 +123,16 @@ async function main() {
                 pushInputEvent(handle, 1, x, y);
             });
 
+            // Raw key char code in x, unused y -- mirrors how click/mousemove
+            // forward raw pixel coords rather than pre-interpreting them;
+            // the wasm side (game_on_key_down) decides what a key means.
+            window.addEventListener('keydown', (event) => {
+                if (event.key.length !== 1) {
+                    return;
+                }
+                pushInputEvent(handle, 2, event.key.charCodeAt(0), 0);
+            });
+
             return handle;
         },
         presentWindow(windowHandle, pixels) {
