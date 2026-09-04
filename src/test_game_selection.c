@@ -607,6 +607,56 @@ PRIVATE void test_game_key_down_mode_none_noops(linear_allocator_t *allocator) {
     game_deinit(allocator, game);
 }
 
+// Each active entity's skill bar reflects its own skill count -- computed
+// fresh from game state on demand, so there's nothing left over from the
+// previous entity's turn to go stale.
+PRIVATE void test_game_skill_bar_matches_active_entity_across_turns(linear_allocator_t *allocator) {
+    slice_t grid_padding = grid_align(allocator);
+    grid_t grid = grid_init(allocator, 4, 2);
+    slice_t entity_list_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t));
+    slice_entity_t entities = entity_list_init(allocator);
+    entity_t* p1 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 0}, 10, 2, 3);
+    entity_t* p2 = entity_spawn(allocator, &entities, ENTITY_TEAM_PLAYER, (position_t){0, 1}, 10, 2, 3);
+
+    slice_t skill_list_align = linear_allocator_push_alignment(allocator, _Alignof(skill_t));
+    slice_skill_t skills = skill_list_init(allocator);
+    skill_t *p1_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    skill_list_add(allocator, &skills, SKILL_RANGED);
+    p1->skills = (slice_skill_t){ .begin = p1_skills_begin, .end = skills.end };
+    skill_t *p2_skills_begin = skills.end;
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    skill_list_add(allocator, &skills, SKILL_RANGED);
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    skill_list_add(allocator, &skills, SKILL_RANGED);
+    skill_list_add(allocator, &skills, SKILL_MELEE);
+    p2->skills = (slice_skill_t){ .begin = p2_skills_begin, .end = skills.end };
+
+    slice_t turn_order_align = linear_allocator_push_alignment(allocator, _Alignof(entity_t*));
+    slice_entity_ptr_t order = turn_order_init(allocator);
+    turn_order_add(allocator, &order, p1);
+    turn_order_add(allocator, &order, p2);
+
+    game_state_t game = game_init(allocator, grid_padding, grid, entity_list_align, entities, skill_list_align, skills, turn_order_align, order, GAME_TEST_FB_WIDTH, GAME_TEST_FB_HEIGHT, GAME_TEST_HUD_HEIGHT);
+
+    // p1's turn: 2 skills, index 1 reachable.
+    test_click_tile(&game, allocator, p1->position);
+    test_click_skill_button(&game, allocator, 1, 2);
+    assert_test(game.selected_skill == 1);
+
+    test_click_end_turn(&game, allocator);
+    assert_test(turn_active_entity(game.turn) == p2);
+
+    // p2's turn: 5 skills, index 4 reachable -- unreachable under the old
+    // 2-button cap, and not derived from anything left over from p1.
+    test_click_tile(&game, allocator, p2->position);
+    assert_test(game.selected_skill == 0);
+    test_click_skill_button(&game, allocator, 4, 5);
+    assert_test(game.selected_skill == 4);
+
+    game_deinit(allocator, game);
+}
+
 const test_case_t g_game_selection_tests[] = {
     { TEST_NAME("game_entity_pressed_selects_only_the_active_entity"), test_game_entity_pressed_selects_only_the_active_entity },
     { TEST_NAME("game_entity_pressed_enemy_active_noops"), test_game_entity_pressed_enemy_active_noops },
@@ -626,6 +676,7 @@ const test_case_t g_game_selection_tests[] = {
     { TEST_NAME("game_key_down_out_of_range_digit_noops"), test_game_key_down_out_of_range_digit_noops },
     { TEST_NAME("game_key_down_enemy_active_noops"), test_game_key_down_enemy_active_noops },
     { TEST_NAME("game_key_down_mode_none_noops"), test_game_key_down_mode_none_noops },
+    { TEST_NAME("game_skill_bar_matches_active_entity_across_turns"), test_game_skill_bar_matches_active_entity_across_turns },
 };
 
 const uint32_t g_game_selection_tests_count = sizeof(g_game_selection_tests) / sizeof(g_game_selection_tests[0]);
