@@ -342,6 +342,80 @@ PRIVATE ptrdiff_t game_on_end_turn_pressed(game_state_t *game, linear_allocator_
     return game_advance_turn(game, allocator);
 }
 
+// layout_visible_skill_button_count keeps this in sync with render_hud.
+PRIVATE int game_visible_skill_button_count(game_state_t *game) {
+    entity_t *active = turn_active_entity(game->turn);
+    return layout_visible_skill_button_count(
+        active->team == ENTITY_TEAM_PLAYER, game->mode != GAME_MODE_NONE, entity_skill_count(active));
+}
+
+PRIVATE ptrdiff_t game_on_mouse_click(game_state_t *game, linear_allocator_t *allocator, input_event_t event) {
+    if (point_in_rect(game->viewport.end_turn_button, event.x, event.y)) {
+        return game_on_end_turn_pressed(game, allocator);
+    }
+
+    if (point_in_rect(game->viewport.attack_button, event.x, event.y)) {
+        return game_on_attack_toggle_pressed(game, allocator);
+    }
+
+    int button_count = game_visible_skill_button_count(game);
+    for (int i = 0; i < button_count; i++) {
+        if (point_in_rect(SLICE_AT(viewport_skill_buttons(&game->viewport), i), event.x, event.y)) {
+            return game_on_skill_button_pressed(game, allocator, i);
+        }
+    }
+
+    int tx, ty;
+    if (!screen_to_grid(game->viewport, event.x, event.y, &tx, &ty)) {
+        return 0;
+    }
+
+    position_t target = { tx, ty };
+    entity_t* found = entity_find_at(game->entities, target);
+    if (found != 0) {
+        return game_on_entity_pressed(game, allocator, found);
+    } else {
+        return game_on_tile_pressed(game, allocator, target);
+    }
+}
+
+PRIVATE ptrdiff_t game_on_mouse_move(game_state_t *game, linear_allocator_t *allocator, input_event_t event) {
+    int tx, ty;
+    bool valid = screen_to_grid(game->viewport, event.x, event.y, &tx, &ty);
+    game->hover_valid = valid;
+    if (valid) {
+        game->hover = (position_t){ tx, ty };
+    }
+
+    // ATTACK mode implies a player-controlled active entity (its only
+    // setters gate on that); asserted, not re-checked, since MOUSE_MOVE
+    // fires regardless of whose turn it is.
+    pathing_ranges_clear_blast_tiles(&game->scratch, &game->pathing);
+    if (game->mode == GAME_MODE_ATTACK && game->hover_valid) {
+        entity_t *active = turn_active_entity(game->turn);
+        skill_t skill = SLICE_AT(active->skills, game->selected_skill);
+        assert_debug(active->team == ENTITY_TEAM_PLAYER);
+        return game_compute_blast_tiles(allocator, &game->scratch, &game->pathing, game->grid, game->hover, skill);
+    }
+    return 0;
+}
+
+// event.x carries the raw key char code (see INPUT_EVENT_KEY_DOWN); only
+// '1'..'9' are meaningful, mapped to skill index 0..8. Out-of-range digits
+// (no button drawn there) and non-digit keys are a no-op.
+PRIVATE ptrdiff_t game_on_key_down(game_state_t *game, linear_allocator_t *allocator, input_event_t event) {
+    if (event.x < '1' || event.x > '9') {
+        return 0;
+    }
+
+    int index = event.x - '1';
+    if (index >= game_visible_skill_button_count(game)) {
+        return 0;
+    }
+
+    return game_on_skill_button_pressed(game, allocator, index);
+}
+
 // Returns the byte shift from growing game->scratch (0 if none); callers
 // holding anything else above it in `allocator` must rebase -- see
 // app_dispatch_input_events.
@@ -351,58 +425,11 @@ PUBLIC ptrdiff_t game_on_input_event(game_state_t *game, linear_allocator_t *all
     }
 
     if (event.type == INPUT_EVENT_MOUSE_CLICK) {
-        if (point_in_rect(game->viewport.end_turn_button, event.x, event.y)) {
-            return game_on_end_turn_pressed(game, allocator);
-        }
-
-        if (point_in_rect(game->viewport.attack_button, event.x, event.y)) {
-            return game_on_attack_toggle_pressed(game, allocator);
-        }
-
-        // layout_visible_skill_button_count keeps this in sync with render_hud.
-        entity_t *active_for_skill_buttons = turn_active_entity(game->turn);
-        int button_count = layout_visible_skill_button_count(
-            active_for_skill_buttons->team == ENTITY_TEAM_PLAYER, game->mode != GAME_MODE_NONE, entity_skill_count(active_for_skill_buttons));
-        for (int i = 0; i < button_count; i++) {
-            if (point_in_rect(SLICE_AT(viewport_skill_buttons(&game->viewport), i), event.x, event.y)) {
-                return game_on_skill_button_pressed(game, allocator, i);
-            }
-        }
-
-        int tx, ty;
-        if (!screen_to_grid(game->viewport, event.x, event.y, &tx, &ty)) {
-            return 0;
-        }
-
-        position_t target = { tx, ty };
-        entity_t* found = entity_find_at(game->entities, target);
-        if (found != 0) {
-            return game_on_entity_pressed(game, allocator, found);
-        } else {
-            return game_on_tile_pressed(game, allocator, target);
-        }
+        return game_on_mouse_click(game, allocator, event);
+    } else if (event.type == INPUT_EVENT_KEY_DOWN) {
+        return game_on_key_down(game, allocator, event);
     } else {
-        // Only MOUSE_MOVE and MOUSE_CLICK exist; after the click branch
-        // above, this is always a move.
         assert_debug(event.type == INPUT_EVENT_MOUSE_MOVE);
-
-        int tx, ty;
-        bool valid = screen_to_grid(game->viewport, event.x, event.y, &tx, &ty);
-        game->hover_valid = valid;
-        if (valid) {
-            game->hover = (position_t){ tx, ty };
-        }
-
-        // ATTACK mode implies a player-controlled active entity (its only
-        // setters gate on that); asserted, not re-checked, since MOUSE_MOVE
-        // fires regardless of whose turn it is.
-        pathing_ranges_clear_blast_tiles(&game->scratch, &game->pathing);
-        if (game->mode == GAME_MODE_ATTACK && game->hover_valid) {
-            entity_t *active = turn_active_entity(game->turn);
-            skill_t skill = SLICE_AT(active->skills, game->selected_skill);
-            assert_debug(active->team == ENTITY_TEAM_PLAYER);
-            return game_compute_blast_tiles(allocator, &game->scratch, &game->pathing, game->grid, game->hover, skill);
-        }
-        return 0;
+        return game_on_mouse_move(game, allocator, event);
     }
 }
